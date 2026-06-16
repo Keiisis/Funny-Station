@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Game, Trophy, TrophyTier, NetworkMode, OnlinePlayer } from '@/types';
+import { Game, Trophy, TrophyTier, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
 import { useGamepadNavigation } from '@/hooks/useGamepadNavigation';
 import { TopBar } from './TopBar';
-import { GameCard } from './GameCard';
+import { StoreView } from './StoreView';
+import { ProfileSpace } from './ProfileSpace';
 import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { FunnyStudio } from './FunnyStudio';
-import { Play, Code, Trophy as TrophyIcon, ChevronRight, CornerDownLeft, CircleAlert, Gamepad, Smartphone, Users, Globe, Copy, Check } from 'lucide-react';
+import { Play, Code, Trophy as TrophyIcon, CornerDownLeft, Gamepad, Smartphone, Users, Globe, Copy, Check, Lock, Coins, ShoppingBag } from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
 import QRCode from 'qrcode';
 import { GameRoom } from '@/multiplayer/GameRoom';
@@ -36,20 +37,13 @@ interface ConnectedPlayer {
   connectedAt: string;
 }
 
-interface ProfileData {
-  id: string;
-  username: string;
-  avatar: string;
-  funnyCoins: number;
-}
-
 interface DashboardProps {
   profile: ProfileData;
   onSignOut: () => void;
-  onUpdateCoins: (coins: number) => void;
+  onUpdateProfile: (updated: ProfileData) => void;
 }
 
-const MOCK_GAMES: Game[] = [
+const DEFAULT_GAMES: Game[] = [
   {
     id: 'g1',
     title: 'Neon Runner',
@@ -59,6 +53,7 @@ const MOCK_GAMES: Game[] = [
     entry_point: 'index.js',
     assets_bucket_path: '/games/neon-runner',
     background_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    video_url: 'https://player.vimeo.com/external/371433846.sd.mp4?s=236da2f3c054f4d9b3e3909bbb0079549f3e1b39&profile_id=139&oauth2_token_id=57447761',
     manifest: { screen_ratio: '16/9' },
     play_count: 24,
     rating: 4.8,
@@ -73,6 +68,8 @@ const MOCK_GAMES: Game[] = [
     entry_point: 'main.py',
     assets_bucket_path: '/games/py-math',
     background_url: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1470&auto=format&fit=crop',
+    video_url: 'https://player.vimeo.com/external/510850877.sd.mp4?s=d5c8d67584100b81ca20949850610c144e054c2a&profile_id=165&oauth2_token_id=57447761',
+    price: 150,
     manifest: { python_libs: ['numpy'] },
     play_count: 8,
     rating: 4.5,
@@ -87,6 +84,8 @@ const MOCK_GAMES: Game[] = [
     entry_point: 'game.wasm',
     assets_bucket_path: '/games/wasm-raytracer',
     background_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1364&auto=format&fit=crop',
+    video_url: 'https://player.vimeo.com/external/384761655.sd.mp4?s=382a513f5cbbb726611145143d1c162629b2e697&profile_id=139&oauth2_token_id=57447761',
+    price: 300,
     manifest: { maxMemoryMb: 256 },
     play_count: 15,
     rating: 4.9,
@@ -101,6 +100,7 @@ const MOCK_GAMES: Game[] = [
     entry_point: 'game.lua',
     assets_bucket_path: '/games/lua-adventure',
     background_url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1374&auto=format&fit=crop',
+    video_url: 'https://player.vimeo.com/external/435674703.sd.mp4?s=7b31274bc6f0ef77df768f56ef830026e6ef1b71&profile_id=165&oauth2_token_id=57447761',
     manifest: {},
     play_count: 5,
     rating: 4.6,
@@ -115,6 +115,8 @@ const MOCK_GAMES: Game[] = [
     entry_point: 'game.jar',
     assets_bucket_path: '/games/java-retro',
     background_url: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?q=80&w=1470&auto=format&fit=crop',
+    video_url: 'https://player.vimeo.com/external/517602126.sd.mp4?s=f5249a9971ab60424c8789d3d3ef0c0d83296813&profile_id=165&oauth2_token_id=57447761',
+    price: 500,
     manifest: {},
     play_count: 3,
     rating: 4.2,
@@ -131,13 +133,16 @@ const MOCK_TROPHIES: Trophy[] = [
   { id: 't6', game_id: 'g5', name: 'Machine Java', description: 'Lancer l\'émulation de la JVM CheerpJ.', tier: 'gold', coin_reward: 120, created_at: '' }
 ];
 
-export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpdateCoins }) => {
-  const [games, setGames] = useState<Game[]>(MOCK_GAMES);
+export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpdateProfile }) => {
+  const [games, setGames] = useState<Game[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [unlockedTrophyIds, setUnlockedTrophyIds] = useState<string[]>([]);
   
+  // Tab views
+  const [activeTab, setActiveTab] = useState<'games' | 'store' | 'profile'>('games');
+
   const [isControllerModalOpen, setIsControllerModalOpen] = useState(false);
   const [controllerType, setControllerType] = useState<'pc' | 'mobile' | 'online' | null>(null);
   const [lobbyId, setLobbyId] = useState<string>('');
@@ -154,8 +159,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const onlineRoomRef = useRef<GameRoom | null>(null);
   const onlineSyncRef = useRef<GameStateSync | null>(null);
 
-  // Générer le code QR localement sous forme de Data URL base64
-  // Ne pas inclure userId dans l'URL — chaque téléphone génère son propre ID unique
+  // Load custom community games on mount
+  useEffect(() => {
+    const savedGames = localStorage.getItem('funny_station_custom_games');
+    if (savedGames) {
+      setGames([...JSON.parse(savedGames), ...DEFAULT_GAMES]);
+    } else {
+      setGames(DEFAULT_GAMES);
+    }
+  }, []);
+
+  // Sync custom games to localStorage when they change
+  const saveCustomGames = (updatedGamesList: Game[]) => {
+    const customOnly = updatedGamesList.filter(g => !DEFAULT_GAMES.some(dg => dg.id === g.id));
+    localStorage.setItem('funny_station_custom_games', JSON.stringify(customOnly));
+  };
+
+  // QR Code generator
   useEffect(() => {
     if (!lobbyId || typeof window === 'undefined') {
       setQrCodeUrl('');
@@ -174,7 +194,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       .catch(err => console.error('Erreur génération QR Code local:', err));
   }, [lobbyId]);
 
-  // Gérer la connexion temps réel avec les manettes mobiles (multi-joueurs)
+  // Gamepads Presence Channel
   useEffect(() => {
     if (controllerType !== 'mobile' || !lobbyId) {
       setConnectedPlayers([]);
@@ -189,33 +209,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       }
     });
 
-    // Écouter les événements de TOUTES les manettes virtuelles
     channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => {
       const { userId, direction } = payload;
-      
-      // Trouver le numéro de joueur de ce contrôleur
       const playerIdx = connectedPlayers.findIndex(p => p.userId === userId);
       const playerNumber = playerIdx >= 0 ? connectedPlayers[playerIdx].playerNumber : 0;
       
-      console.log(`[Dashboard] Input P${playerNumber + 1} (${userId}): ${direction}`);
-      
-      // 1. Émettre l'action via CustomEvent avec l'info du joueur
       window.dispatchEvent(
         new CustomEvent('funny_gamepad_action', { 
           detail: { direction, playerNumber, userId } 
         })
       );
       
-      // 2. Traduire avec le mapping clavier spécifique au joueur
       const keyMap = PLAYER_KEY_MAPS[playerNumber] || PLAYER_KEY_MAPS[0];
       const keyName = keyMap[direction];
       
       if (keyName) {
-        // Dispatch on parent window
         const keydownEvt = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
         window.dispatchEvent(keydownEvt);
         
-        // Also dispatch into all iframes (for sandboxed games)
         const iframes = document.querySelectorAll('iframe');
         iframes.forEach(iframe => {
           try {
@@ -234,7 +245,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           }
         });
 
-        // Dispatch keyup on parent after a short delay
         setTimeout(() => {
           const keyupEvt = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
           window.dispatchEvent(keyupEvt);
@@ -242,7 +252,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       }
     });
 
-    // Écouter le pong pour mesurer la latence
     let lastPingTime = 0;
     channel.on('broadcast', { event: 'pong' }, ({ payload }: any) => {
       const pingDuration = Date.now() - lastPingTime;
@@ -253,7 +262,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       });
     });
 
-    // Mesure de latence périodique
     const pingInterval = setInterval(() => {
       lastPingTime = Date.now();
       channel.send({
@@ -263,7 +271,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       });
     }, 3000);
 
-    // Écouter les présences pour détecter tous les contrôleurs connectés
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
@@ -272,7 +279,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         Object.entries(state).forEach(([key, presences]: [string, any]) => {
           presences.forEach((p: any) => {
             if (p.type === 'controller') {
-              // Vérifier si ce joueur existe déjà dans notre liste
               const existingPlayer = connectedPlayers.find(cp => cp.userId === p.userId);
               controllers.push({
                 userId: p.userId,
@@ -283,7 +289,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           });
         });
         
-        // Assigner les numéros de joueur séquentiellement (max 4)
         controllers.sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
         controllers.forEach((c, idx) => {
           c.playerNumber = Math.min(idx, 3);
@@ -291,7 +296,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         
         setConnectedPlayers(controllers);
         
-        // Envoyer les assignations aux manettes
         controllers.forEach(c => {
           channel.send({
             type: 'broadcast',
@@ -318,14 +322,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
 
   const activeGame = games[focusedIndex];
 
-  // Jouer la musique d'ambiance spécifique du jeu au focus
+  // Ambient sound focusing
   useEffect(() => {
-    if (!selectedGame && !isStudioOpen && activeGame) {
+    if (!selectedGame && !isStudioOpen && activeGame && activeTab === 'games') {
       AudioEngine.getInstance().playAmbientMusic(activeGame.ambient_music_url);
     }
-  }, [focusedIndex, selectedGame, isStudioOpen, activeGame]);
+  }, [focusedIndex, selectedGame, isStudioOpen, activeGame, activeTab]);
 
   const handleStartGame = () => {
+    if (!activeGame) return;
+    if (!isGameOwned(activeGame)) {
+      handleBuyGameDirect(activeGame);
+      return;
+    }
+
     AudioEngine.getInstance().playSFX('select');
     AudioEngine.getInstance().stopAmbientMusic();
     setSelectedGame(activeGame);
@@ -335,7 +345,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     AudioEngine.getInstance().playSFX('select');
     setSelectedGame(null);
 
-    // Clean up online room if active
     if (networkMode !== 'local') {
       onlineSyncRef.current?.destroy();
       onlineRoomRef.current?.disconnect();
@@ -352,13 +361,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
 
     setUnlockedTrophyIds(prev => [...prev, trophyId]);
 
-    // Attribuer FunnyCoins
     const trophy = MOCK_TROPHIES.find(t => t.id === trophyId);
     if (trophy) {
-      onUpdateCoins(profile.funnyCoins + trophy.coin_reward);
+      onUpdateProfile({
+        ...profile,
+        funnyCoins: profile.funnyCoins + trophy.coin_reward
+      });
     }
 
-    // Déclencher l'affichage de l'overlay de trophée
     const event = new CustomEvent('funny_station_trophy', { detail: { trophyId } });
     window.dispatchEvent(event);
   };
@@ -373,21 +383,77 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     setIsStudioOpen(false);
   };
 
-  // Raccordement Navigation Manette / Clavier pour le Hub Principal
+  // Check if a game is purchased or free
+  const isGameOwned = (game: Game) => {
+    if (!game.price || game.price === 0) return true;
+    return profile.ownedGames.includes(game.id) || game.author_id === profile.id;
+  };
+
+  // Handle direct purchase from home screen
+  const handleBuyGameDirect = (game: Game) => {
+    if (!game.price) return;
+    if (profile.funnyCoins < game.price) {
+      AudioEngine.getInstance().playSFX('navigate');
+      alert(`FunnyCoins insuffisants ! Il vous faut ${game.price} FC pour acheter ${game.title}. Débloquez des trophées pour en gagner !`);
+      return;
+    }
+
+    AudioEngine.getInstance().playSFX('select');
+    const updated: ProfileData = {
+      ...profile,
+      funnyCoins: profile.funnyCoins - game.price,
+      ownedGames: [...profile.ownedGames, game.id]
+    };
+    onUpdateProfile(updated);
+  };
+
+  // Creator publish game helper
+  const handlePublishGame = (newGameData: Omit<Game, 'id' | 'play_count' | 'rating' | 'created_at'>) => {
+    const newGame: Game = {
+      ...newGameData,
+      id: `g-${Date.now()}`,
+      play_count: 0,
+      rating: 5.0,
+      created_at: new Date().toISOString()
+    };
+    
+    const updatedGamesList = [newGame, ...games];
+    setGames(updatedGamesList);
+    saveCustomGames(updatedGamesList);
+
+    // Auto own creator's own published game
+    const updatedProfile: ProfileData = {
+      ...profile,
+      ownedGames: [...profile.ownedGames, newGame.id]
+    };
+    onUpdateProfile(updatedProfile);
+  };
+
+  const handleDeleteGame = (gameId: string) => {
+    const updatedGamesList = games.filter(g => g.id !== gameId);
+    setGames(updatedGamesList);
+    saveCustomGames(updatedGamesList);
+    
+    if (focusedIndex >= updatedGamesList.length) {
+      setFocusedIndex(Math.max(0, updatedGamesList.length - 1));
+    }
+  };
+
+  // Gamepad Navigation setup for Games tab
   useGamepadNavigation(
-    games.length,
+    activeTab === 'games' ? games.length : 0,
     focusedIndex,
     setFocusedIndex,
     handleStartGame,
     onSignOut,
-    games.length // 1 ligne horizontale
+    games.length
   );
 
-  // Écouter le bouton option de la manette pour ouvrir l'IDE
+  // Keyboard option listening for IDE
   useEffect(() => {
     const handleGamepadOption = (e: any) => {
       if (e.detail.direction === 'OPTION') {
-        if (selectedGame) return; // Ne pas ouvrir en plein jeu
+        if (selectedGame) return;
         if (isStudioOpen) {
           handleCloseStudio();
         } else {
@@ -401,7 +467,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     };
   }, [isStudioOpen, selectedGame]);
 
-  // Écouter les entrées clavier/manette pour forcer la sortie du jeu en cours
   useEffect(() => {
     if (!selectedGame) return;
 
@@ -421,21 +486,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   }, [selectedGame]);
 
   if (selectedGame) {
-    // Mode d'exécution de jeu
     return (
       <div className="w-screen h-screen bg-black relative flex flex-col justify-between">
-        {/* Barre de retour en haut */}
         <div className="absolute top-4 left-4 z-40 flex items-center gap-3">
           <button
             onClick={handleExitGame}
-            className="glass-panel px-4 py-2 rounded-full border border-zinc-800 text-[10px] tracking-wider uppercase text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all duration-300 hover:scale-105 active:scale-95"
+            className="glass-panel px-4 py-2 rounded-full border border-zinc-800 text-[10px] tracking-wider uppercase text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           >
             <CornerDownLeft size={12} />
-            <span>Quitter le jeu (Option / ESC)</span>
+            <span>Quitter le jeu (ESC)</span>
           </button>
         </div>
 
-        {/* Runtime Runner */}
         <div className="flex-1 w-full h-full p-8 pt-16">
           <UniversalRuntimeRunner
             gameId={selectedGame.id}
@@ -464,116 +526,251 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     );
   }
 
-  // Filtrer les trophées pour le jeu en cours de focus
-  const activeTrophies = MOCK_TROPHIES.filter(t => t.game_id === activeGame.id);
+  // Calculate trophies info
+  const activeTrophies = MOCK_TROPHIES.filter(t => t.game_id === activeGame?.id);
+  const unlockedCount = activeTrophies.filter(t => unlockedTrophyIds.includes(t.id)).length;
+  const progressPercentage = activeTrophies.length > 0 ? Math.round((unlockedCount / activeTrophies.length) * 100) : 0;
+  const owned = activeGame ? isGameOwned(activeGame) : false;
 
   return (
     <div className="flex-1 flex flex-col justify-between text-white relative z-10 min-h-screen">
-      {/* Barre d'état */}
+      
+      {/* Top Navigation Bar with active tab links */}
       <TopBar
         username={profile.username}
         avatar={profile.avatar}
         funnyCoins={profile.funnyCoins}
-        onOpenSettings={onSignOut} // Sign out / change profile as settings fallback
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+        onOpenSettings={onSignOut}
         onOpenControllerMenu={() => setIsControllerModalOpen(true)}
         activeControllerType={controllerType}
       />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col justify-end px-16 pb-20 select-none">
-        
-        {/* Métadonnées du jeu focus */}
-        {activeGame && (
-          <div className="max-w-2xl mb-12 animate-fade-in flex flex-col gap-4">
-            <h2 className="text-5xl font-extrabold tracking-wide text-zinc-100 uppercase">
-              {activeGame.title}
-            </h2>
-            <p className="text-sm text-zinc-400 leading-relaxed max-w-xl">
-              {activeGame.description}
-            </p>
-
-            {/* Boutons d'actions rapides */}
-            <div className="flex items-center gap-4 mt-2">
-              <button
-                onClick={handleStartGame}
-                className="bg-white text-zinc-950 font-bold px-6 py-3 rounded-full flex items-center gap-2 text-xs tracking-wider uppercase shadow-[0_0_15px_rgba(255,255,255,0.25)] hover:scale-105 transition-transform duration-300 active:scale-95 cursor-pointer"
-              >
-                <Play size={12} fill="currentColor" />
-                <span>Lancer le jeu</span>
-              </button>
-              <button
-                onClick={handleOpenStudio}
-                className="glass-panel px-6 py-3 rounded-full flex items-center gap-2 text-xs tracking-wider uppercase text-zinc-300 border border-zinc-800 hover:border-blue-500/50 hover:text-white transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-              >
-                <Code size={12} />
-                <span>Funny-Studio (Option)</span>
-              </button>
+      {/* Render selected view based on active tab */}
+      {activeTab === 'store' ? (
+        <StoreView
+          profile={profile}
+          games={games}
+          onClose={() => { AudioEngine.getInstance().playSFX('select'); setActiveTab('games'); }}
+          onBuyGame={(gameId, price) => {
+            const updated: ProfileData = {
+              ...profile,
+              funnyCoins: profile.funnyCoins - price,
+              ownedGames: [...profile.ownedGames, gameId]
+            };
+            onUpdateProfile(updated);
+          }}
+          onStartGame={(game) => {
+            setSelectedGame(game);
+          }}
+        />
+      ) : activeTab === 'profile' ? (
+        <ProfileSpace
+          profile={profile}
+          games={games}
+          onClose={() => { AudioEngine.getInstance().playSFX('select'); setActiveTab('games'); }}
+          onUpdateProfile={onUpdateProfile}
+          onPublishGame={handlePublishGame}
+          onDeleteGame={handleDeleteGame}
+        />
+      ) : (
+        /* GAMES CONSOLE VIEW */
+        <>
+          {/* Loop background video or image fallback behind everything */}
+          {activeGame && (
+            <div className="absolute inset-0 -z-20 pointer-events-none overflow-hidden transition-all duration-1000">
+              {activeGame.video_url ? (
+                <video
+                  key={activeGame.id}
+                  src={activeGame.video_url}
+                  poster={activeGame.background_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-cover opacity-25"
+                />
+              ) : (
+                <div 
+                  key={activeGame.id}
+                  className="absolute inset-0 bg-cover bg-center opacity-20"
+                  style={{ backgroundImage: `url(${activeGame.background_url})` }}
+                />
+              )}
+              {/* Bottom & Top ambient shadow for console styling */}
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-black/20" />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Carousel des jeux horizontaux */}
-        <div className="flex items-end gap-6 overflow-x-auto pb-4 no-scrollbar">
-          {games.map((game, idx) => (
-            <GameCard
-              key={game.id}
-              game={game}
-              isFocused={idx === focusedIndex}
-              onSelect={() => {
-                setFocusedIndex(idx);
-                handleStartGame();
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Section des trophées du jeu en bas (Style PS5 Panel) */}
-      <div className="glass-panel border-t border-zinc-900/50 px-16 py-6 flex items-center justify-between z-10 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center text-blue-500 shadow-md">
-            <TrophyIcon size={20} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold tracking-wider text-zinc-200">Trophées de {activeGame?.title}</span>
-            <span className="text-[10px] text-zinc-500">Débloquez des succès pour récolter des FunnyCoins</span>
-          </div>
-        </div>
-
-        {/* Liste horizontale des trophées */}
-        <div className="flex items-center gap-6">
-          {activeTrophies.map(trophy => {
-            const isUnlocked = unlockedTrophyIds.includes(trophy.id);
-            let tierBorder = 'border-amber-800/30 text-amber-700 bg-amber-950/20';
-            if (trophy.tier === 'silver') tierBorder = 'border-zinc-700/30 text-zinc-500 bg-zinc-900/20';
-            if (trophy.tier === 'gold') tierBorder = 'border-yellow-700/30 text-yellow-600 bg-yellow-950/20';
-            if (trophy.tier === 'platinum') tierBorder = 'border-cyan-700/30 text-cyan-600 bg-cyan-950/20';
+          {/* Console main panel content */}
+          <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none">
             
-            return (
-              <div 
-                key={trophy.id}
-                className={`flex items-center gap-2.5 p-2 rounded-lg border ${tierBorder} ${
-                  isUnlocked ? 'opacity-100 scale-105 border-opacity-80' : 'opacity-40'
-                }`}
-                title={`${trophy.name} : ${trophy.description} (+${trophy.coin_reward} FC)`}
-              >
-                <AwardIcon tier={trophy.tier} isUnlocked={isUnlocked} />
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-zinc-300 tracking-wide line-clamp-1">{trophy.name}</span>
-                  <span className="text-[8px] text-zinc-500 line-clamp-1">{trophy.description}</span>
+            {/* Top Area: PS5-style horizontal square carousel */}
+            <div className="flex flex-col gap-2 max-w-4xl mt-4">
+              <span className="text-[9px] uppercase tracking-widest font-black text-zinc-400">Bibliothèque</span>
+              
+              <div className="flex items-center gap-3 overflow-x-auto pb-4 no-scrollbar">
+                {games.map((game, idx) => {
+                  const isFocused = idx === focusedIndex;
+                  const gameOwned = isGameOwned(game);
+                  
+                  return (
+                    <div
+                      key={game.id}
+                      onClick={() => {
+                        setFocusedIndex(idx);
+                        AudioEngine.getInstance().playSFX('select');
+                      }}
+                      className={`relative flex-shrink-0 cursor-pointer rounded-2xl w-20 h-20 overflow-hidden transition-all duration-300 transform outline-none border-2 ${
+                        isFocused
+                          ? 'scale-105 border-white shadow-[0_0_15px_rgba(59,130,246,0.6)]'
+                          : 'border-zinc-800/80 opacity-60 hover:opacity-90'
+                      }`}
+                    >
+                      <img src={game.background_url} alt={game.title} className="w-full h-full object-cover" />
+                      {!gameOwned && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <Lock size={14} className="text-zinc-300" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="text-[10px] font-bold text-zinc-400 mt-1 uppercase tracking-wider">
+                {activeGame?.title} {activeGame?.price ? `• ${activeGame.price} FC` : '• Gratuit'}
+              </div>
+            </div>
+
+            {/* Bottom-left: Active Game Meta info & Play buttons */}
+            <div className="max-w-2xl mb-8 animate-fade-in flex flex-col gap-4">
+              {activeGame && (
+                <>
+                  <h2 className="text-5xl font-black tracking-wider text-zinc-100 uppercase leading-none drop-shadow-md">
+                    {activeGame.title}
+                  </h2>
+                  <p className="text-xs text-zinc-400 leading-relaxed max-w-xl drop-shadow">
+                    {activeGame.description}
+                  </p>
+
+                  <div className="flex items-center gap-4 mt-2">
+                    {owned ? (
+                      <button
+                        onClick={handleStartGame}
+                        className="bg-white text-zinc-950 font-black px-8 py-3.5 rounded-full flex items-center gap-2 text-xs tracking-wider uppercase shadow-[0_0_15px_rgba(255,255,255,0.3)] hover:scale-105 transition-transform duration-300 active:scale-95 cursor-pointer"
+                      >
+                        <Play size={12} fill="currentColor" />
+                        <span>Jouer</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleBuyGameDirect(activeGame)}
+                        className="bg-purple-600 text-white font-black px-8 py-3.5 rounded-full flex items-center gap-2 text-xs tracking-wider uppercase shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:scale-105 transition-transform duration-300 active:scale-95 cursor-pointer"
+                      >
+                        <ShoppingBag size={12} />
+                        <span>Acheter {activeGame.price} FC</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleOpenStudio}
+                      className="glass-panel px-5 py-3.5 rounded-full flex items-center justify-center text-zinc-350 border border-zinc-800 hover:border-zinc-550 hover:text-white transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                      title="Funny-Studio (Code Source)"
+                    >
+                      <Code size={14} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Right side stats panels */}
+            {activeGame && (
+              <div className="absolute bottom-20 right-16 flex flex-col gap-4 max-w-sm w-80 animate-fade-in">
+                {/* Product details */}
+                <div className="glass-panel p-5 rounded-2xl border border-zinc-850/60 bg-zinc-950/20 backdrop-blur-md">
+                  <span className="text-[8px] uppercase tracking-widest font-black text-zinc-500">Détails du Produit</span>
+                  <div className="flex justify-between items-center mt-2.5">
+                    <span className="text-xs font-bold text-zinc-200">Édition Standard</span>
+                    <span className="text-xs font-bold text-amber-400 flex items-center gap-0.5">
+                      <Coins size={10} />
+                      {activeGame.price ? `${activeGame.price} FC` : 'Gratuit'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Trophy progression */}
+                <div className="glass-panel p-5 rounded-2xl border border-zinc-850/60 bg-zinc-950/20 backdrop-blur-md flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-yellow-500 shadow-md">
+                      <TrophyIcon size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-zinc-200 uppercase tracking-wide">Succès Obtenus</span>
+                      <span className="text-[8px] text-zinc-500 mt-0.5">
+                        Trophées: {unlockedCount} / {activeTrophies.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right flex flex-col items-end">
+                    <span className="text-xs font-black text-zinc-100">{progressPercentage}%</span>
+                    <span className="text-[8px] text-zinc-500 uppercase tracking-widest font-bold">Progrès</span>
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            )}
+          </div>
+
+          {/* Active Trophies list on focus (PS5 Panel styling) */}
+          {activeGame && (
+            <div className="glass-panel border-t border-zinc-900/60 px-16 py-5 flex items-center justify-between z-10 backdrop-blur-md">
+              <div className="flex items-center gap-4">
+                <div className="w-9 h-9 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center text-blue-500 shadow-md">
+                  <TrophyIcon size={18} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold tracking-wider text-zinc-200">Trophées de {activeGame.title}</span>
+                  <span className="text-[9px] text-zinc-500">Gagnez des trophées pour accumuler des FunnyCoins</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                {activeTrophies.map(trophy => {
+                  const isUnlocked = unlockedTrophyIds.includes(trophy.id);
+                  let tierColor = 'text-amber-700 bg-amber-950/20 border-amber-800/30';
+                  if (trophy.tier === 'silver') tierColor = 'text-zinc-400 bg-zinc-900/20 border-zinc-800/30';
+                  if (trophy.tier === 'gold') tierColor = 'text-yellow-500 bg-yellow-950/20 border-yellow-800/30';
+                  if (trophy.tier === 'platinum') tierColor = 'text-cyan-400 bg-cyan-950/20 border-cyan-800/30';
+                  
+                  return (
+                    <div 
+                      key={trophy.id}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border ${tierColor} ${
+                        isUnlocked ? 'opacity-100 scale-102 border-opacity-70 shadow-md' : 'opacity-35'
+                      }`}
+                      title={`${trophy.name} : ${trophy.description} (+${trophy.coin_reward} FC)`}
+                    >
+                      <TrophyIcon size={12} className={isUnlocked ? 'animate-pulse' : ''} />
+                      <div className="flex flex-col max-w-[120px]">
+                        <span className="text-[9px] font-bold text-zinc-200 truncate leading-tight">{trophy.name}</span>
+                        <span className="text-[7px] text-zinc-500 truncate leading-none mt-0.5">{trophy.description}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Modal de Configuration de la Manette */}
       {isControllerModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in">
           <div className="glass-panel max-w-md w-full p-8 rounded-3xl border border-zinc-800/80 flex flex-col gap-6 text-center shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
             
-            {/* Si aucun type choisi, afficher le choix */}
             {controllerType === null ? (
               <>
                 <div className="flex flex-col gap-2">
@@ -582,7 +779,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 </div>
 
                 <div className="flex flex-col gap-4 mt-2">
-                  {/* Option Manette PC / Clavier */}
                   <button
                     onClick={() => {
                       setControllerType('pc');
@@ -602,7 +798,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                     </div>
                   </button>
 
-                  {/* Option Manette Mobile */}
                   <button
                     onClick={() => {
                       setLobbyId(`fs-${Math.random().toString(36).substring(2, 9)}`);
@@ -621,7 +816,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                       </span>
                     </div>
                   </button>
-                  {/* Option Jouer en Ligne */}
+
                   <button
                     onClick={() => {
                       setControllerType('online');
@@ -650,10 +845,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 </button>
               </>
             ) : controllerType === 'online' ? (
-              // Mode Jouer en Ligne
               <>
                 {onlineMode === 'menu' ? (
-                  // Choix Créer / Rejoindre
                   <>
                     <div className="flex flex-col gap-2">
                       <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Jouer en Ligne</h3>
@@ -710,7 +903,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                     </button>
                   </>
                 ) : onlineMode === 'join' ? (
-                  // Saisie du code de room
                   <>
                     <div className="flex flex-col gap-2">
                       <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Rejoindre une Partie</h3>
@@ -729,7 +921,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                       <button
                         onClick={() => {
                           if (joinRoomCode.length >= 4) {
-                            // Redirect to play page
                             window.open(`${window.location.origin}/play/${joinRoomCode}`, '_blank');
                             setIsControllerModalOpen(false);
                           }
@@ -748,14 +939,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                     </div>
                   </>
                 ) : (
-                  // Lobby de la room (mode host)
                   <>
                     <div className="flex flex-col gap-2">
                       <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Room en Ligne</h3>
                       <p className="text-[11px] text-zinc-400">Partagez ce code avec vos amis pour qu'ils rejoignent.</p>
                     </div>
 
-                    {/* Room Code */}
                     <div className="flex items-center justify-center gap-3 py-3">
                       <div className="text-3xl font-mono font-black text-purple-400 tracking-[0.3em]">
                         {onlineRoomRef.current?.getRoomCode() || '...'}
@@ -776,7 +965,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                       </button>
                     </div>
 
-                    {/* Connected players */}
                     <div className="flex flex-col gap-2 w-full">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold flex items-center gap-1.5">
@@ -812,7 +1000,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                     <div className="flex flex-col gap-3 mt-2">
                       <button
                         onClick={() => {
-                          // Start the game as host
                           onlineRoomRef.current?.startGame();
                           setIsControllerModalOpen(false);
                           handleStartGame();
@@ -842,7 +1029,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 )}
               </>
             ) : controllerType === 'pc' ? (
-              // Mode PC sélectionné
               <>
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 animate-pulse">
@@ -873,7 +1059,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 </div>
               </>
             ) : (
-              // Mode Mobile sélectionné (QR Code & Connexion Multi-Joueurs)
               <>
                 <div className="flex flex-col gap-2">
                   <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Connexion Manettes</h3>
@@ -882,7 +1067,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   </p>
                 </div>
 
-                {/* QR Code */}
                 <div className="my-3 flex justify-center p-4 bg-white rounded-2xl w-44 h-44 mx-auto shadow-lg relative overflow-hidden">
                   {qrCodeUrl ? (
                     <img
@@ -898,7 +1082,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   )}
                 </div>
 
-                {/* Liste des joueurs connectés */}
                 <div className="flex flex-col gap-2 w-full">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold flex items-center gap-1.5">
@@ -966,19 +1149,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-const AwardIcon: React.FC<{ tier: TrophyTier; isUnlocked: boolean }> = ({ tier, isUnlocked }) => {
-  let color = 'text-amber-600';
-  if (tier === 'silver') color = 'text-zinc-400';
-  if (tier === 'gold') color = 'text-yellow-400';
-  if (tier === 'platinum') color = 'text-cyan-400';
-  
-  return (
-    <div className={`p-1 rounded bg-zinc-950 border border-zinc-800 ${color}`}>
-      <TrophyIcon size={12} className={isUnlocked ? 'animate-bounce' : ''} />
     </div>
   );
 };

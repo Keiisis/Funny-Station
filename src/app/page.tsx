@@ -5,13 +5,7 @@ import { ProfileSelector } from '@/shell/ProfileSelector';
 import { Dashboard } from '@/shell/Dashboard';
 import { GamepadController } from '@/drivers/GamepadController';
 import { AudioEngine } from '@/drivers/AudioEngine';
-
-interface ProfileData {
-  id: string;
-  username: string;
-  avatar: string;
-  funnyCoins: number;
-}
+import { ProfileData } from '@/types';
 
 export default function Home() {
   const [activeProfile, setActiveProfile] = useState<ProfileData | null>(null);
@@ -40,6 +34,21 @@ export default function Home() {
     setActiveProfile(profile);
   };
 
+  const handleUpdateProfile = (updatedProfile: ProfileData) => {
+    setActiveProfile(updatedProfile);
+    
+    // Update profile list in local storage
+    const stored = localStorage.getItem('funny_station_profiles');
+    if (stored) {
+      const list: ProfileData[] = JSON.parse(stored);
+      const idx = list.findIndex(p => p.id === updatedProfile.id);
+      if (idx !== -1) {
+        list[idx] = updatedProfile;
+        localStorage.setItem('funny_station_profiles', JSON.stringify(list));
+      }
+    }
+  };
+
   const handleSignOut = () => {
     AudioEngine.getInstance().playSFX('select');
     setActiveProfile(null);
@@ -53,7 +62,7 @@ export default function Home() {
     <Dashboard
       profile={activeProfile}
       onSignOut={handleSignOut}
-      onUpdateCoins={(newCoins) => setActiveProfile(prev => prev ? { ...prev, funnyCoins: newCoins } : null)}
+      onUpdateProfile={handleUpdateProfile}
     />
   );
 }

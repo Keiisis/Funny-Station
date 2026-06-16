@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Game } from '@/types';
-import { Play } from 'lucide-react';
+import { Play, Gamepad2 } from 'lucide-react';
 
 interface GameCardProps {
   game: Game;
@@ -57,8 +57,13 @@ export const GameCard: React.FC<GameCardProps> = ({ game, isFocused, onSelect })
           <h3 className={`text-xs font-bold tracking-wide truncate ${isFocused ? 'text-white' : 'text-zinc-300'}`}>
             {game.title}
           </h3>
-          <span className="text-[8px] text-zinc-500">
-            {game.play_count > 0 ? `🎮 ${game.play_count} parties` : 'Nouveau'}
+          <span className="text-[8px] text-zinc-500 flex items-center gap-1">
+            {game.play_count > 0 ? (
+              <>
+                <Gamepad2 size={10} className="text-zinc-500 inline" />
+                <span>{game.play_count} parties</span>
+              </>
+            ) : 'Nouveau'}
           </span>
         </div>
       </div>

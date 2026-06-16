@@ -12,6 +12,16 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface ProfileData {
+  id: string;
+  username: string;
+  avatar: string; // Unsplash image URL or preset URL
+  funnyCoins: number;
+  password?: string; // Optional password or PIN code
+  accountType: 'gamer' | 'creator';
+  ownedGames: string[]; // List of purchased game IDs
+}
+
 export interface Game {
   id: string;
   title: string;
@@ -21,6 +31,8 @@ export interface Game {
   entry_point: string;
   assets_bucket_path: string;
   background_url?: string;
+  video_url?: string; // Background trailer/cinematic loop
+  price?: number; // Price in FunnyCoins (FC), e.g., 200. Free if undefined/0
   ambient_music_url?: string;
   manifest: {
     dependencies?: string[];

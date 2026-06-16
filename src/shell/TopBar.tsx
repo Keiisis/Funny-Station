@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad, Settings, User } from 'lucide-react';
+import { Gamepad, Settings, User, Coins, Search } from 'lucide-react';
+import { AudioEngine } from '@/drivers/AudioEngine';
 
 interface TopBarProps {
   username: string;
   avatar: string;
   funnyCoins: number;
+  activeTab: 'games' | 'store' | 'profile';
+  onChangeTab: (tab: 'games' | 'store' | 'profile') => void;
   onOpenSettings?: () => void;
   onOpenControllerMenu?: () => void;
   activeControllerType?: 'pc' | 'mobile' | 'online' | null;
@@ -16,6 +19,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   username,
   avatar,
   funnyCoins,
+  activeTab,
+  onChangeTab,
   onOpenSettings,
   onOpenControllerMenu,
   activeControllerType
@@ -30,7 +35,8 @@ export const TopBar: React.FC<TopBarProps> = ({
       setTime(
         now.toLocaleTimeString('fr-FR', {
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          hour12: true
         })
       );
     };
@@ -58,23 +64,48 @@ export const TopBar: React.FC<TopBarProps> = ({
     };
   }, []);
 
+  const handleTabClick = (tab: 'games' | 'store' | 'profile') => {
+    AudioEngine.getInstance().playSFX('select');
+    onChangeTab(tab);
+  };
+
   return (
-    <div className="w-full flex items-center justify-between px-8 py-4 select-none relative z-20">
-      {/* Profil à gauche */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xl shadow-[0_0_10px_rgba(0,0,0,0.5)]">
-          {avatar}
-        </div>
-        <div className="flex flex-col">
-          <span className="text-xs font-semibold tracking-wider text-zinc-100">{username}</span>
-          <span className="text-[10px] text-amber-400 font-bold tracking-wide flex items-center gap-1">
-            🪙 {funnyCoins} FC
-          </span>
-        </div>
+    <div className="w-full flex items-center justify-between px-12 py-5 select-none relative z-20 bg-gradient-to-b from-black/40 to-transparent">
+      {/* Onglets à gauche (Style PS5) */}
+      <div className="flex items-center gap-8">
+        <button
+          onClick={() => handleTabClick('games')}
+          className={`text-sm font-bold tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
+            activeTab === 'games' 
+              ? 'text-white border-b-2 border-white pb-0.5' 
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Jeux
+        </button>
+        <button
+          onClick={() => handleTabClick('store')}
+          className={`text-sm font-bold tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
+            activeTab === 'store' 
+              ? 'text-white border-b-2 border-white pb-0.5' 
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          Boutique
+        </button>
       </div>
 
-      {/* Info système & Statut à droite */}
+      {/* Info système & Statut à droite (Style PS5) */}
       <div className="flex items-center gap-6 text-zinc-300 font-medium text-xs tracking-wider">
+        {/* Rechercher */}
+        <button
+          onClick={() => handleTabClick('store')}
+          className="hover:text-white transition-colors duration-200 focus:outline-none cursor-pointer flex items-center"
+          title="Rechercher des jeux"
+        >
+          <Search size={16} className="text-zinc-400 hover:text-white" />
+        </button>
+
         {/* Statut Manette */}
         <button
           onClick={onOpenControllerMenu}
@@ -105,7 +136,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               : 'text-zinc-500'
           }>
             {activeControllerType === 'pc'
-              ? 'Manette PC' 
+              ? 'PC' 
               : activeControllerType === 'mobile'
               ? 'Portable'
               : activeControllerType === 'online'
@@ -116,17 +147,38 @@ export const TopBar: React.FC<TopBarProps> = ({
           </span>
         </button>
 
+        {/* FunnyCoins summary in topbar */}
+        <div className="flex items-center gap-1 text-amber-400 font-bold tracking-wide">
+          <Coins size={12} className="text-amber-400" />
+          <span>{funnyCoins} FC</span>
+        </div>
+
         {/* Paramètres */}
         <button
           onClick={onOpenSettings}
-          className="hover:text-white transition-colors duration-200 outline-none flex items-center"
-          title="Paramètres"
+          className="hover:text-white transition-colors duration-200 outline-none flex items-center cursor-pointer"
+          title="Paramètres / Se déconnecter"
         >
           <Settings size={16} className="text-zinc-400 hover:text-white hover:rotate-45 transition-transform duration-300" />
         </button>
 
+        {/* Avatar Profil clickable */}
+        <button
+          onClick={() => handleTabClick('profile')}
+          className={`w-7 h-7 rounded-full bg-zinc-800 border overflow-hidden flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer ${
+            activeTab === 'profile' ? 'border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'border-zinc-700'
+          }`}
+          title={`Profil : ${username}`}
+        >
+          {avatar.startsWith('http') ? (
+            <img src={avatar} alt={username} className="w-full h-full object-cover" />
+          ) : (
+            <User size={12} className="text-zinc-400" />
+          )}
+        </button>
+
         {/* Heure */}
-        <span className="font-mono text-zinc-100">{time}</span>
+        <span className="font-mono text-zinc-100 min-w-[50px] text-right">{time}</span>
       </div>
     </div>
   );
