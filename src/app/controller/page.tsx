@@ -20,9 +20,9 @@ function ControllerContent() {
   useEffect(() => {
     const lockLandscape = async () => {
       try {
-        // Try modern Screen Orientation API
-        if (screen.orientation && typeof screen.orientation.lock === 'function') {
-          await screen.orientation.lock('landscape');
+        const orientation = screen.orientation as any;
+        if (orientation && typeof orientation.lock === 'function') {
+          await orientation.lock('landscape');
         }
       } catch (e) {
         console.warn('[Controller] Impossible de verrouiller l\'orientation:', e);
@@ -32,8 +32,9 @@ function ControllerContent() {
 
     return () => {
       try {
-        if (screen.orientation && typeof screen.orientation.unlock === 'function') {
-          screen.orientation.unlock();
+        const orientation = screen.orientation as any;
+        if (orientation && typeof orientation.unlock === 'function') {
+          orientation.unlock();
         }
       } catch (e) {
         // Silently ignore
