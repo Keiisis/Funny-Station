@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
 import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, Play } from 'lucide-react';
@@ -11,17 +11,43 @@ function ControllerContent() {
   const userId = searchParams.get('userId') || `mobile-${Math.random().toString(36).substring(2, 7)}`;
 
   const [connected, setConnected] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
   const [activeButton, setActiveButton] = useState<string | null>(null);
   const [latency, setLatency] = useState<number>(0);
   const channelRef = useRef<any>(null);
 
-  // Initialisation du canal Supabase Realtime / local BroadcastChannel
+  // Force landscape orientation via Screen Orientation API
+  useEffect(() => {
+    const lockLandscape = async () => {
+      try {
+        // Try modern Screen Orientation API
+        if (screen.orientation && typeof screen.orientation.lock === 'function') {
+          await screen.orientation.lock('landscape');
+        }
+      } catch (e) {
+        console.warn('[Controller] Impossible de verrouiller l\'orientation:', e);
+      }
+    };
+    lockLandscape();
+
+    return () => {
+      try {
+        if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+          screen.orientation.unlock();
+        }
+      } catch (e) {
+        // Silently ignore
+      }
+    };
+  }, []);
+
+  // Initialisation du canal Supabase Realtime
   useEffect(() => {
     console.log(`[Mobile Controller] Connexion au salon: ${lobbyId} en tant que: ${userId}`);
     
     const channel = supabase.channel(`lobby:${lobbyId}`, {
       config: {
-        broadcast: { self: true, ack: true }, // self: true permet le debug local dans le même onglet
+        broadcast: { self: true, ack: true },
         presence: { key: userId }
       }
     });
@@ -46,10 +72,12 @@ function ControllerContent() {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        // Vérifier si la console principale est connectée
         const keys = Object.keys(state);
-        // Si plus d'un utilisateur est présent dans le salon (la console + nous), nous sommes connectés !
-        setConnected(keys.length > 1);
+        // Si au moins un autre utilisateur (la console) est présent
+        const hasConsole = Object.values(state).some((presences: any) =>
+          presences.some((p: any) => p.type === 'console')
+        );
+        setConnected(hasConsole || keys.length > 1);
       })
       .subscribe((status: string) => {
         if (status === 'SUBSCRIBED') {
@@ -58,8 +86,12 @@ function ControllerContent() {
             type: 'controller',
             userId
           });
+          setSubscribed(true);
+          // Mark as connected as soon as we successfully subscribe
+          // (presence sync will refine this state later)
           setConnected(true);
-        } else {
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setSubscribed(false);
           setConnected(false);
         }
       });
@@ -70,7 +102,7 @@ function ControllerContent() {
   }, [lobbyId, userId]);
 
   // Sons de toucher UI synthesiés (Web Audio API)
-  const playTouchSound = (frequency = 600, duration = 0.08) => {
+  const playTouchSound = useCallback((frequency = 600, duration = 0.08) => {
     if (typeof window === 'undefined') return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -91,17 +123,17 @@ function ControllerContent() {
     } catch (e) {
       console.warn("Web Audio non disponible:", e);
     }
-  };
+  }, []);
 
   // Vibration haptique
-  const triggerVibration = (ms = 40) => {
+  const triggerVibration = useCallback((ms = 40) => {
     if (typeof window !== 'undefined' && navigator.vibrate) {
       navigator.vibrate(ms);
     }
-  };
+  }, []);
 
   // Transmission des actions
-  const sendAction = (direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE') => {
+  const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE') => {
     triggerVibration(30);
     
     // Déterminer la fréquence selon le bouton
@@ -124,7 +156,7 @@ function ControllerContent() {
       });
       console.log(`[Gamepad] Envoi direction: ${direction}`);
     }
-  };
+  }, [userId, triggerVibration, playTouchSound]);
 
   // Support clavier de secours pour test en Split-Screen
   useEffect(() => {
@@ -179,10 +211,13 @@ function ControllerContent() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [userId]);
+  }, [sendAction]);
+
+  // Determine display status
+  const isConnected = connected || subscribed;
 
   return (
-    <div className="fixed inset-0 w-screen h-screen select-none overflow-hidden flex flex-col justify-between text-white p-4"
+    <div className="controller-landscape fixed inset-0 w-screen h-screen select-none overflow-hidden flex flex-col justify-between text-white p-4"
          style={{
            background: 'radial-gradient(circle at 20% 20%, rgba(0, 114, 206, 0.15) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgba(107, 33, 168, 0.15) 0%, transparent 45%), #020617'
          }}>
@@ -206,7 +241,7 @@ function ControllerContent() {
           {latency > 0 && (
             <span className="text-[8px] font-mono text-zinc-400">{latency}ms</span>
           )}
-          {connected ? (
+          {isConnected ? (
             <div className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-bold">
               <Wifi size={12} className="animate-pulse" />
               <span>Connecté</span>

@@ -157,10 +157,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     // Écouter les événements de la manette virtuelle
     channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => {
       console.log("[Dashboard] Input reçu de la manette mobile:", payload.direction);
-      // Émettre l'action localement
+      
+      // 1. Émettre l'action via CustomEvent pour la navigation du Dashboard
       window.dispatchEvent(
         new CustomEvent('funny_gamepad_action', { detail: { direction: payload.direction } })
       );
+      
+      // 2. Traduire les directions en événements clavier pour les jeux dans les iframes
+      const directionToKey: Record<string, string> = {
+        'UP': 'ArrowUp',
+        'DOWN': 'ArrowDown',
+        'LEFT': 'ArrowLeft',
+        'RIGHT': 'ArrowRight',
+        'CONFIRM': 'Enter',
+        'BACK': 'Escape',
+        'OPTION': 'Escape',
+        'TRIANGLE': 'ArrowUp',
+        'SQUARE': ' '
+      };
+      
+      const keyName = directionToKey[payload.direction];
+      if (keyName) {
+        // Dispatch on parent window (for Dashboard navigation + games listening on parent)
+        const keydownEvt = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
+        window.dispatchEvent(keydownEvt);
+        
+        // Also dispatch into all iframes (for sandboxed games like Neon Runner)
+        const iframes = document.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+          try {
+            const iframeWindow = iframe.contentWindow;
+            if (iframeWindow) {
+              const iframeKeydown = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
+              iframeWindow.dispatchEvent(iframeKeydown);
+              
+              // Send keyup after a short delay to simulate a button press
+              setTimeout(() => {
+                const iframeKeyup = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
+                iframeWindow.dispatchEvent(iframeKeyup);
+              }, 100);
+            }
+          } catch (e) {
+            // Cross-origin iframe - can't dispatch events
+            console.warn('[Dashboard] Impossible de relayer les inputs dans l\'iframe:', e);
+          }
+        });
+
+        // Dispatch keyup on parent after a short delay
+        setTimeout(() => {
+          const keyupEvt = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
+          window.dispatchEvent(keyupEvt);
+        }, 100);
+      }
     });
 
     // Écouter le pong pour mesurer la latence

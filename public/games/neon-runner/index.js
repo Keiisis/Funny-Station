@@ -31,6 +31,50 @@ window.addEventListener('keyup', (e) => {
   keys[e.key] = false;
 });
 
+// Listen for parent window keyboard events (mobile controller via Supabase Realtime)
+try {
+  if (window.parent && window.parent !== window) {
+    window.parent.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+    });
+    window.parent.addEventListener('keyup', (e) => {
+      keys[e.key] = false;
+    });
+  }
+} catch (e) {
+  // Cross-origin - parent access blocked
+}
+
+// Listen for funny_gamepad_action custom events (mobile controller direct bridge)
+const directionToKey = {
+  'UP': 'ArrowUp',
+  'DOWN': 'ArrowDown',
+  'LEFT': 'ArrowLeft',
+  'RIGHT': 'ArrowRight',
+  'CONFIRM': 'Enter',
+  'BACK': 'Escape',
+  'OPTION': 'Escape',
+  'TRIANGLE': 'ArrowUp',
+  'SQUARE': ' '
+};
+
+function handleGamepadAction(e) {
+  const key = directionToKey[e.detail?.direction];
+  if (key) {
+    keys[key] = true;
+    setTimeout(() => { keys[key] = false; }, 120);
+  }
+}
+
+window.addEventListener('funny_gamepad_action', handleGamepadAction);
+try {
+  if (window.parent && window.parent !== window) {
+    window.parent.addEventListener('funny_gamepad_action', handleGamepadAction);
+  }
+} catch (e) {
+  // Cross-origin
+}
+
 // Resizing
 window.addEventListener('resize', () => {
   canvas.width = window.innerWidth;
