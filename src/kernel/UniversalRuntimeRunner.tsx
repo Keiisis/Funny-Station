@@ -3,20 +3,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { initVFS, VirtualFileSystem } from './vfs';
-import { GameLanguage } from '@/types';
+import { GameLanguage, NetworkMode } from '@/types';
+import { GameStateSync } from '@/multiplayer/GameStateSync';
 
 interface GameRunnerProps {
   gameId: string;
-  gameUrl: string; // Ex: /games/tetris
-  entryPoint: string; // Ex: index.js ou main.py
+  gameUrl: string;
+  entryPoint: string;
   language: GameLanguage;
   manifest: {
     dependencies?: string[];
     maxMemoryMb?: number;
     python_libs?: string[];
+    screen_ratio?: string;
   };
   onTrophyUnlocked?: (trophyName: string) => void;
   onExit?: () => void;
+  // Online multiplayer props
+  networkMode?: NetworkMode;
+  gameStateSync?: GameStateSync | null;
+  localPlayerNumber?: number;
 }
 
 export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
@@ -27,6 +33,9 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
   manifest,
   onTrophyUnlocked,
   onExit,
+  networkMode = 'local',
+  gameStateSync = null,
+  localPlayerNumber = 0,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -112,9 +121,68 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
 
     window.addEventListener('message', handleSystemMessage);
 
+    // === ONLINE MULTIPLAYER BRIDGE ===
+    let cleanupSync: (() => void) | null = null;
+
+    if (gameStateSync && networkMode === 'host') {
+      // HOST: Listen for GAME_STATE_EXPORT from game iframe and broadcast to clients
+      const handleGameExport = (event: MessageEvent) => {
+        if (event.data?.type === 'GAME_STATE_EXPORT' && event.data.state) {
+          gameStateSync.broadcastState(event.data.state);
+        }
+      };
+      window.addEventListener('message', handleGameExport);
+
+      // HOST: Forward remote player inputs to the game iframe
+      const unsubInput = gameStateSync.onInputReceived((input) => {
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage({
+            type: 'REMOTE_PLAYER_INPUT',
+            direction: input.direction,
+            playerNumber: input.playerNumber
+          }, '*');
+        }
+      });
+
+      cleanupSync = () => {
+        window.removeEventListener('message', handleGameExport);
+        unsubInput();
+      };
+    }
+
+    if (gameStateSync && networkMode === 'client') {
+      // CLIENT: Receive game state from host and forward to game iframe
+      const unsubState = gameStateSync.onStateReceived((state) => {
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage({
+            type: 'GAME_STATE_IMPORT',
+            state
+          }, '*');
+        }
+      });
+
+      // CLIENT: Forward local game inputs to the host via sync
+      const handleClientInput = (event: MessageEvent) => {
+        if (event.data?.type === 'GAME_INPUT') {
+          gameStateSync.sendInput(
+            event.data.direction,
+            event.data.playerNumber ?? localPlayerNumber,
+            ''
+          );
+        }
+      };
+      window.addEventListener('message', handleClientInput);
+
+      cleanupSync = () => {
+        unsubState();
+        window.removeEventListener('message', handleClientInput);
+      };
+    }
+
     return () => {
       active = false;
       window.removeEventListener('message', handleSystemMessage);
+      if (cleanupSync) cleanupSync();
       if (workerRef.current) {
         workerRef.current.terminate();
       }
@@ -212,7 +280,9 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
             save: (slot, data) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
             load: (slot) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
             unlockTrophy: (trophyId) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
-            exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*')
+            exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+            networkMode: '${networkMode}',
+            playerNumber: ${localPlayerNumber}
           };
         `;
 

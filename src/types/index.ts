@@ -63,8 +63,36 @@ export interface UserTrophy {
 
 export type GamepadDirection = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE';
 
+// === ONLINE MULTIPLAYER TYPES ===
+
+export interface OnlineRoom {
+  roomCode: string;
+  hostId: string;
+  gameId: string;
+  players: OnlinePlayer[];
+  status: 'waiting' | 'playing' | 'finished';
+}
+
+export interface OnlinePlayer {
+  userId: string;
+  username: string;
+  playerNumber: number;
+  isHost: boolean;
+}
+
+export interface GameState {
+  players: { x: number; y: number; alive: boolean; score: number; color: string; label: string }[];
+  obstacles: { x: number; y: number; size: number; speed: number; color: string }[];
+  gameOver: boolean;
+  frame: number;
+  canvasWidth: number;
+  canvasHeight: number;
+}
+
+export type NetworkMode = 'local' | 'host' | 'client';
+
 declare global {
   interface WindowEventMap {
-    'funny_gamepad_action': CustomEvent<{ direction: GamepadDirection }>;
+    'funny_gamepad_action': CustomEvent<{ direction: GamepadDirection; playerNumber?: number; userId?: string }>;
   }
 }

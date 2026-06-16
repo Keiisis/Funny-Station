@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Game, Trophy, TrophyTier } from '@/types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Game, Trophy, TrophyTier, NetworkMode, OnlinePlayer } from '@/types';
 import { useGamepadNavigation } from '@/hooks/useGamepadNavigation';
 import { TopBar } from './TopBar';
 import { GameCard } from './GameCard';
 import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { FunnyStudio } from './FunnyStudio';
-import { Play, Code, Trophy as TrophyIcon, ChevronRight, CornerDownLeft, CircleAlert, Gamepad, Smartphone, Users } from 'lucide-react';
+import { Play, Code, Trophy as TrophyIcon, ChevronRight, CornerDownLeft, CircleAlert, Gamepad, Smartphone, Users, Globe, Copy, Check } from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
 import QRCode from 'qrcode';
+import { GameRoom } from '@/multiplayer/GameRoom';
+import { GameStateSync } from '@/multiplayer/GameStateSync';
 
 // Couleurs par joueur pour l'UI
 const PLAYER_COLORS = [
@@ -137,10 +139,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [unlockedTrophyIds, setUnlockedTrophyIds] = useState<string[]>([]);
   
   const [isControllerModalOpen, setIsControllerModalOpen] = useState(false);
-  const [controllerType, setControllerType] = useState<'pc' | 'mobile' | null>(null);
+  const [controllerType, setControllerType] = useState<'pc' | 'mobile' | 'online' | null>(null);
   const [lobbyId, setLobbyId] = useState<string>('');
   const [connectedPlayers, setConnectedPlayers] = useState<ConnectedPlayer[]>([]);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+
+  // Online multiplayer state
+  const [onlineMode, setOnlineMode] = useState<'menu' | 'host' | 'join' | 'lobby'>('menu');
+  const [joinRoomCode, setJoinRoomCode] = useState('');
+  const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
+  const [onlineCopied, setOnlineCopied] = useState(false);
+  const [networkMode, setNetworkMode] = useState<NetworkMode>('local');
+  const [localPlayerNumber, setLocalPlayerNumber] = useState(0);
+  const onlineRoomRef = useRef<GameRoom | null>(null);
+  const onlineSyncRef = useRef<GameStateSync | null>(null);
 
   // Générer le code QR localement sous forme de Data URL base64
   // Ne pas inclure userId dans l'URL — chaque téléphone génère son propre ID unique
@@ -322,6 +334,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const handleExitGame = () => {
     AudioEngine.getInstance().playSFX('select');
     setSelectedGame(null);
+
+    // Clean up online room if active
+    if (networkMode !== 'local') {
+      onlineSyncRef.current?.destroy();
+      onlineRoomRef.current?.disconnect();
+      onlineRoomRef.current = null;
+      onlineSyncRef.current = null;
+      setOnlinePlayers([]);
+      setNetworkMode('local');
+      setOnlineMode('menu');
+    }
   };
 
   const handleTrophyUnlocked = (trophyId: string) => {
@@ -422,6 +445,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
             manifest={selectedGame.manifest}
             onTrophyUnlocked={handleTrophyUnlocked}
             onExit={handleExitGame}
+            networkMode={networkMode}
+            gameStateSync={onlineSyncRef.current}
+            localPlayerNumber={localPlayerNumber}
           />
         </div>
       </div>
@@ -595,6 +621,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                       </span>
                     </div>
                   </button>
+                  {/* Option Jouer en Ligne */}
+                  <button
+                    onClick={() => {
+                      setControllerType('online');
+                      setOnlineMode('menu');
+                      AudioEngine.getInstance().playSFX('select');
+                    }}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 hover:border-purple-500/50 hover:bg-purple-950/10 hover:scale-[1.02] transition-all duration-300 text-left group cursor-pointer"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-purple-400 group-hover:bg-purple-900/20 group-hover:border-purple-500/40 transition-colors">
+                      <Globe size={24} />
+                    </div>
+                    <div className="flex-1 flex flex-col">
+                      <span className="text-xs font-bold text-zinc-200 uppercase tracking-wide group-hover:text-purple-400 transition-colors">Jouer en Ligne</span>
+                      <span className="text-[10px] text-zinc-500 mt-0.5 leading-snug">
+                        Créez ou rejoignez une partie en ligne. Chaque joueur joue depuis son propre écran.
+                      </span>
+                    </div>
+                  </button>
                 </div>
 
                 <button
@@ -603,6 +648,198 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 >
                   Fermer
                 </button>
+              </>
+            ) : controllerType === 'online' ? (
+              // Mode Jouer en Ligne
+              <>
+                {onlineMode === 'menu' ? (
+                  // Choix Créer / Rejoindre
+                  <>
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Jouer en Ligne</h3>
+                      <p className="text-[11px] text-zinc-400">Chaque joueur joue depuis son propre écran, où qu'il soit.</p>
+                    </div>
+                    <div className="flex flex-col gap-3 mt-2">
+                      <button
+                        onClick={async () => {
+                          AudioEngine.getInstance().playSFX('select');
+                          const room = GameRoom.createRoom(
+                            { id: profile.id, username: profile.username },
+                            activeGame.id
+                          );
+                          onlineRoomRef.current = room;
+                          room.onPlayersChanged((players) => setOnlinePlayers(players));
+                          const connected = await room.connect();
+                          if (connected) {
+                            const channel = room.getChannel();
+                            if (channel) {
+                              onlineSyncRef.current = new GameStateSync(channel, true);
+                            }
+                            setNetworkMode('host');
+                            setLocalPlayerNumber(0);
+                            setOnlineMode('lobby');
+                          }
+                        }}
+                        className="w-full flex items-center gap-4 p-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 hover:border-purple-500/50 hover:bg-purple-950/10 hover:scale-[1.02] transition-all duration-300 text-left group cursor-pointer"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-lg font-black">+</div>
+                        <div className="flex-1 flex flex-col">
+                          <span className="text-xs font-bold text-zinc-200 uppercase tracking-wide group-hover:text-purple-400 transition-colors">Créer une partie</span>
+                          <span className="text-[10px] text-zinc-500 mt-0.5">Hébergez une room et invitez des joueurs</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          AudioEngine.getInstance().playSFX('select');
+                          setOnlineMode('join');
+                        }}
+                        className="w-full flex items-center gap-4 p-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 hover:border-blue-500/50 hover:bg-blue-950/10 hover:scale-[1.02] transition-all duration-300 text-left group cursor-pointer"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-lg font-black">→</div>
+                        <div className="flex-1 flex flex-col">
+                          <span className="text-xs font-bold text-zinc-200 uppercase tracking-wide group-hover:text-blue-400 transition-colors">Rejoindre une partie</span>
+                          <span className="text-[10px] text-zinc-500 mt-0.5">Entrez le code de la room</span>
+                        </div>
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => { setControllerType(null); setOnlineMode('menu'); }}
+                      className="mt-2 text-zinc-500 hover:text-white text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer"
+                    >
+                      Retour
+                    </button>
+                  </>
+                ) : onlineMode === 'join' ? (
+                  // Saisie du code de room
+                  <>
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Rejoindre une Partie</h3>
+                      <p className="text-[11px] text-zinc-400">Entrez le code de room donné par l'hôte.</p>
+                    </div>
+                    <input
+                      type="text"
+                      value={joinRoomCode}
+                      onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
+                      maxLength={6}
+                      placeholder="EX: A3K7NP"
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-zinc-800 text-white text-center text-2xl font-mono font-black tracking-[0.4em] focus:border-purple-500/50 focus:outline-none transition-colors uppercase"
+                      autoFocus
+                    />
+                    <div className="flex flex-col gap-3 mt-2">
+                      <button
+                        onClick={() => {
+                          if (joinRoomCode.length >= 4) {
+                            // Redirect to play page
+                            window.open(`${window.location.origin}/play/${joinRoomCode}`, '_blank');
+                            setIsControllerModalOpen(false);
+                          }
+                        }}
+                        disabled={joinRoomCode.length < 4}
+                        className="w-full py-3 rounded-full bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-black uppercase tracking-wider text-sm transition-all cursor-pointer"
+                      >
+                        Rejoindre
+                      </button>
+                      <button
+                        onClick={() => setOnlineMode('menu')}
+                        className="text-zinc-500 hover:text-white text-xs font-semibold tracking-wider uppercase transition-colors cursor-pointer"
+                      >
+                        Retour
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  // Lobby de la room (mode host)
+                  <>
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Room en Ligne</h3>
+                      <p className="text-[11px] text-zinc-400">Partagez ce code avec vos amis pour qu'ils rejoignent.</p>
+                    </div>
+
+                    {/* Room Code */}
+                    <div className="flex items-center justify-center gap-3 py-3">
+                      <div className="text-3xl font-mono font-black text-purple-400 tracking-[0.3em]">
+                        {onlineRoomRef.current?.getRoomCode() || '...'}
+                      </div>
+                      <button
+                        onClick={() => {
+                          const code = onlineRoomRef.current?.getRoomCode();
+                          if (code) {
+                            const url = `${window.location.origin}/play/${code}`;
+                            navigator.clipboard.writeText(url);
+                            setOnlineCopied(true);
+                            setTimeout(() => setOnlineCopied(false), 2000);
+                          }
+                        }}
+                        className="p-2 rounded-lg border border-zinc-800 hover:border-purple-500/40 text-zinc-400 hover:text-purple-400 transition-colors cursor-pointer"
+                      >
+                        {onlineCopied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                      </button>
+                    </div>
+
+                    {/* Connected players */}
+                    <div className="flex flex-col gap-2 w-full">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold flex items-center gap-1.5">
+                          <Users size={12} /> Joueurs en ligne
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-400">{onlinePlayers.length}/4</span>
+                      </div>
+                      {onlinePlayers.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {onlinePlayers.map((player) => {
+                            const colors = PLAYER_COLORS[player.playerNumber] || PLAYER_COLORS[0];
+                            return (
+                              <div key={player.userId} className={`flex items-center gap-2 p-2.5 rounded-xl border ${colors.border} ${colors.bg}`}>
+                                <div className={`w-2.5 h-2.5 rounded-full ${colors.dot} animate-pulse`} />
+                                <div className="flex flex-col">
+                                  <span className={`text-[10px] font-bold ${colors.text} uppercase tracking-wide`}>
+                                    {player.username} {player.isHost ? '👑' : ''}
+                                  </span>
+                                  <span className="text-[8px] text-zinc-500">P{player.playerNumber + 1}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-amber-500 text-xs font-bold bg-amber-950/40 border border-amber-800/40 px-4 py-2.5 rounded-xl justify-center">
+                          <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" />
+                          <span>En attente de joueurs...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-3 mt-2">
+                      <button
+                        onClick={() => {
+                          // Start the game as host
+                          onlineRoomRef.current?.startGame();
+                          setIsControllerModalOpen(false);
+                          handleStartGame();
+                        }}
+                        disabled={onlinePlayers.length < 2}
+                        className="w-full py-3 rounded-full bg-purple-600 hover:bg-purple-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-black uppercase tracking-wider text-sm transition-all cursor-pointer"
+                      >
+                        {onlinePlayers.length >= 2 ? `Lancer avec ${onlinePlayers.length} joueurs` : 'En attente d\'un 2ème joueur...'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          onlineSyncRef.current?.destroy();
+                          onlineRoomRef.current?.disconnect();
+                          onlineRoomRef.current = null;
+                          onlineSyncRef.current = null;
+                          setOnlinePlayers([]);
+                          setNetworkMode('local');
+                          setOnlineMode('menu');
+                          setControllerType(null);
+                        }}
+                        className="w-full py-3 rounded-full border border-red-900/30 text-red-500 hover:border-red-500/50 hover:bg-red-950/10 transition-all text-xs font-bold uppercase tracking-wider bg-zinc-950/40 cursor-pointer"
+                      >
+                        Fermer la room
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             ) : controllerType === 'pc' ? (
               // Mode PC sélectionné

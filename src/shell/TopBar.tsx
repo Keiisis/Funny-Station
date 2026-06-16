@@ -9,7 +9,7 @@ interface TopBarProps {
   funnyCoins: number;
   onOpenSettings?: () => void;
   onOpenControllerMenu?: () => void;
-  activeControllerType?: 'pc' | 'mobile' | null;
+  activeControllerType?: 'pc' | 'mobile' | 'online' | null;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -88,6 +88,8 @@ export const TopBar: React.FC<TopBarProps> = ({
                 ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.8)] animate-pulse' 
                 : activeControllerType === 'mobile'
                 ? 'text-emerald-400 drop-shadow-[0_0_4px_rgba(52,211,153,0.8)]'
+                : activeControllerType === 'online'
+                ? 'text-purple-400 drop-shadow-[0_0_4px_rgba(168,85,247,0.8)] animate-pulse'
                 : gamepadConnected
                 ? 'text-blue-400 drop-shadow-[0_0_4px_rgba(96,165,250,0.8)]'
                 : 'text-zinc-600'
@@ -98,12 +100,16 @@ export const TopBar: React.FC<TopBarProps> = ({
               ? 'text-blue-400 font-semibold' 
               : activeControllerType === 'mobile'
               ? 'text-emerald-400 font-semibold'
+              : activeControllerType === 'online'
+              ? 'text-purple-400 font-semibold'
               : 'text-zinc-500'
           }>
             {activeControllerType === 'pc'
               ? 'Manette PC' 
               : activeControllerType === 'mobile'
               ? 'Portable'
+              : activeControllerType === 'online'
+              ? 'En Ligne'
               : gamepadConnected
               ? 'Manette'
               : 'Clavier'}
