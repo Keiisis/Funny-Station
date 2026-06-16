@@ -1,0 +1,100 @@
+Tu es un Architecte Logiciel Senior et Expert en Systèmes de Bas Niveau (Low-Level) et Web. Ton objectif est de concevoir "Funny Station", une console de jeux universelle hébergée sur Vercel/Supabase.
+
+Concept : Une réplique exacte de l'UX/UI de la PlayStation 5, capable d'exécuter des jeux écrits en HTML5, C, C++, Rust, Python, Lua et Java grâce à une architecture de micro-runtimes isolés.
+
+1. Architecture Technique (The Stack) :
+
+Core : Next.js 14 (App Router) + TypeScript (Strict Mode).
+UI Engine : Tailwind CSS + Framer Motion (pour les transitions de focus et le glassmorphism).
+Universal Runtime Manager :
+WASM Bridge : Pour les langages compilés (C++, Rust, Go).
+Pyodide Integration : Pour l'exécution native de Python dans le navigateur.
+Fengari/Wasm-Lua : Pour le scripting Lua.
+Native JS : Pour le web standard.
+Backend : Supabase (PostgreSQL, Auth, Storage, Realtime).
+2. Spécifications de la "Funny Station" :
+
+PS5 Shell :
+Système de "User Accounts" avec sélection au démarrage (Supabase Auth).
+Dashboard horizontal fluide : chaque jeu affiche un arrière-plan dynamique et une musique d'ambiance spécifique lors du focus.
+Système de sons système (Navigation, Sélection, Trophées).
+Input Master : Gestion centralisée de la Gamepad API (DualSense, Xbox) et du clavier avec mapping universel.
+Virtual File System (VFS) : Les jeux doivent pouvoir lire/écrire des fichiers dans un système virtuel (IndexedDB) synchronisé avec le Cloud Supabase.
+Auto-Installer & Dependency Resolver :
+Lors de l'upload d'un .zip, le système analyse le code source.
+Il détecte les bibliothèques nécessaires et génère une Import Map dynamique ou charge le binaire WASM correspondant.
+3. Structure du Code & Modules :
+
+/shell : Gestion de l'interface, du menu principal et des paramètres.
+/kernel : Gestionnaire de processus (chargement/déchargement des runtimes WASM/JS).
+/drivers : Abstraction pour le Gamepad, le son (Web Audio API) et le rendu (Canvas/WebGL).
+/api/install : Logique de décompression et de configuration automatique des dépendances.
+4. Multijoueur & Social :
+
+Utilisation de Supabase Realtime pour le matchmaking et la synchronisation des inputs entre joueurs (P2P virtuel).
+Système de "Trophées" global accessible via une API interne au jeu.
+Demande : Génère la structure complète du projet, le schéma de base de données Supabase pour gérer des jeux multi-langages, et implémente le composant UniversalGameRunner capable de détecter le type de langage et de lancer le runtime approprié."
+
+🛠️ Roadmap Technique de l'Ingénieur (Plan de Bataille)
+Pour que ce projet soit une réussite totale, voici les 5 piliers que vous devez construire dans l'ordre :
+
+1. Le "Shell" (L'Expérience PS5)
+L'UI doit être irréprochable. Utilisez des shaders WebGL pour l'arrière-plan mouvant afin de ne pas consommer de CPU, laissant ainsi toute la puissance pour les jeux. Le "Focus Management" est crucial : l'utilisateur ne doit jamais avoir besoin d'une souris.
+
+2. La Machine Virtuelle Web (Universal Runner)
+C'est le cœur du système.
+
+Pour le C++/Rust, vous demanderez aux développeurs d'uploader un .wasm.
+Pour le Python, vous intégrerez Pyodide qui permet de faire tourner des scripts Python à la vitesse du C dans le navigateur.
+Le système doit injecter automatiquement un "SDK Funny Station" dans chaque jeu pour qu'ils puissent communiquer avec la console (ex: window.funnyStation.save()).
+3. Le Système de Fichiers Virtuel (VFS)
+Un jeu a besoin de sauvegarder des données. Comme on est sur le web, vous devez créer une couche qui fait croire au jeu qu'il écrit sur un disque dur (/home/user/save.dat), alors qu'en réalité, vous stockez cela dans Supabase Storage.
+
+4. Le Dependency Manager (L'intelligence d'installation)
+C'est votre demande spécifique. Quand un utilisateur upload un jeu :
+
+Analyse : Le script scanne les fichiers (ex: cherche un requirements.txt ou un package.json).
+Mapping : Il crée une configuration qui dit à la console : "Pour ce jeu, charge le runtime Python + la lib mathématique".
+Isolation : Le jeu tourne dans un Web Worker pour que si le jeu plante, la console reste allumée.
+5. Le Real-Time Multijoueur
+Grâce à Supabase Realtime, vous pouvez créer des salons. Les joueurs s'envoient leurs positions de manettes via des "broadcasts" ultra-rapides, permettant de jouer ensemble sans avoir besoin d'un serveur de jeu coûteux.
+
+💎 Ce qui rend la Funny Station "Surpuissante" :
+Ce n'est pas juste un catalogue de jeux, c'est une infrastructure de distribution. En supportant le WASM, vous permettez à des développeurs de porter des jeux faits sur Unity, Godot ou Unreal Engine directement sur votre plateforme.  et donc  Tu es un Architecte Logiciel Légendaire et Expert en Systèmes d'Exploitation Web. 
+Objectif : Concevoir "Funny Station", une console de jeux universelle et sociale, ultra-performante et auto-évolutive.
+
+1. ARCHITECTURE DU KERNEL (NOYAU SYSTÈME) :
+- Framework : Next.js 14 (App Router) + TypeScript (Strict Mode).
+- Universal Runtime Manager : Couche d'abstraction WebAssembly (WASM) supportant nativement :
+    * C++/Rust (via Emscripten/Wasm-Bindgen)
+    * Python (via Pyodide)
+    * Lua (via Fengari)
+    * Java (via CheerpJ)
+- Virtual Memory & Swap : Système de gestion de mémoire utilisant IndexedDB pour 'swapper' les assets lourds sans saturer la RAM du navigateur.
+- Isolation : Chaque jeu tourne dans un Web Worker dédié avec une Content Security Policy (CSP) stricte.
+
+2. UI/UX "PS5 ULTIMATE REPLICA" :
+- Moteur Graphique : Tailwind CSS + Framer Motion pour les transitions de 'Focus'.
+- Background : Shaders WebGL/WebGPU dynamiques (ondes PS5) réagissant aux inputs.
+- Audio Engine : Web Audio API pour le son spatialisé (3D Audio) et les SFX système.
+- Input System : Support WebHID pour les manettes DualSense (Haptique/Triggers) et Xbox, avec mapping universel.
+
+3. PIPELINE D'INSTALLATION INTELLIGENT :
+- Analyseur d'Upload : Analyse automatique des fichiers .zip (package.json, requirements.txt, etc.).
+- Dependency Injector : Génération dynamique d'Import Maps pour charger les runtimes et bibliothèques (Three.js, Phaser, etc.) depuis des CDNs optimisés.
+- Virtual File System (VFS) : Persistence des sauvegardes via une couche IndexedDB synchronisée avec Supabase Storage.
+
+4. SOCIAL & MULTIJOUEUR :
+- Matchmaking : Lobbies en temps réel via Supabase Realtime (Presence & Broadcast).
+- Trophy System : API interne permettant aux jeux d'enregistrer des succès sur le profil utilisateur.
+- Deep Linking : Système d'invitation par URL pour rejoindre instantanément une session de jeu.
+
+DEMANDE : 
+1. Fournis la structure de dossiers complète du projet.
+2. Écris le schéma SQL Supabase pour gérer les utilisateurs, les binaires de jeux, les dépendances et les sauvegardes.
+3. Implémente le 'UniversalRuntimeRunner' (le composant capable de switcher entre les runtimes WASM/Python/JS).
+4. Implémente le 'GamepadController' pour la navigation système et le support haptique.
+
+Le code doit être modulaire, documenté et prêt pour un déploiement sur Vercel.
+💡 Dernier conseil d'expert :
+Pour rendre la plateforme encore plus "folle", une fois le système de base construit, vous pourriez ajouter un "Spectator Mode" utilisant WebRTC. Cela permettrait à d'autres utilisateurs de regarder une partie en direct avec seulement 100ms de latence, transformant votre Funny Station en un mini "Twitch" intégré.

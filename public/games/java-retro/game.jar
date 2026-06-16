@@ -1,0 +1,3 @@
+Placeholder JAR File for CheerpJ Java VM.
+In a real production environment, this is a compiled Java JAR containing bytecode classes and manifests.
+For local loading tests, this acts as the game.jar binary entrypoint.
