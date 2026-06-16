@@ -165,7 +165,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         {/* Avatar Profil clickable */}
         <button
           onClick={() => handleTabClick('profile')}
-          className={`w-7 h-7 rounded-full bg-zinc-800 border overflow-hidden flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer ${
+          className={`w-7 h-7 rounded-lg bg-zinc-800 border overflow-hidden flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer ${
             activeTab === 'profile' ? 'border-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'border-zinc-700'
           }`}
           title={`Profil : ${username}`}

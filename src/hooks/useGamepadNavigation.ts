@@ -8,9 +8,12 @@ export const useGamepadNavigation = (
   setCurrentIndex: (index: number) => void,
   onConfirm: () => void,
   onBack?: () => void,
-  cols: number = 4
+  cols: number = 4,
+  disabled: boolean = false
 ) => {
   useEffect(() => {
+    if (disabled) return;
+    
     // 1. Gestion des touches du clavier pour émuler la manette
     const handleKeyDown = (e: KeyboardEvent) => {
       let direction: GamepadDirection | null = null;
@@ -52,9 +55,11 @@ export const useGamepadNavigation = (
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [disabled]);
 
   useEffect(() => {
+    if (disabled) return;
+
     // 2. Gestion de l'action de manette (et clavier émulé)
     const handleGamepadInput = (e: CustomEvent<{ direction: GamepadDirection }>) => {
       const direction = e.detail.direction;
@@ -94,5 +99,5 @@ export const useGamepadNavigation = (
     return () => {
       window.removeEventListener('funny_gamepad_action', handleGamepadInput as EventListener);
     };
-  }, [currentIndex, itemsCount, cols, onConfirm, onBack, setCurrentIndex]);
+  }, [currentIndex, itemsCount, cols, onConfirm, onBack, setCurrentIndex, disabled]);
 };

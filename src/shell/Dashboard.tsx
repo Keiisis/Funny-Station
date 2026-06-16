@@ -147,6 +147,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [controllerType, setControllerType] = useState<'pc' | 'mobile' | 'online' | null>(null);
   const [lobbyId, setLobbyId] = useState<string>('');
   const [connectedPlayers, setConnectedPlayers] = useState<ConnectedPlayer[]>([]);
+  const connectedPlayersRef = useRef<ConnectedPlayer[]>([]);
+  useEffect(() => {
+    connectedPlayersRef.current = connectedPlayers;
+  }, [connectedPlayers]);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   // Online multiplayer state
@@ -211,8 +215,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
 
     channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => {
       const { userId, direction } = payload;
-      const playerIdx = connectedPlayers.findIndex(p => p.userId === userId);
-      const playerNumber = playerIdx >= 0 ? connectedPlayers[playerIdx].playerNumber : 0;
+      const playerIdx = connectedPlayersRef.current.findIndex(p => p.userId === userId);
+      const playerNumber = playerIdx >= 0 ? connectedPlayersRef.current[playerIdx].playerNumber : 0;
       
       window.dispatchEvent(
         new CustomEvent('funny_gamepad_action', { 
@@ -279,7 +283,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         Object.entries(state).forEach(([key, presences]: [string, any]) => {
           presences.forEach((p: any) => {
             if (p.type === 'controller') {
-              const existingPlayer = connectedPlayers.find(cp => cp.userId === p.userId);
+              const existingPlayer = connectedPlayersRef.current.find(cp => cp.userId === p.userId);
               controllers.push({
                 userId: p.userId,
                 playerNumber: existingPlayer ? existingPlayer.playerNumber : controllers.length,
@@ -318,7 +322,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       clearInterval(pingInterval);
       channel.unsubscribe();
     };
-  }, [controllerType, lobbyId, profile.id, connectedPlayers]);
+  }, [controllerType, lobbyId, profile.id]);
 
   const activeGame = games[focusedIndex];
 
@@ -589,17 +593,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   loop
                   muted
                   playsInline
-                  className="absolute inset-0 w-full h-full object-cover opacity-25"
+                  className="absolute inset-0 w-full h-full object-cover opacity-65"
                 />
               ) : (
                 <div 
                   key={activeGame.id}
-                  className="absolute inset-0 bg-cover bg-center opacity-20"
+                  className="absolute inset-0 bg-cover bg-center opacity-50"
                   style={{ backgroundImage: `url(${activeGame.background_url})` }}
                 />
               )}
-              {/* Bottom & Top ambient shadow for console styling */}
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-black/20" />
+              {/* Shading gradients to keep text readable on the left and trophies panel readable on the bottom */}
+              <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/40 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/30 pointer-events-none" />
             </div>
           )}
 
