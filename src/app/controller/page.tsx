@@ -3,15 +3,29 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
-import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, Play } from 'lucide-react';
+import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, Play, User } from 'lucide-react';
+
+// Couleurs correspondant aux assignations du Dashboard
+const PLAYER_COLORS = [
+  { text: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/40', label: 'Joueur 1' },
+  { text: 'text-rose-400', bg: 'bg-rose-500/20', border: 'border-rose-500/40', label: 'Joueur 2' },
+  { text: 'text-emerald-400', bg: 'bg-emerald-500/20', border: 'border-emerald-500/40', label: 'Joueur 3' },
+  { text: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/40', label: 'Joueur 4' },
+];
 
 function ControllerContent() {
   const searchParams = useSearchParams();
   const lobbyId = searchParams.get('lobbyId') || 'demo-lobby';
-  const userId = searchParams.get('userId') || `mobile-${Math.random().toString(36).substring(2, 7)}`;
+  // Chaque téléphone génère un ID unique stable (pas de userId dans l'URL pour le multi)
+  const userIdRef = useRef(
+    searchParams.get('userId') || `mobile-${Math.random().toString(36).substring(2, 9)}`
+  );
+  const userId = userIdRef.current;
 
   const [connected, setConnected] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
+  const [playerNumber, setPlayerNumber] = useState<number | null>(null);
+  const [totalPlayers, setTotalPlayers] = useState(0);
   const [activeButton, setActiveButton] = useState<string | null>(null);
   const [latency, setLatency] = useState<number>(0);
   const channelRef = useRef<any>(null);
@@ -67,6 +81,15 @@ function ControllerContent() {
     channel.on('broadcast', { event: 'latency_update' }, ({ payload }: any) => {
       if (payload.userId === userId) {
         setLatency(payload.latency);
+      }
+    });
+
+    // Écouter les assignations de joueur envoyées par la console
+    channel.on('broadcast', { event: 'player_assignment' }, ({ payload }: any) => {
+      if (payload.userId === userId) {
+        setPlayerNumber(payload.playerNumber);
+        setTotalPlayers(payload.totalPlayers);
+        console.log(`[Controller] Assigné comme Joueur ${payload.playerNumber + 1} sur ${payload.totalPlayers}`);
       }
     });
 
@@ -216,6 +239,7 @@ function ControllerContent() {
 
   // Determine display status
   const isConnected = connected || subscribed;
+  const playerColor = playerNumber !== null ? PLAYER_COLORS[playerNumber] : null;
 
   return (
     <div className="controller-landscape fixed inset-0 w-screen h-screen select-none overflow-hidden flex flex-col justify-between text-white p-4"
@@ -226,15 +250,33 @@ function ControllerContent() {
       {/* Barre d'État Mobile */}
       <div className="w-full flex items-center justify-between px-3 py-2 rounded-2xl glass-panel border border-zinc-800/60 backdrop-blur-md">
         <div className="flex items-center gap-2">
-          <Smartphone size={16} className="text-zinc-400" />
-          <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-300">
-            Funny Portal v1.0
-          </span>
+          {playerColor ? (
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${playerColor.bg} ${playerColor.border} border`}>
+              <User size={12} className={playerColor.text} />
+              <span className={`text-[10px] uppercase tracking-widest font-black ${playerColor.text}`}>
+                {playerColor.label}
+              </span>
+            </div>
+          ) : (
+            <>
+              <Smartphone size={16} className="text-zinc-400" />
+              <span className="text-[10px] uppercase tracking-widest font-bold text-zinc-300">
+                Funny Portal v1.0
+              </span>
+            </>
+          )}
         </div>
         
-        {/* Salon Info */}
-        <div className="text-[9px] text-zinc-500 font-mono tracking-wider max-w-[100px] truncate">
-          Canal: {lobbyId}
+        {/* Salon Info + nombre de joueurs */}
+        <div className="flex items-center gap-3">
+          {totalPlayers > 0 && (
+            <span className="text-[9px] text-zinc-400 font-mono">
+              {totalPlayers} joueur{totalPlayers > 1 ? 's' : ''}
+            </span>
+          )}
+          <span className="text-[9px] text-zinc-500 font-mono tracking-wider max-w-[80px] truncate">
+            {lobbyId}
+          </span>
         </div>
 
         {/* Status Connexion */}

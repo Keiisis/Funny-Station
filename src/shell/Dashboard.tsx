@@ -8,9 +8,31 @@ import { GameCard } from './GameCard';
 import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { FunnyStudio } from './FunnyStudio';
-import { Play, Code, Trophy as TrophyIcon, ChevronRight, CornerDownLeft, CircleAlert, Gamepad, Smartphone } from 'lucide-react';
+import { Play, Code, Trophy as TrophyIcon, ChevronRight, CornerDownLeft, CircleAlert, Gamepad, Smartphone, Users } from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
 import QRCode from 'qrcode';
+
+// Couleurs par joueur pour l'UI
+const PLAYER_COLORS = [
+  { text: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/30', dot: 'bg-blue-400', label: 'Joueur 1' },
+  { text: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/30', dot: 'bg-rose-400', label: 'Joueur 2' },
+  { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', dot: 'bg-emerald-400', label: 'Joueur 3' },
+  { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', dot: 'bg-amber-400', label: 'Joueur 4' },
+];
+
+// Mapping clavier par joueur (P1: Flèches, P2: ZQSD, P3: IJKL, P4: Numpad)
+const PLAYER_KEY_MAPS: Record<string, string>[] = [
+  { 'UP': 'ArrowUp', 'DOWN': 'ArrowDown', 'LEFT': 'ArrowLeft', 'RIGHT': 'ArrowRight', 'CONFIRM': 'Enter', 'BACK': 'Escape', 'OPTION': 'Escape', 'TRIANGLE': 'ArrowUp', 'SQUARE': ' ' },
+  { 'UP': 'w', 'DOWN': 's', 'LEFT': 'a', 'RIGHT': 'd', 'CONFIRM': 'e', 'BACK': 'q', 'OPTION': 'q', 'TRIANGLE': 'w', 'SQUARE': 'f' },
+  { 'UP': 'i', 'DOWN': 'k', 'LEFT': 'j', 'RIGHT': 'l', 'CONFIRM': 'o', 'BACK': 'u', 'OPTION': 'u', 'TRIANGLE': 'i', 'SQUARE': 'h' },
+  { 'UP': '8', 'DOWN': '5', 'LEFT': '4', 'RIGHT': '6', 'CONFIRM': '0', 'BACK': '7', 'OPTION': '7', 'TRIANGLE': '8', 'SQUARE': '1' },
+];
+
+interface ConnectedPlayer {
+  userId: string;
+  playerNumber: number;
+  connectedAt: string;
+}
 
 interface ProfileData {
   id: string;
@@ -117,16 +139,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [isControllerModalOpen, setIsControllerModalOpen] = useState(false);
   const [controllerType, setControllerType] = useState<'pc' | 'mobile' | null>(null);
   const [lobbyId, setLobbyId] = useState<string>('');
-  const [isMobileConnected, setIsMobileConnected] = useState(false);
+  const [connectedPlayers, setConnectedPlayers] = useState<ConnectedPlayer[]>([]);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   // Générer le code QR localement sous forme de Data URL base64
+  // Ne pas inclure userId dans l'URL — chaque téléphone génère son propre ID unique
   useEffect(() => {
     if (!lobbyId || typeof window === 'undefined') {
       setQrCodeUrl('');
       return;
     }
-    const controllerUrl = `${window.location.origin}/controller?lobbyId=${lobbyId}&userId=${profile.id}`;
+    const controllerUrl = `${window.location.origin}/controller?lobbyId=${lobbyId}`;
     QRCode.toDataURL(controllerUrl, {
       width: 256,
       margin: 1,
@@ -137,52 +160,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     })
       .then(url => setQrCodeUrl(url))
       .catch(err => console.error('Erreur génération QR Code local:', err));
-  }, [lobbyId, profile.id]);
+  }, [lobbyId]);
 
-  // Gérer la connexion temps réel avec la manette mobile
+  // Gérer la connexion temps réel avec les manettes mobiles (multi-joueurs)
   useEffect(() => {
     if (controllerType !== 'mobile' || !lobbyId) {
-      setIsMobileConnected(false);
+      setConnectedPlayers([]);
       return;
     }
 
-    console.log(`[Dashboard] Connexion au canal de manette: lobby:${lobbyId}`);
+    console.log(`[Dashboard] Connexion au canal multi-manettes: lobby:${lobbyId}`);
     const channel = supabase.channel(`lobby:${lobbyId}`, {
       config: {
         broadcast: { self: false, ack: false },
-        presence: { key: profile.id }
+        presence: { key: `console-${profile.id}` }
       }
     });
 
-    // Écouter les événements de la manette virtuelle
+    // Écouter les événements de TOUTES les manettes virtuelles
     channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => {
-      console.log("[Dashboard] Input reçu de la manette mobile:", payload.direction);
+      const { userId, direction } = payload;
       
-      // 1. Émettre l'action via CustomEvent pour la navigation du Dashboard
+      // Trouver le numéro de joueur de ce contrôleur
+      const playerIdx = connectedPlayers.findIndex(p => p.userId === userId);
+      const playerNumber = playerIdx >= 0 ? connectedPlayers[playerIdx].playerNumber : 0;
+      
+      console.log(`[Dashboard] Input P${playerNumber + 1} (${userId}): ${direction}`);
+      
+      // 1. Émettre l'action via CustomEvent avec l'info du joueur
       window.dispatchEvent(
-        new CustomEvent('funny_gamepad_action', { detail: { direction: payload.direction } })
+        new CustomEvent('funny_gamepad_action', { 
+          detail: { direction, playerNumber, userId } 
+        })
       );
       
-      // 2. Traduire les directions en événements clavier pour les jeux dans les iframes
-      const directionToKey: Record<string, string> = {
-        'UP': 'ArrowUp',
-        'DOWN': 'ArrowDown',
-        'LEFT': 'ArrowLeft',
-        'RIGHT': 'ArrowRight',
-        'CONFIRM': 'Enter',
-        'BACK': 'Escape',
-        'OPTION': 'Escape',
-        'TRIANGLE': 'ArrowUp',
-        'SQUARE': ' '
-      };
+      // 2. Traduire avec le mapping clavier spécifique au joueur
+      const keyMap = PLAYER_KEY_MAPS[playerNumber] || PLAYER_KEY_MAPS[0];
+      const keyName = keyMap[direction];
       
-      const keyName = directionToKey[payload.direction];
       if (keyName) {
-        // Dispatch on parent window (for Dashboard navigation + games listening on parent)
+        // Dispatch on parent window
         const keydownEvt = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
         window.dispatchEvent(keydownEvt);
         
-        // Also dispatch into all iframes (for sandboxed games like Neon Runner)
+        // Also dispatch into all iframes (for sandboxed games)
         const iframes = document.querySelectorAll('iframe');
         iframes.forEach(iframe => {
           try {
@@ -191,14 +212,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
               const iframeKeydown = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
               iframeWindow.dispatchEvent(iframeKeydown);
               
-              // Send keyup after a short delay to simulate a button press
               setTimeout(() => {
                 const iframeKeyup = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
                 iframeWindow.dispatchEvent(iframeKeyup);
               }, 100);
             }
           } catch (e) {
-            // Cross-origin iframe - can't dispatch events
             console.warn('[Dashboard] Impossible de relayer les inputs dans l\'iframe:', e);
           }
         });
@@ -232,14 +251,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       });
     }, 3000);
 
-    // Écouter les présences pour savoir si la manette est connectée
+    // Écouter les présences pour détecter tous les contrôleurs connectés
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const hasMobile = Object.values(state).some((presences: any) =>
-          presences.some((p: any) => p.type === 'controller')
-        );
-        setIsMobileConnected(hasMobile);
+        const controllers: ConnectedPlayer[] = [];
+        
+        Object.entries(state).forEach(([key, presences]: [string, any]) => {
+          presences.forEach((p: any) => {
+            if (p.type === 'controller') {
+              // Vérifier si ce joueur existe déjà dans notre liste
+              const existingPlayer = connectedPlayers.find(cp => cp.userId === p.userId);
+              controllers.push({
+                userId: p.userId,
+                playerNumber: existingPlayer ? existingPlayer.playerNumber : controllers.length,
+                connectedAt: p.online_at || new Date().toISOString()
+              });
+            }
+          });
+        });
+        
+        // Assigner les numéros de joueur séquentiellement (max 4)
+        controllers.sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
+        controllers.forEach((c, idx) => {
+          c.playerNumber = Math.min(idx, 3);
+        });
+        
+        setConnectedPlayers(controllers);
+        
+        // Envoyer les assignations aux manettes
+        controllers.forEach(c => {
+          channel.send({
+            type: 'broadcast',
+            event: 'player_assignment',
+            payload: { 
+              userId: c.userId, 
+              playerNumber: c.playerNumber, 
+              totalPlayers: controllers.length 
+            }
+          });
+        });
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
@@ -251,7 +302,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       clearInterval(pingInterval);
       channel.unsubscribe();
     };
-  }, [controllerType, lobbyId, profile.id]);
+  }, [controllerType, lobbyId, profile.id, connectedPlayers]);
 
   const activeGame = games[focusedIndex];
 
@@ -585,15 +636,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 </div>
               </>
             ) : (
-              // Mode Mobile sélectionné (QR Code & Connexion)
+              // Mode Mobile sélectionné (QR Code & Connexion Multi-Joueurs)
               <>
                 <div className="flex flex-col gap-2">
-                  <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Connexion Manette Portable</h3>
-                  <p className="text-[11px] text-zinc-400">Scannez le QR Code ci-dessous avec votre appareil photo mobile pour vous connecter.</p>
+                  <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase">Connexion Manettes</h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Scannez le QR Code avec chaque téléphone pour rejoindre la partie. Jusqu'à 4 joueurs simultanés.
+                  </p>
                 </div>
 
                 {/* QR Code */}
-                <div className="my-3 flex justify-center p-4 bg-white rounded-2xl w-48 h-48 mx-auto shadow-lg relative overflow-hidden">
+                <div className="my-3 flex justify-center p-4 bg-white rounded-2xl w-44 h-44 mx-auto shadow-lg relative overflow-hidden">
                   {qrCodeUrl ? (
                     <img
                       src={qrCodeUrl}
@@ -608,22 +661,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   )}
                 </div>
 
-                {/* Statut de Connexion */}
-                <div className="flex flex-col items-center gap-1.5 py-2">
-                  {isMobileConnected ? (
-                    <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-950/40 border border-emerald-800/40 px-4 py-2 rounded-full animate-pulse">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                      <span>Manette connectée !</span>
+                {/* Liste des joueurs connectés */}
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold flex items-center gap-1.5">
+                      <Users size={12} />
+                      Manettes connectées
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-400">
+                      {connectedPlayers.length}/4
+                    </span>
+                  </div>
+
+                  {connectedPlayers.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {connectedPlayers.map((player) => {
+                        const colors = PLAYER_COLORS[player.playerNumber] || PLAYER_COLORS[0];
+                        return (
+                          <div
+                            key={player.userId}
+                            className={`flex items-center gap-2 p-2.5 rounded-xl border ${colors.border} ${colors.bg}`}
+                          >
+                            <div className={`w-2.5 h-2.5 rounded-full ${colors.dot} animate-pulse`} />
+                            <div className="flex flex-col">
+                              <span className={`text-[10px] font-bold ${colors.text} uppercase tracking-wide`}>
+                                {colors.label}
+                              </span>
+                              <span className="text-[8px] text-zinc-500 font-mono">
+                                {player.userId.substring(0, 12)}...
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 text-amber-500 text-xs font-bold bg-amber-950/40 border border-amber-800/40 px-4 py-2 rounded-full">
-                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-bounce" />
-                      <span>En attente de connexion...</span>
+                    <div className="flex items-center gap-2 text-amber-500 text-xs font-bold bg-amber-950/40 border border-amber-800/40 px-4 py-2.5 rounded-xl justify-center">
+                      <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" />
+                      <span>En attente de joueurs...</span>
                     </div>
                   )}
-                  <span className="text-[9px] text-zinc-500 font-mono tracking-wider max-w-xs break-all mt-1 leading-snug">
-                    URL : {typeof window !== 'undefined' ? `${window.location.origin}/controller?lobbyId=${lobbyId}` : ''}
-                  </span>
                 </div>
 
                 <div className="flex flex-col gap-3 mt-2">
@@ -631,17 +708,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                     onClick={() => setIsControllerModalOpen(false)}
                     className="w-full py-3 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
                   >
-                    {isMobileConnected ? 'Continuer avec la manette' : 'Masquer (garder la connexion)'}
+                    {connectedPlayers.length > 0 
+                      ? `Jouer avec ${connectedPlayers.length} joueur${connectedPlayers.length > 1 ? 's' : ''}` 
+                      : 'Masquer (garder la connexion)'}
                   </button>
                   <button
                     onClick={() => {
                       setControllerType(null);
                       setLobbyId('');
+                      setConnectedPlayers([]);
                       AudioEngine.getInstance().playSFX('select');
                     }}
                     className="w-full py-3 rounded-full border border-red-900/30 text-red-500 hover:border-red-500/50 hover:bg-red-950/10 transition-all text-xs font-bold uppercase tracking-wider bg-zinc-950/40 cursor-pointer"
                   >
-                    Déconnecter et annuler
+                    Déconnecter tout
                   </button>
                 </div>
               </>
