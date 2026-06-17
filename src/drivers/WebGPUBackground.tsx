@@ -209,7 +209,7 @@ export const WebGPUBackground: React.FC = () => {
     if (htmlThemeClass) {
       applyThemeColors(htmlThemeClass);
     } else {
-      const saved = localStorage.getItem('funny_station_theme');
+      const saved = sessionStorage.getItem('funny_station_theme');
       if (saved) applyThemeColors(saved);
     }
 

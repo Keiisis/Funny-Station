@@ -7,11 +7,11 @@ const THEMES = ['noir', 'blanc', 'vert', 'rouge', 'jaune', 'bleu'];
 export const ThemeManager: React.FC = () => {
   useEffect(() => {
     // Restaurer ou générer un thème aléatoire
-    let savedTheme = localStorage.getItem('funny_station_theme');
+    let savedTheme = sessionStorage.getItem('funny_station_theme');
     if (!savedTheme || !THEMES.includes(savedTheme)) {
       const randomIdx = Math.floor(Math.random() * THEMES.length);
       savedTheme = THEMES[randomIdx];
-      localStorage.setItem('funny_station_theme', savedTheme);
+      sessionStorage.setItem('funny_station_theme', savedTheme);
     }
     
     // Appliquer le thème sur l'élément HTML

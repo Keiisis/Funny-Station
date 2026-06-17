@@ -377,13 +377,50 @@ body {
   --accent-color-hover: #2563eb;
 }
 
+/* --- GLOBAL THEME APPLICATION --- */
+.theme-noir, .theme-blanc, .theme-vert, .theme-rouge, .theme-jaune, .theme-bleu {
+  body,
+  .bg-zinc-950,
+  .bg-slate-950,
+  .bg-black {
+    background-color: var(--background-fallback) !important;
+  }
+
+  .glass-panel {
+    background: var(--panel-bg) !important;
+    border-color: var(--panel-border) !important;
+  }
+  
+  .glass-panel-active {
+    background: var(--panel-active-bg) !important;
+    border-color: var(--panel-active-border) !important;
+    box-shadow: 0 0 20px var(--panel-shadow) !important;
+  }
+
+  .bg-\[\#0d162a\]\/60,
+  .bg-\[\#101930\],
+  .bg-\[\#070b13\],
+  .bg-zinc-950\/20,
+  .bg-zinc-950\/40,
+  .bg-zinc-950\/60,
+  .bg-zinc-950\/70 {
+    background-color: var(--panel-bg) !important;
+  }
+
+  .border-zinc-800,
+  .border-zinc-850,
+  .border-zinc-900,
+  .border-zinc-855 {
+    border-color: var(--panel-border) !important;
+  }
+}
+
 /* Specific styling overrides for theme-blanc to convert light colors to dark */
 .theme-blanc body,
 .theme-blanc.bg-zinc-950,
 .theme-blanc .bg-zinc-950,
 .theme-blanc .bg-slate-950,
 .theme-blanc .bg-black {
-  background-color: var(--background-fallback) !important;
   color: var(--text-primary) !important;
 }
 
@@ -391,31 +428,21 @@ body {
 .theme-blanc .text-white,
 .theme-blanc .text-zinc-100,
 .theme-blanc .text-zinc-200,
-.theme-blanc .text-zinc-300 {
+.theme-blanc .text-zinc-300,
+.theme-blanc h1,
+.theme-blanc h2,
+.theme-blanc h3,
+.theme-blanc h4,
+.theme-blanc span {
   color: var(--text-primary) !important;
 }
 
 .theme-blanc .text-zinc-350,
 .theme-blanc .text-zinc-400,
 .theme-blanc .text-zinc-500,
-.theme-blanc .text-slate-400 {
+.theme-blanc .text-slate-400,
+.theme-blanc p {
   color: var(--text-muted) !important;
-}
-
-.theme-blanc .border-zinc-800,
-.theme-blanc .border-zinc-850,
-.theme-blanc .border-zinc-900,
-.theme-blanc .border-zinc-855 {
-  border-color: rgba(15, 23, 42, 0.08) !important;
-}
-
-.theme-blanc .bg-\[\#0d162a\]\/60,
-.theme-blanc .bg-\[\#101930\],
-.theme-blanc .bg-\[\#070b13\],
-.theme-blanc .bg-zinc-950\/20,
-.theme-blanc .bg-zinc-950\/40,
-.theme-blanc .bg-zinc-950\/60 {
-  background-color: var(--panel-bg) !important;
 }
 
 .theme-blanc .bg-zinc-900 {
