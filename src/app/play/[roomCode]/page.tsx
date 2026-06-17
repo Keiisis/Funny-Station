@@ -7,7 +7,8 @@ import { GameRoom } from '@/multiplayer/GameRoom';
 import { GameStateSync } from '@/multiplayer/GameStateSync';
 import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
 import type { OnlinePlayer } from '@/types';
-import { Users, Wifi, WifiOff, Copy, Check, ArrowLeft, Gamepad } from 'lucide-react';
+import { Users, Wifi, WifiOff, Copy, Check, ArrowLeft, Gamepad, Smartphone, X } from 'lucide-react';
+import QRCode from 'qrcode';
 
 const PLAYER_COLORS = [
   { text: 'text-blue-400', bg: 'bg-blue-500/15', border: 'border-blue-500/30', dot: 'bg-blue-400' },
@@ -29,8 +30,17 @@ function PlayContent() {
   const [username, setUsername] = useState('');
   const [hasJoined, setHasJoined] = useState(false);
 
+  // Stable guest ID — persists across re-renders and joinGame calls
+  const guestIdRef = useRef<string>(`guest-${Math.random().toString(36).substring(2, 11)}`);
+  const guestId = guestIdRef.current;
+
+  // Mobile controller state for guest
+  const [showControllerModal, setShowControllerModal] = useState(false);
+  const [guestQrCodeUrl, setGuestQrCodeUrl] = useState<string>('');
+
   const roomRef = useRef<GameRoom | null>(null);
   const syncRef = useRef<GameStateSync | null>(null);
+  const controllerChannelRef = useRef<any>(null);
 
   // Auto-generate guest username
   useEffect(() => {
@@ -38,14 +48,63 @@ function PlayContent() {
     setUsername(guestName);
   }, []);
 
+  // Generate QR Code for guest mobile controller
+  useEffect(() => {
+    if (!roomCode || typeof window === 'undefined') return;
+    const controllerUrl = `${window.location.origin}/controller?lobbyId=${roomCode}&clientPlayerId=${guestId}`;
+    QRCode.toDataURL(controllerUrl, {
+      width: 256,
+      margin: 1,
+      color: { dark: '#020617', light: '#ffffff' }
+    })
+      .then(url => setGuestQrCodeUrl(url))
+      .catch(err => console.error('Erreur génération QR Code invité:', err));
+  }, [roomCode, guestId]);
+
+  // Subscribe to Supabase channel for guest controller inputs
+  useEffect(() => {
+    if (!hasJoined || !roomCode) return;
+
+    const channel = supabase.channel(`lobby:${roomCode}`, {
+      config: {
+        broadcast: { self: false, ack: false },
+        presence: { key: `guest-console-${guestId}` }
+      }
+    });
+
+    controllerChannelRef.current = channel;
+
+    channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => {
+      const { direction, action, clientPlayerId } = payload;
+      // Only process inputs from this guest's own mobile controller
+      if (clientPlayerId !== guestId) return;
+
+      const effectiveAction = action || 'down';
+
+      // Relay the input to the host via GameStateSync
+      if (syncRef.current) {
+        syncRef.current.sendInput(direction, localPlayerNumber, '', effectiveAction);
+      }
+    });
+
+    channel
+      .subscribe(async (status: string) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ online_at: new Date().toISOString(), type: 'guest-console' });
+        }
+      });
+
+    return () => {
+      channel.unsubscribe();
+      controllerChannelRef.current = null;
+    };
+  }, [hasJoined, roomCode, guestId, localPlayerNumber]);
+
   const joinGame = async () => {
     if (!roomCode || !username.trim()) return;
 
     setStatus('connecting');
     setHasJoined(true);
-
-    // Generate a unique guest ID
-    const guestId = `guest-${Math.random().toString(36).substring(2, 11)}`;
 
     const room = GameRoom.joinRoom(roomCode, {
       id: guestId,
@@ -210,6 +269,15 @@ function PlayContent() {
             )}
           </div>
 
+          {/* Mobile Controller Button */}
+          <button
+            onClick={() => setShowControllerModal(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-500/50 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+          >
+            <Smartphone size={14} />
+            Manette Portable
+          </button>
+
           {/* Share link */}
           <button
             onClick={copyLink}
@@ -223,6 +291,41 @@ function PlayContent() {
             L&apos;hôte lancera la partie quand tout le monde sera prêt.
           </p>
         </div>
+
+        {/* Mobile Controller Modal */}
+        {showControllerModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in">
+            <div className="glass-panel max-w-sm w-full p-6 rounded-3xl border border-zinc-800/80 flex flex-col items-center gap-4 text-center shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+              <div className="w-full flex items-center justify-between">
+                <h3 className="text-sm font-black tracking-wider text-zinc-100 uppercase">Manette Portable</h3>
+                <button
+                  onClick={() => setShowControllerModal(false)}
+                  className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-400">
+                Scannez ce QR Code avec votre téléphone pour l&apos;utiliser comme manette tactile.
+              </p>
+              <div className="p-3 bg-white rounded-2xl w-40 h-40 shadow-lg flex items-center justify-center">
+                {guestQrCodeUrl ? (
+                  <img src={guestQrCodeUrl} alt="QR Manette Invité" className="w-full h-full object-contain" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-zinc-900 text-xs">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-zinc-900" />
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setShowControllerModal(false)}
+                className="w-full py-2.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -269,6 +372,13 @@ function PlayContent() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowControllerModal(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded-full border border-emerald-500/30 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40 text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+          >
+            <Smartphone size={10} />
+            Manette
+          </button>
           <span className="text-[9px] text-zinc-500 font-mono">{roomCode}</span>
           <span className="text-[9px] text-zinc-600">{players.length} joueurs</span>
         </div>
@@ -287,6 +397,41 @@ function PlayContent() {
           localPlayerNumber={localPlayerNumber}
         />
       </div>
+
+      {/* Mobile Controller Modal (in-game) */}
+      {showControllerModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in">
+          <div className="glass-panel max-w-sm w-full p-6 rounded-3xl border border-zinc-800/80 flex flex-col items-center gap-4 text-center shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+            <div className="w-full flex items-center justify-between">
+              <h3 className="text-sm font-black tracking-wider text-zinc-100 uppercase">Manette Portable</h3>
+              <button
+                onClick={() => setShowControllerModal(false)}
+                className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-[10px] text-zinc-400">
+              Scannez ce QR Code avec votre téléphone pour l&apos;utiliser comme manette tactile.
+            </p>
+            <div className="p-3 bg-white rounded-2xl w-40 h-40 shadow-lg flex items-center justify-center">
+              {guestQrCodeUrl ? (
+                <img src={guestQrCodeUrl} alt="QR Manette Invité" className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-zinc-900 text-xs">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-zinc-900" />
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setShowControllerModal(false)}
+              className="w-full py-2.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -302,3 +447,4 @@ export default function PlayPage() {
     </Suspense>
   );
 }
+

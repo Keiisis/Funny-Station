@@ -12,7 +12,7 @@ export class GameStateSync {
   private channel: any;
   private isHost: boolean;
   private stateListeners: ((state: GameState) => void)[] = [];
-  private inputListeners: ((input: { direction: string; playerNumber: number; userId: string }) => void)[] = [];
+  private inputListeners: ((input: { direction: string; playerNumber: number; userId: string; action: string }) => void)[] = [];
   private lastBroadcastTime = 0;
   private broadcastInterval = 33; // ~30fps
 
@@ -31,7 +31,8 @@ export class GameStateSync {
         this.inputListeners.forEach(l => l({
           direction: payload.direction,
           playerNumber: payload.playerNumber,
-          userId: payload.userId
+          userId: payload.userId,
+          action: payload.action || 'down'
         }));
       });
     } else {
@@ -62,13 +63,13 @@ export class GameStateSync {
   /**
    * [CLIENT] Envoie un input au host
    */
-  sendInput(direction: string, playerNumber: number, userId: string) {
+  sendInput(direction: string, playerNumber: number, userId: string, action: string = 'down') {
     if (this.isHost || !this.channel) return;
 
     this.channel.send({
       type: 'broadcast',
       event: 'player_input',
-      payload: { direction, playerNumber, userId }
+      payload: { direction, playerNumber, userId, action }
     });
   }
 
@@ -85,7 +86,7 @@ export class GameStateSync {
   /**
    * [HOST] Écoute les inputs des joueurs distants
    */
-  onInputReceived(listener: (input: { direction: string; playerNumber: number; userId: string }) => void) {
+  onInputReceived(listener: (input: { direction: string; playerNumber: number; userId: string; action: string }) => void) {
     this.inputListeners.push(listener);
     return () => {
       this.inputListeners = this.inputListeners.filter(l => l !== listener);

@@ -139,7 +139,8 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           iframeRef.current.contentWindow.postMessage({
             type: 'REMOTE_PLAYER_INPUT',
             direction: input.direction,
-            playerNumber: input.playerNumber
+            playerNumber: input.playerNumber,
+            action: input.action || 'down'
           }, '*');
         }
       });
@@ -167,7 +168,8 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           gameStateSync.sendInput(
             event.data.direction,
             event.data.playerNumber ?? localPlayerNumber,
-            ''
+            '',
+            event.data.action || 'down'
           );
         }
       };

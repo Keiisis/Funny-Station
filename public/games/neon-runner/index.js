@@ -83,7 +83,8 @@ window.addEventListener('keydown', (e) => {
       window.parent.postMessage({
         type: 'GAME_INPUT',
         direction: direction,
-        playerNumber: localPlayerNumber
+        playerNumber: localPlayerNumber,
+        action: 'down'
       }, '*');
     }
   }
@@ -91,6 +92,23 @@ window.addEventListener('keydown', (e) => {
 
 window.addEventListener('keyup', (e) => {
   keys[e.key] = false;
+
+  // In CLIENT mode, forward key release to parent
+  if (networkMode === 'client') {
+    const directionMap = {
+      'ArrowUp': 'UP', 'ArrowDown': 'DOWN', 'ArrowLeft': 'LEFT', 'ArrowRight': 'RIGHT',
+      'Enter': 'CONFIRM', ' ': 'CONFIRM', 'Escape': 'BACK'
+    };
+    const direction = directionMap[e.key];
+    if (direction && window.parent) {
+      window.parent.postMessage({
+        type: 'GAME_INPUT',
+        direction: direction,
+        playerNumber: localPlayerNumber,
+        action: 'up'
+      }, '*');
+    }
+  }
 });
 
 // Listen for parent window keyboard events (mobile controller relay)
@@ -113,6 +131,7 @@ try {
 function handleGamepadAction(e) {
   const playerNum = e.detail?.playerNumber || 0;
   const direction = e.detail?.direction;
+  const action = e.detail?.action || 'down';
   if (playerNum >= 1) {
     isMultiplayer = true;
     if (players.length < 2 && networkMode === 'local') initPlayers(2);
@@ -121,7 +140,13 @@ function handleGamepadAction(e) {
     ? { 'UP': 'ArrowUp', 'DOWN': 'ArrowDown', 'LEFT': 'ArrowLeft', 'RIGHT': 'ArrowRight', 'CONFIRM': 'Enter', 'BACK': 'Escape', 'TRIANGLE': 'ArrowUp', 'SQUARE': ' ' }
     : { 'UP': 'w', 'DOWN': 's', 'LEFT': 'a', 'RIGHT': 'd', 'CONFIRM': 'e', 'BACK': 'q', 'TRIANGLE': 'w', 'SQUARE': 'f' };
   const key = keyMap[direction];
-  if (key) { keys[key] = true; setTimeout(() => { keys[key] = false; }, 120); }
+  if (key) {
+    if (action === 'up') {
+      keys[key] = false;
+    } else {
+      keys[key] = true;
+    }
+  }
 }
 window.addEventListener('funny_gamepad_action', handleGamepadAction);
 try {
@@ -143,7 +168,7 @@ if (networkMode === 'client') {
 if (networkMode === 'host') {
   window.addEventListener('message', (e) => {
     if (e.data && e.data.type === 'REMOTE_PLAYER_INPUT') {
-      const { direction, playerNumber } = e.data;
+      const { direction, playerNumber, action } = e.data;
       // Translate remote input to key presses for the appropriate player
       const keyMaps = [
         { 'UP': 'ArrowUp', 'DOWN': 'ArrowDown', 'LEFT': 'ArrowLeft', 'RIGHT': 'ArrowRight', 'CONFIRM': 'Enter' },
@@ -153,7 +178,13 @@ if (networkMode === 'host') {
       ];
       const map = keyMaps[playerNumber] || keyMaps[0];
       const key = map[direction];
-      if (key) { keys[key] = true; setTimeout(() => { keys[key] = false; }, 120); }
+      if (key) {
+        if (action === 'up') {
+          keys[key] = false;
+        } else {
+          keys[key] = true;
+        }
+      }
     }
     // Host can receive player count updates
     if (e.data && e.data.type === 'SET_PLAYER_COUNT') {

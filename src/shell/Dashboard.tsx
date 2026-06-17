@@ -162,6 +162,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [localPlayerNumber, setLocalPlayerNumber] = useState(0);
   const onlineRoomRef = useRef<GameRoom | null>(null);
   const onlineSyncRef = useRef<GameStateSync | null>(null);
+  const [onlineHostQrCodeUrl, setOnlineHostQrCodeUrl] = useState<string>('');
+  const [showOnlineControllerQr, setShowOnlineControllerQr] = useState(false);
 
   // Load custom community games on mount
   useEffect(() => {
@@ -214,13 +216,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     });
 
     channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => {
-      const { userId, direction } = payload;
+      const { userId, direction, action, clientPlayerId } = payload;
+
+      // Si le payload contient un clientPlayerId, n'accepter que les inputs destinés à cette console
+      if (clientPlayerId && clientPlayerId !== profile.id) return;
+
       const playerIdx = connectedPlayersRef.current.findIndex(p => p.userId === userId);
       const playerNumber = playerIdx >= 0 ? connectedPlayersRef.current[playerIdx].playerNumber : 0;
+      const effectiveAction = action || 'down';
       
       window.dispatchEvent(
         new CustomEvent('funny_gamepad_action', { 
-          detail: { direction, playerNumber, userId } 
+          detail: { direction, playerNumber, userId, action: effectiveAction } 
         })
       );
       
@@ -228,31 +235,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       const keyName = keyMap[direction];
       
       if (keyName) {
-        const keydownEvt = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
-        window.dispatchEvent(keydownEvt);
+        if (effectiveAction === 'down') {
+          const keydownEvt = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
+          window.dispatchEvent(keydownEvt);
+        } else {
+          const keyupEvt = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
+          window.dispatchEvent(keyupEvt);
+        }
         
         const iframes = document.querySelectorAll('iframe');
         iframes.forEach(iframe => {
           try {
             const iframeWindow = iframe.contentWindow;
             if (iframeWindow) {
-              const iframeKeydown = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
-              iframeWindow.dispatchEvent(iframeKeydown);
-              
-              setTimeout(() => {
+              if (effectiveAction === 'down') {
+                const iframeKeydown = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
+                iframeWindow.dispatchEvent(iframeKeydown);
+              } else {
                 const iframeKeyup = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
                 iframeWindow.dispatchEvent(iframeKeyup);
-              }, 100);
+              }
             }
           } catch (e) {
             console.warn('[Dashboard] Impossible de relayer les inputs dans l\'iframe:', e);
           }
         });
-
-        setTimeout(() => {
-          const keyupEvt = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
-          window.dispatchEvent(keyupEvt);
-        }, 100);
       }
     });
 
@@ -876,6 +883,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                             setNetworkMode('host');
                             setLocalPlayerNumber(0);
                             setOnlineMode('lobby');
+                            // Generate QR code for host's mobile controller
+                            const roomCode = room.getRoomCode();
+                            if (roomCode && typeof window !== 'undefined') {
+                              const hostControllerUrl = `${window.location.origin}/controller?lobbyId=${roomCode}&clientPlayerId=${profile.id}`;
+                              QRCode.toDataURL(hostControllerUrl, {
+                                width: 256, margin: 1,
+                                color: { dark: '#020617', light: '#ffffff' }
+                              })
+                                .then(url => setOnlineHostQrCodeUrl(url))
+                                .catch(err => console.error('Erreur QR hôte en ligne:', err));
+                            }
                           }
                         }}
                         className="w-full flex items-center gap-4 p-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 hover:border-purple-500/50 hover:bg-purple-950/10 hover:scale-[1.02] transition-all duration-300 text-left group cursor-pointer"
@@ -998,6 +1016,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                         <div className="flex items-center gap-2 text-amber-500 text-xs font-bold bg-amber-950/40 border border-amber-800/40 px-4 py-2.5 rounded-xl justify-center">
                           <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" />
                           <span>En attente de joueurs...</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* QR Code Manette Portable de l'Hôte */}
+                    <div className="w-full p-3 rounded-2xl border border-zinc-800 bg-zinc-900/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold flex items-center gap-1.5">
+                          <Smartphone size={12} /> Manette Portable (Hôte)
+                        </span>
+                        <button
+                          onClick={() => setShowOnlineControllerQr(!showOnlineControllerQr)}
+                          className="text-[9px] text-purple-400 hover:text-purple-300 font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                        >
+                          {showOnlineControllerQr ? 'Masquer' : 'Afficher QR'}
+                        </button>
+                      </div>
+                      {showOnlineControllerQr && (
+                        <div className="flex justify-center p-3 bg-white rounded-xl w-32 h-32 mx-auto shadow-lg">
+                          {onlineHostQrCodeUrl ? (
+                            <img src={onlineHostQrCodeUrl} alt="QR Manette Hôte" className="w-full h-full object-contain" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-900 text-[10px]">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-zinc-900" />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

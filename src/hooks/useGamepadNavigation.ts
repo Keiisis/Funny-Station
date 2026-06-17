@@ -61,7 +61,10 @@ export const useGamepadNavigation = (
     if (disabled) return;
 
     // 2. Gestion de l'action de manette (et clavier émulé)
-    const handleGamepadInput = (e: CustomEvent<{ direction: GamepadDirection }>) => {
+    const handleGamepadInput = (e: CustomEvent<{ direction: GamepadDirection; action?: string }>) => {
+      // Ignorer les événements de relâchement pour éviter les doubles déclenchements
+      if (e.detail.action === 'up') return;
+
       const direction = e.detail.direction;
       let nextIndex = currentIndex;
 

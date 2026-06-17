@@ -157,74 +157,131 @@ function ControllerContent() {
   }, []);
 
   // Transmission des actions
-  const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE') => {
-    triggerVibration(30);
-    
-    // Déterminer la fréquence selon le bouton
-    let freq = 500;
-    if (direction === 'CONFIRM') freq = 650;
-    else if (direction === 'BACK') freq = 420;
-    else if (direction === 'OPTION') freq = 800;
-    else if (direction === 'TRIANGLE') freq = 700;
-    else if (direction === 'SQUARE') freq = 580;
-    playTouchSound(freq);
+  const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE', action: 'down' | 'up') => {
+    if (action === 'down') {
+      triggerVibration(25);
+      
+      // Déterminer la fréquence selon le bouton
+      let freq = 500;
+      if (direction === 'CONFIRM') freq = 650;
+      else if (direction === 'BACK') freq = 420;
+      else if (direction === 'OPTION') freq = 800;
+      else if (direction === 'TRIANGLE') freq = 700;
+      else if (direction === 'SQUARE') freq = 580;
+      playTouchSound(freq);
 
-    setActiveButton(direction);
-    setTimeout(() => setActiveButton(prev => prev === direction ? null : prev), 150);
+      setActiveButton(direction);
+    } else {
+      setActiveButton(prev => prev === direction ? null : prev);
+    }
 
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
         event: 'controller_state',
-        payload: { userId, direction }
+        payload: { 
+          userId, 
+          direction, 
+          action, 
+          playerNumber: playerNumber !== null ? playerNumber : undefined,
+          clientPlayerId: searchParams.get('clientPlayerId') || ''
+        }
       });
-      console.log(`[Gamepad] Envoi direction: ${direction}`);
+      console.log(`[Gamepad] Envoi direction: ${direction}, action: ${action}`);
     }
-  }, [userId, triggerVibration, playTouchSound]);
+  }, [userId, playerNumber, searchParams, triggerVibration, playTouchSound]);
 
   // Support clavier de secours pour test en Split-Screen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return; // Éviter la répétition automatique du clavier
       switch (e.key) {
         case 'ArrowUp':
         case 'w':
         case 'W':
-          sendAction('UP');
+          sendAction('UP', 'down');
           break;
         case 'ArrowDown':
         case 's':
         case 'S':
-          sendAction('DOWN');
+          sendAction('DOWN', 'down');
           break;
         case 'ArrowLeft':
         case 'a':
         case 'A':
-          sendAction('LEFT');
+          sendAction('LEFT', 'down');
           break;
         case 'ArrowRight':
         case 'd':
         case 'D':
-          sendAction('RIGHT');
+          sendAction('RIGHT', 'down');
           break;
         case 'Enter':
         case ' ':
-          sendAction('CONFIRM');
+          sendAction('CONFIRM', 'down');
           break;
         case 'Escape':
         case 'Backspace':
-          sendAction('BACK');
+          sendAction('BACK', 'down');
           break;
         case 'o':
         case 'O':
-          sendAction('OPTION');
+          sendAction('OPTION', 'down');
           break;
         case 'i':
         case 'I':
-          sendAction('TRIANGLE');
+          sendAction('TRIANGLE', 'down');
           break;
         case 'j':
         case 'J':
-          sendAction('SQUARE');
+          sendAction('SQUARE', 'down');
+          break;
+        default:
+          break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+          sendAction('UP', 'up');
+          break;
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+          sendAction('DOWN', 'up');
+          break;
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+          sendAction('LEFT', 'up');
+          break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+          sendAction('RIGHT', 'up');
+          break;
+        case 'Enter':
+        case ' ':
+          sendAction('CONFIRM', 'up');
+          break;
+        case 'Escape':
+        case 'Backspace':
+          sendAction('BACK', 'up');
+          break;
+        case 'o':
+        case 'O':
+          sendAction('OPTION', 'up');
+          break;
+        case 'i':
+        case 'I':
+          sendAction('TRIANGLE', 'up');
+          break;
+        case 'j':
+        case 'J':
+          sendAction('SQUARE', 'up');
           break;
         default:
           break;
@@ -232,8 +289,10 @@ function ControllerContent() {
     };
 
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, [sendAction]);
 
@@ -313,7 +372,10 @@ function ControllerContent() {
           {/* Boutons Directionnels */}
           {/* HAUT */}
           <button
-            onPointerDown={() => sendAction('UP')}
+            onPointerDown={() => sendAction('UP', 'down')}
+            onPointerUp={() => sendAction('UP', 'up')}
+            onPointerLeave={() => sendAction('UP', 'up')}
+            onPointerCancel={() => sendAction('UP', 'up')}
             className={`absolute top-2 w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
               activeButton === 'UP'
                 ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
@@ -325,7 +387,10 @@ function ControllerContent() {
 
           {/* BAS */}
           <button
-            onPointerDown={() => sendAction('DOWN')}
+            onPointerDown={() => sendAction('DOWN', 'down')}
+            onPointerUp={() => sendAction('DOWN', 'up')}
+            onPointerLeave={() => sendAction('DOWN', 'up')}
+            onPointerCancel={() => sendAction('DOWN', 'up')}
             className={`absolute bottom-2 w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
               activeButton === 'DOWN'
                 ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
@@ -337,7 +402,10 @@ function ControllerContent() {
 
           {/* GAUCHE */}
           <button
-            onPointerDown={() => sendAction('LEFT')}
+            onPointerDown={() => sendAction('LEFT', 'down')}
+            onPointerUp={() => sendAction('LEFT', 'up')}
+            onPointerLeave={() => sendAction('LEFT', 'up')}
+            onPointerCancel={() => sendAction('LEFT', 'up')}
             className={`absolute left-2 w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
               activeButton === 'LEFT'
                 ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
@@ -349,7 +417,10 @@ function ControllerContent() {
 
           {/* DROITE */}
           <button
-            onPointerDown={() => sendAction('RIGHT')}
+            onPointerDown={() => sendAction('RIGHT', 'down')}
+            onPointerUp={() => sendAction('RIGHT', 'up')}
+            onPointerLeave={() => sendAction('RIGHT', 'up')}
+            onPointerCancel={() => sendAction('RIGHT', 'up')}
             className={`absolute right-2 w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
               activeButton === 'RIGHT'
                 ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
@@ -370,7 +441,10 @@ function ControllerContent() {
 
           {/* Bouton Option (Start/Select) */}
           <button
-            onPointerDown={() => sendAction('OPTION')}
+            onPointerDown={() => sendAction('OPTION', 'down')}
+            onPointerUp={() => sendAction('OPTION', 'up')}
+            onPointerLeave={() => sendAction('OPTION', 'up')}
+            onPointerCancel={() => sendAction('OPTION', 'up')}
             className={`px-5 py-2.5 rounded-full flex items-center gap-1.5 border transition-all duration-150 active:scale-95 text-[9px] uppercase tracking-widest font-bold ${
               activeButton === 'OPTION'
                 ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.4)]'
@@ -393,7 +467,10 @@ function ControllerContent() {
 
           {/* TRIANGLE (▲) - HAUT */}
           <button
-            onPointerDown={() => sendAction('TRIANGLE')}
+            onPointerDown={() => sendAction('TRIANGLE', 'down')}
+            onPointerUp={() => sendAction('TRIANGLE', 'up')}
+            onPointerLeave={() => sendAction('TRIANGLE', 'up')}
+            onPointerCancel={() => sendAction('TRIANGLE', 'up')}
             className={`absolute top-2 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
               activeButton === 'TRIANGLE'
                 ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
@@ -405,7 +482,10 @@ function ControllerContent() {
 
           {/* CROSS (✕) - BAS - CONFIRM */}
           <button
-            onPointerDown={() => sendAction('CONFIRM')}
+            onPointerDown={() => sendAction('CONFIRM', 'down')}
+            onPointerUp={() => sendAction('CONFIRM', 'up')}
+            onPointerLeave={() => sendAction('CONFIRM', 'up')}
+            onPointerCancel={() => sendAction('CONFIRM', 'up')}
             className={`absolute bottom-2 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
               activeButton === 'CONFIRM'
                 ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.6)]'
@@ -417,7 +497,10 @@ function ControllerContent() {
 
           {/* SQUARE (■) - GAUCHE */}
           <button
-            onPointerDown={() => sendAction('SQUARE')}
+            onPointerDown={() => sendAction('SQUARE', 'down')}
+            onPointerUp={() => sendAction('SQUARE', 'up')}
+            onPointerLeave={() => sendAction('SQUARE', 'up')}
+            onPointerCancel={() => sendAction('SQUARE', 'up')}
             className={`absolute left-2 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
               activeButton === 'SQUARE'
                 ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.6)]'
@@ -429,7 +512,10 @@ function ControllerContent() {
 
           {/* CIRCLE (◯) - DROITE - BACK */}
           <button
-            onPointerDown={() => sendAction('BACK')}
+            onPointerDown={() => sendAction('BACK', 'down')}
+            onPointerUp={() => sendAction('BACK', 'up')}
+            onPointerLeave={() => sendAction('BACK', 'up')}
+            onPointerCancel={() => sendAction('BACK', 'up')}
             className={`absolute right-2 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
               activeButton === 'BACK'
                 ? 'bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
