@@ -181,6 +181,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     localStorage.setItem('funny_station_custom_games', JSON.stringify(customOnly));
   };
 
+  // --- PERSISTANCE DE LA SESSION ---
+
+  // Restaurer l'état depuis sessionStorage au chargement
+  useEffect(() => {
+    const savedTab = sessionStorage.getItem('funny_station_active_tab');
+    if (savedTab && ['games', 'store', 'profile'].includes(savedTab)) {
+      setActiveTab(savedTab as any);
+    }
+
+    const savedFocusedIndex = sessionStorage.getItem('funny_station_focused_index');
+    if (savedFocusedIndex) {
+      const idx = parseInt(savedFocusedIndex, 10);
+      if (!isNaN(idx) && idx >= 0) {
+        setFocusedIndex(idx);
+      }
+    }
+  }, []);
+
+  // Restaurer le jeu en cours d'exécution une fois les jeux chargés
+  useEffect(() => {
+    const savedGameSlug = sessionStorage.getItem('funny_station_selected_game_slug');
+    if (savedGameSlug && games.length > 0) {
+      const game = games.find(g => g.slug === savedGameSlug);
+      if (game) {
+        setSelectedGame(game);
+      }
+    }
+  }, [games]);
+
+  // Sauvegarder l'onglet actif
+  useEffect(() => {
+    sessionStorage.setItem('funny_station_active_tab', activeTab);
+  }, [activeTab]);
+
+  // Sauvegarder l'index du jeu focalisé
+  useEffect(() => {
+    if (games.length > 0) {
+      sessionStorage.setItem('funny_station_focused_index', focusedIndex.toString());
+    }
+  }, [focusedIndex, games]);
+
+  // Sauvegarder le jeu en cours de lecture
+  useEffect(() => {
+    if (selectedGame) {
+      sessionStorage.setItem('funny_station_selected_game_slug', selectedGame.slug);
+    } else {
+      sessionStorage.removeItem('funny_station_selected_game_slug');
+    }
+  }, [selectedGame]);
+
   // QR Code generator
   useEffect(() => {
     if (!lobbyId || typeof window === 'undefined') {
@@ -618,11 +668,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           {/* Console main panel content */}
           <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none">
             
-            {/* Top Area: PS5-style horizontal square carousel */}
+            {/* Top Area: PS5-style horizontal 9:16 carousel */}
             <div className="flex flex-col gap-2 max-w-4xl mt-4">
               <span className="text-[9px] uppercase tracking-widest font-black text-zinc-400">Bibliothèque</span>
               
-              <div className="flex items-center gap-3 overflow-x-auto pb-4 no-scrollbar">
+              <div className="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar pt-2">
                 {games.map((game, idx) => {
                   const isFocused = idx === focusedIndex;
                   const gameOwned = isGameOwned(game);
@@ -634,16 +684,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                         setFocusedIndex(idx);
                         AudioEngine.getInstance().playSFX('select');
                       }}
-                      className={`relative flex-shrink-0 cursor-pointer rounded-2xl w-20 h-20 overflow-hidden transition-all duration-300 transform outline-none border-2 ${
+                      className={`relative flex-shrink-0 cursor-pointer rounded-xl w-[108px] h-[192px] overflow-hidden transition-all duration-300 transform outline-none border-2 ${
                         isFocused
-                          ? 'scale-105 border-white shadow-[0_0_15px_rgba(59,130,246,0.6)]'
+                          ? 'scale-105 border-white shadow-[0_0_20px_rgba(0,114,206,0.6)]'
                           : 'border-zinc-800/80 opacity-60 hover:opacity-90'
                       }`}
                     >
                       <img src={game.background_url} alt={game.title} className="w-full h-full object-cover" />
+                      
+                      {/* Gradient overlay inside the card */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent z-10" />
+                      
+                      {/* Details on the card */}
+                      <div className="absolute inset-0 p-3 flex flex-col justify-between z-20">
+                        {/* Top runtime badge */}
+                        <div className="flex justify-between items-start">
+                          <span className="text-[7px] uppercase font-bold tracking-widest bg-zinc-950/80 border border-zinc-850 px-1.5 py-0.5 rounded-full text-zinc-350">
+                            {game.runtime === 'js' ? 'HTML5' : game.runtime.toUpperCase()}
+                          </span>
+                        </div>
+                        
+                        {/* Bottom title */}
+                        <div className="flex flex-col gap-0.5">
+                          <h4 className="text-[9px] font-black text-zinc-150 uppercase tracking-wide truncate">
+                            {game.title}
+                          </h4>
+                        </div>
+                      </div>
+
                       {!gameOwned && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <Lock size={14} className="text-zinc-300" />
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-30">
+                          <Lock size={16} className="text-zinc-350" />
                         </div>
                       )}
                     </div>

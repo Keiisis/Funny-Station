@@ -28,8 +28,8 @@ export const GameCard: React.FC<GameCardProps> = ({ game, isFocused, onSelect })
       onClick={onSelect}
       className={`relative flex-shrink-0 cursor-pointer rounded-xl overflow-hidden transition-all duration-300 transform outline-none ${
         isFocused
-          ? 'w-44 h-56 scale-105 border-2 border-white shadow-[0_0_20px_rgba(0,114,206,0.6)]'
-          : 'w-40 h-52 opacity-55 hover:opacity-85 border border-zinc-800'
+          ? 'w-36 h-[256px] scale-105 border-2 border-white shadow-[0_0_20px_rgba(0,114,206,0.6)]'
+          : 'w-32 h-[228px] opacity-55 hover:opacity-85 border border-zinc-800'
       }`}
       style={{
         background: 'linear-gradient(135deg, rgba(15,23,42,0.9) 0%, rgba(2,6,23,0.95) 100%)'

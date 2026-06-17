@@ -34,6 +34,9 @@ export const WebGPUBackground: React.FC = () => {
       uniform vec2 u_resolution;
       uniform float u_time;
       uniform vec2 u_mouse;
+      uniform vec3 u_bg_color_bottom;
+      uniform vec3 u_bg_color_top;
+      uniform float u_is_light_theme;
 
       // Fonction sinus modifiée pour générer des vagues fluides
       float wave(vec2 uv, float speed, float frequency, float amplitude, float shift) {
@@ -63,16 +66,25 @@ export const WebGPUBackground: React.FC = () => {
         float d2 = abs(centeredUv.y - wave2 + mouseInteraction * 0.5);
         float d3 = abs(centeredUv.y - wave3 - mouseInteraction * 0.2);
 
-        // Couleurs néon PS5 : Bleu profond, Bleu électrique, Violet, Or
-        vec3 bg = mix(vec3(0.004, 0.008, 0.024), vec3(0.012, 0.024, 0.059), uv.y);
+        // Fond d'écran basé sur le thème
+        vec3 bg = mix(u_bg_color_bottom, u_bg_color_top, uv.y);
         
-        // Couleur des vagues
-        vec3 c1 = vec3(0.0, 0.45, 1.0) * (0.018 / (d1 + 0.02));     // Bleu électrique
-        vec3 c2 = vec3(0.4, 0.0, 0.8) * (0.015 / (d2 + 0.018));    // Violet
-        vec3 c3 = vec3(0.0, 0.8, 0.9) * (0.012 / (d3 + 0.015));    // Turquoise/Cyan
+        vec3 finalColor;
 
-        // Mélange final
-        vec3 finalColor = bg + c1 + c2 + c3;
+        if (u_is_light_theme > 0.5) {
+          // Sur fond clair, les oscillations sont bleu sombre/violet/turquoise soustractifs
+          vec3 c1_light = vec3(0.0, 0.35, 0.8) * (0.015 / (d1 + 0.02));
+          vec3 c2_light = vec3(0.3, 0.0, 0.6) * (0.012 / (d2 + 0.018));
+          vec3 c3_light = vec3(0.0, 0.5, 0.6) * (0.010 / (d3 + 0.015));
+          finalColor = bg - c1_light * 0.4 - c2_light * 0.3 - c3_light * 0.3;
+          finalColor = max(finalColor, vec3(0.15, 0.15, 0.20));
+        } else {
+          // Sur fond sombre, on ajoute les vagues lumineuses d'origine
+          vec3 c1 = vec3(0.0, 0.45, 1.0) * (0.018 / (d1 + 0.02));     // Bleu électrique
+          vec3 c2 = vec3(0.4, 0.0, 0.8) * (0.015 / (d2 + 0.018));    // Violet
+          vec3 c3 = vec3(0.0, 0.8, 0.9) * (0.012 / (d3 + 0.015));    // Turquoise/Cyan
+          finalColor = bg + c1 + c2 + c3;
+        }
 
         // Ajout de particules lumineuses or/blanches scintillantes
         float particleIntensity = 0.0;
@@ -94,7 +106,12 @@ export const WebGPUBackground: React.FC = () => {
           particleIntensity += brightness;
         }
 
-        finalColor += vec3(0.9, 0.95, 1.0) * particleIntensity;
+        if (u_is_light_theme > 0.5) {
+          finalColor -= vec3(0.15, 0.08, 0.0) * particleIntensity;
+          finalColor = max(finalColor, vec3(0.15, 0.15, 0.20));
+        } else {
+          finalColor += vec3(0.9, 0.95, 1.0) * particleIntensity;
+        }
 
         gl_FragColor = vec4(finalColor, 1.0);
       }
@@ -152,6 +169,9 @@ export const WebGPUBackground: React.FC = () => {
     const uResolution = gl.getUniformLocation(program, 'u_resolution');
     const uTime = gl.getUniformLocation(program, 'u_time');
     const uMouse = gl.getUniformLocation(program, 'u_mouse');
+    const uBgColorBottom = gl.getUniformLocation(program, 'u_bg_color_bottom');
+    const uBgColorTop = gl.getUniformLocation(program, 'u_bg_color_top');
+    const uIsLightTheme = gl.getUniformLocation(program, 'u_is_light_theme');
 
     // Redimensionnement
     const resize = () => {
@@ -163,6 +183,40 @@ export const WebGPUBackground: React.FC = () => {
 
     window.addEventListener('resize', resize);
     resize();
+
+    // Thèmes de fond WebGL
+    const themeColors: Record<string, { bottom: [number, number, number], top: [number, number, number], isLight: boolean }> = {
+      noir: { bottom: [0.004, 0.008, 0.024], top: [0.012, 0.024, 0.059], isLight: false },
+      blanc: { bottom: [0.90, 0.90, 0.92], top: [0.96, 0.96, 0.98], isLight: true },
+      vert: { bottom: [0.002, 0.020, 0.006], top: [0.008, 0.050, 0.018], isLight: false },
+      rouge: { bottom: [0.020, 0.002, 0.006], top: [0.050, 0.008, 0.018], isLight: false },
+      jaune: { bottom: [0.020, 0.016, 0.002], top: [0.050, 0.040, 0.008], isLight: false },
+      bleu: { bottom: [0.001, 0.008, 0.030], top: [0.005, 0.020, 0.070], isLight: false },
+    };
+
+    let currentThemeColors = themeColors.noir;
+
+    const applyThemeColors = (themeName: string) => {
+      if (themeColors[themeName]) {
+        currentThemeColors = themeColors[themeName];
+      }
+    };
+
+    // Détecter le thème actif au montage
+    const htmlThemeClass = Array.from(document.documentElement.classList)
+      .find(c => c.startsWith('theme-'))
+      ?.replace('theme-', '');
+    if (htmlThemeClass) {
+      applyThemeColors(htmlThemeClass);
+    } else {
+      const saved = localStorage.getItem('funny_station_theme');
+      if (saved) applyThemeColors(saved);
+    }
+
+    const handleThemeChange = (e: any) => {
+      applyThemeColors(e.detail.theme);
+    };
+    window.addEventListener('funny_theme_changed', handleThemeChange as EventListener);
 
     // Gestion de la souris pour interaction
     let mouseX = canvas.width / 2;
@@ -202,6 +256,11 @@ export const WebGPUBackground: React.FC = () => {
 
       gl.uniform1f(uTime, time);
       gl.uniform2f(uMouse, mouseX, mouseY);
+      
+      // Injecter les variables de thèmes
+      gl.uniform3f(uBgColorBottom, currentThemeColors.bottom[0], currentThemeColors.bottom[1], currentThemeColors.bottom[2]);
+      gl.uniform3f(uBgColorTop, currentThemeColors.top[0], currentThemeColors.top[1], currentThemeColors.top[2]);
+      gl.uniform1f(uIsLightTheme, currentThemeColors.isLight ? 1.0 : 0.0);
 
       gl.clearColor(0.0, 0.0, 0.0, 1.0);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -218,6 +277,7 @@ export const WebGPUBackground: React.FC = () => {
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('funny_gamepad_action', handleGamepadMove as EventListener);
+      window.removeEventListener('funny_theme_changed', handleThemeChange as EventListener);
       gl.deleteBuffer(positionBuffer);
       gl.deleteProgram(program);
       gl.deleteShader(vs);

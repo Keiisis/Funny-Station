@@ -3,6 +3,7 @@ import { Inter, Geist } from 'next/font/google';
 import './globals.css';
 import { WebGPUBackground } from '@/drivers/WebGPUBackground';
 import { TrophyOverlay } from '@/shell/TrophyOverlay';
+import { ThemeManager } from '@/shell/ThemeManager';
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -24,6 +25,9 @@ export default function RootLayout({
   return (
     <html lang="fr" className={cn("h-full antialiased no-scrollbar", "font-sans", geist.variable)}>
       <body className={`${inter.className} min-h-full bg-zinc-950 text-slate-100 overflow-hidden relative`}>
+        {/* Gestionnaire de thème aléatoire */}
+        <ThemeManager />
+
         {/* Rendu 3D Shader Arrière-plan PS5 */}
         <WebGPUBackground />
         

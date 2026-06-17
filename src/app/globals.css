@@ -101,18 +101,18 @@ body {
 
 /* Glassmorphism utility classes */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--panel-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--panel-border);
 }
 
 .glass-panel-active {
-  background: rgba(30, 41, 59, 0.75);
+  background: var(--panel-active-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 114, 206, 0.5);
-  box-shadow: 0 0 20px rgba(0, 114, 206, 0.25);
+  border: 1px solid var(--panel-active-border);
+  box-shadow: 0 0 20px var(--panel-shadow);
 }
 
 /* Custom scrollbar hiding */
@@ -256,4 +256,181 @@ body {
   html {
     @apply font-sans;
   }
+}
+
+/* --- FUNNYSTATION THEMES --- */
+
+/* default variables (noir) */
+:root {
+  --background-fallback: #020617;
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --panel-bg: rgba(15, 23, 42, 0.45);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-active-bg: rgba(30, 41, 59, 0.75);
+  --panel-active-border: rgba(0, 114, 206, 0.5);
+  --panel-shadow: rgba(0, 114, 206, 0.25);
+  --accent-color: #0072ce;
+  --accent-color-hover: #00569d;
+}
+
+/* Theme Noir (Classic PS5) */
+.theme-noir {
+  --background-fallback: #020617;
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --panel-bg: rgba(15, 23, 42, 0.45);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-active-bg: rgba(30, 41, 59, 0.75);
+  --panel-active-border: rgba(0, 114, 206, 0.5);
+  --panel-shadow: rgba(0, 114, 206, 0.25);
+  --accent-color: #0072ce;
+  --accent-color-hover: #00569d;
+}
+
+/* Theme Blanc (Clair) */
+.theme-blanc {
+  --background-fallback: #f8fafc;
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+  --panel-bg: rgba(255, 255, 255, 0.65);
+  --panel-border: rgba(15, 23, 42, 0.12);
+  --panel-active-bg: rgba(255, 255, 255, 0.85);
+  --panel-active-border: rgba(0, 114, 206, 0.4);
+  --panel-shadow: rgba(0, 114, 206, 0.15);
+  --accent-color: #00569d;
+  --accent-color-hover: #00439c;
+
+  /* Override standard Next.js shadcn-like dark theme color variables */
+  --background: oklch(0.98 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(0.96 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(0.96 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.93 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.93 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.93 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --border: oklch(0 0 0 / 12%);
+  --input: oklch(0 0 0 / 15%);
+  --ring: oklch(0.205 0 0);
+}
+
+/* Theme Vert */
+.theme-vert {
+  --background-fallback: #021a0c;
+  --text-primary: #f1fcf5;
+  --text-muted: #7da88d;
+  --panel-bg: rgba(4, 32, 16, 0.45);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-active-bg: rgba(8, 48, 24, 0.75);
+  --panel-active-border: rgba(0, 114, 206, 0.5);
+  --panel-shadow: rgba(0, 114, 206, 0.25);
+  --accent-color: #10b981;
+  --accent-color-hover: #059669;
+}
+
+/* Theme Rouge */
+.theme-rouge {
+  --background-fallback: #1c0206;
+  --text-primary: #fdf2f4;
+  --text-muted: #b88d94;
+  --panel-bg: rgba(36, 4, 8, 0.45);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-active-bg: rgba(56, 8, 16, 0.75);
+  --panel-active-border: rgba(0, 114, 206, 0.5);
+  --panel-shadow: rgba(0, 114, 206, 0.25);
+  --accent-color: #ef4444;
+  --accent-color-hover: #dc2626;
+}
+
+/* Theme Jaune */
+.theme-jaune {
+  --background-fallback: #1c1602;
+  --text-primary: #fefcf2;
+  --text-muted: #b8a673;
+  --panel-bg: rgba(36, 28, 4, 0.45);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-active-bg: rgba(56, 44, 8, 0.75);
+  --panel-active-border: rgba(0, 114, 206, 0.5);
+  --panel-shadow: rgba(0, 114, 206, 0.25);
+  --accent-color: #eab308;
+  --accent-color-hover: #ca8a04;
+}
+
+/* Theme Bleu */
+.theme-bleu {
+  --background-fallback: #020b24;
+  --text-primary: #f2f5fe;
+  --text-muted: #7a8eb8;
+  --panel-bg: rgba(4, 16, 48, 0.45);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --panel-active-bg: rgba(8, 24, 72, 0.75);
+  --panel-active-border: rgba(0, 114, 206, 0.5);
+  --panel-shadow: rgba(0, 114, 206, 0.25);
+  --accent-color: #3b82f6;
+  --accent-color-hover: #2563eb;
+}
+
+/* Specific styling overrides for theme-blanc to convert light colors to dark */
+.theme-blanc body,
+.theme-blanc.bg-zinc-950,
+.theme-blanc .bg-zinc-950,
+.theme-blanc .bg-slate-950,
+.theme-blanc .bg-black {
+  background-color: var(--background-fallback) !important;
+  color: var(--text-primary) !important;
+}
+
+.theme-blanc .text-slate-100,
+.theme-blanc .text-white,
+.theme-blanc .text-zinc-100,
+.theme-blanc .text-zinc-200,
+.theme-blanc .text-zinc-300 {
+  color: var(--text-primary) !important;
+}
+
+.theme-blanc .text-zinc-350,
+.theme-blanc .text-zinc-400,
+.theme-blanc .text-zinc-500,
+.theme-blanc .text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+.theme-blanc .border-zinc-800,
+.theme-blanc .border-zinc-850,
+.theme-blanc .border-zinc-900,
+.theme-blanc .border-zinc-855 {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+.theme-blanc .bg-\[\#0d162a\]\/60,
+.theme-blanc .bg-\[\#101930\],
+.theme-blanc .bg-\[\#070b13\],
+.theme-blanc .bg-zinc-950\/20,
+.theme-blanc .bg-zinc-950\/40,
+.theme-blanc .bg-zinc-950\/60 {
+  background-color: var(--panel-bg) !important;
+}
+
+.theme-blanc .bg-zinc-900 {
+  background-color: rgba(15, 23, 42, 0.05) !important;
+}
+
+.theme-blanc .from-zinc-950\/90 {
+  --tw-gradient-from: rgba(248, 250, 252, 0.9) !important;
+}
+.theme-blanc .via-zinc-950\/40 {
+  --tw-gradient-to: rgba(248, 250, 252, 0.4) !important;
+}
+.theme-blanc .from-zinc-950 {
+  --tw-gradient-from: rgba(248, 250, 252, 1) !important;
+}
+.theme-blanc .to-black\/30 {
+  --tw-gradient-to: rgba(248, 250, 252, 0.3) !important;
 }

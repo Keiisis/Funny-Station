@@ -386,7 +386,7 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                       {myCreatedGames.map(game => (
                         <div key={game.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-900">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg overflow-hidden border border-zinc-800">
+                            <div className="w-9 h-[64px] rounded-lg overflow-hidden border border-zinc-800 flex-shrink-0">
                               <img src={game.background_url} alt={game.title} className="w-full h-full object-cover" />
                             </div>
                             <div className="flex flex-col">

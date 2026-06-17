@@ -96,7 +96,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
           </div>
 
           {/* Premium Store Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4">
             {games.map(game => {
               const owned = isGameOwned(game);
               
@@ -104,7 +104,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 <div
                   key={game.id}
                   onClick={() => handleSelectGame(game)}
-                  className="glass-panel rounded-2xl overflow-hidden cursor-pointer border border-zinc-800/80 transition-all duration-300 hover:scale-[1.04] hover:border-purple-500/50 hover:shadow-[0_8px_25px_rgba(168,85,247,0.25)] flex flex-col h-48 relative group"
+                  className="glass-panel rounded-2xl overflow-hidden cursor-pointer border border-zinc-800/80 transition-all duration-300 hover:scale-[1.04] hover:border-purple-500/50 hover:shadow-[0_8px_25px_rgba(168,85,247,0.25)] flex flex-col aspect-[9/16] w-full relative group"
                 >
                   {/* Game cover background image */}
                   <div className="absolute inset-0 -z-10 overflow-hidden">
@@ -113,12 +113,12 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       alt={game.title} 
                       className="w-full h-full object-cover opacity-35 group-hover:opacity-50 transition-opacity duration-300"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#070b13] via-[#070b13]/60 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
                   </div>
 
                   {/* Header badges */}
-                  <div className="p-3.5 flex justify-between items-start">
-                    <span className="text-[7px] uppercase font-bold tracking-widest bg-zinc-950/80 border border-zinc-850 px-2 py-0.5 rounded-full">
+                  <div className="p-3 flex justify-between items-start">
+                    <span className="text-[7px] uppercase font-bold tracking-widest bg-zinc-950/80 border border-zinc-850 px-2 py-0.5 rounded-full text-zinc-350">
                       {game.runtime === 'js' ? 'HTML5' : game.runtime.toUpperCase()}
                     </span>
                     {owned ? (
@@ -133,11 +133,11 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   </div>
 
                   {/* Details bottom */}
-                  <div className="p-3.5 mt-auto flex flex-col gap-0.5">
-                    <h3 className="text-xs font-bold text-zinc-100 group-hover:text-purple-400 transition-colors truncate">
+                  <div className="bg-zinc-950/70 backdrop-blur-xs border-t border-zinc-900/35 p-3 mt-auto flex flex-col gap-0.5">
+                    <h3 className="text-[10px] font-bold text-zinc-100 group-hover:text-purple-400 transition-colors truncate">
                       {game.title}
                     </h3>
-                    <span className="text-[7px] text-zinc-500 uppercase tracking-widest">
+                    <span className="text-[7px] text-zinc-550 uppercase tracking-widest font-semibold">
                       {game.runtime} runtime
                     </span>
                   </div>
