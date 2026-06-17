@@ -24,6 +24,7 @@ function PlayContent() {
   const [status, setStatus] = useState<'connecting' | 'waiting' | 'playing' | 'error' | 'closed'>('connecting');
   const [players, setPlayers] = useState<OnlinePlayer[]>([]);
   const [localPlayerNumber, setLocalPlayerNumber] = useState(0);
+  const localPlayerNumberRef = useRef(0);
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [gameId, setGameId] = useState('g1'); // Default to Neon Runner
@@ -81,9 +82,9 @@ function PlayContent() {
 
       const effectiveAction = action || 'down';
 
-      // Relay the input to the host via GameStateSync
+      // Relay the input to the host via GameStateSync (use ref for stable value)
       if (syncRef.current) {
-        syncRef.current.sendInput(direction, localPlayerNumber, '', effectiveAction);
+        syncRef.current.sendInput(direction, localPlayerNumberRef.current, '', effectiveAction);
       }
     });
 
@@ -98,7 +99,7 @@ function PlayContent() {
       channel.unsubscribe();
       controllerChannelRef.current = null;
     };
-  }, [hasJoined, roomCode, guestId, localPlayerNumber]);
+  }, [hasJoined, roomCode, guestId]);
 
   const joinGame = async () => {
     if (!roomCode || !username.trim()) return;
@@ -129,6 +130,7 @@ function PlayContent() {
       const me = updatedPlayers.find(p => p.userId === guestId);
       if (me) {
         setLocalPlayerNumber(me.playerNumber);
+        localPlayerNumberRef.current = me.playerNumber;
       }
     });
 

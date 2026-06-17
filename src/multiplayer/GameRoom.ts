@@ -181,26 +181,45 @@ export class GameRoom {
     });
   }
 
+  private lastAssignment: Map<string, number> = new Map();
+
   private assignPlayerNumbers() {
-    // L'hôte est toujours joueur 0
+    // L'hôte est toujours joueur 0, les autres sont triés par userId
+    // pour un ordre déterministe et stable
     this.players.sort((a, b) => {
       if (a.isHost) return -1;
       if (b.isHost) return 1;
-      return 0;
+      // Trier les non-hôtes par userId pour un ordre stable
+      return a.userId.localeCompare(b.userId);
     });
 
+    let hasChanges = false;
     this.players.forEach((p, idx) => {
       const newNumber = Math.min(idx, 3);
+      if (this.lastAssignment.get(p.userId) !== newNumber) {
+        hasChanges = true;
+      }
       p.playerNumber = newNumber;
+    });
 
-      // Envoyer l'assignation à chaque joueur
+    // Ne broadcaster que si les assignations ont changé
+    if (!hasChanges) return;
+
+    // Mettre à jour le cache d'assignation
+    this.lastAssignment.clear();
+    this.players.forEach(p => {
+      this.lastAssignment.set(p.userId, p.playerNumber);
+    });
+
+    // Envoyer l'assignation à chaque joueur
+    this.players.forEach(p => {
       this.channel?.send({
         type: 'broadcast',
         event: 'room_action',
         payload: {
           action: 'player_assignment',
           userId: p.userId,
-          playerNumber: newNumber,
+          playerNumber: p.playerNumber,
           gameId: this.gameId,
           hostId: this.hostId
         }

@@ -340,34 +340,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         Object.entries(state).forEach(([key, presences]: [string, any]) => {
           presences.forEach((p: any) => {
             if (p.type === 'controller') {
-              const existingPlayer = connectedPlayersRef.current.find(cp => cp.userId === p.userId);
               controllers.push({
                 userId: p.userId,
-                playerNumber: existingPlayer ? existingPlayer.playerNumber : controllers.length,
+                playerNumber: 0,
                 connectedAt: p.online_at || new Date().toISOString()
               });
             }
           });
         });
         
-        controllers.sort((a, b) => a.connectedAt.localeCompare(b.connectedAt));
+        // Trier par date de connexion, puis par userId pour un ordre déterministe
+        controllers.sort((a, b) => {
+          const timeCompare = a.connectedAt.localeCompare(b.connectedAt);
+          if (timeCompare !== 0) return timeCompare;
+          return a.userId.localeCompare(b.userId);
+        });
         controllers.forEach((c, idx) => {
           c.playerNumber = Math.min(idx, 3);
         });
         
+        // Ne broadcaster que si les assignations ont changé
+        const prevMap = new Map(connectedPlayersRef.current.map(c => [c.userId, c.playerNumber]));
+        const hasChanges = controllers.length !== connectedPlayersRef.current.length ||
+          controllers.some(c => prevMap.get(c.userId) !== c.playerNumber);
+        
         setConnectedPlayers(controllers);
         
-        controllers.forEach(c => {
-          channel.send({
-            type: 'broadcast',
-            event: 'player_assignment',
-            payload: { 
-              userId: c.userId, 
-              playerNumber: c.playerNumber, 
-              totalPlayers: controllers.length 
-            }
+        if (hasChanges) {
+          controllers.forEach(c => {
+            channel.send({
+              type: 'broadcast',
+              event: 'player_assignment',
+              payload: { 
+                userId: c.userId, 
+                playerNumber: c.playerNumber, 
+                totalPlayers: controllers.length 
+              }
+            });
           });
-        });
+        }
       })
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {

@@ -378,41 +378,108 @@ body {
 }
 
 /* --- GLOBAL THEME APPLICATION --- */
-.theme-noir, .theme-blanc, .theme-vert, .theme-rouge, .theme-jaune, .theme-bleu {
-  body,
-  .bg-zinc-950,
-  .bg-slate-950,
-  .bg-black {
-    background-color: var(--background-fallback) !important;
-  }
+/* The theme class is on <html>, so we use it directly + descendant selectors */
 
-  .glass-panel {
-    background: var(--panel-bg) !important;
-    border-color: var(--panel-border) !important;
-  }
-  
-  .glass-panel-active {
-    background: var(--panel-active-bg) !important;
-    border-color: var(--panel-active-border) !important;
-    box-shadow: 0 0 20px var(--panel-shadow) !important;
-  }
+/* Background color overrides for all themes */
+.theme-noir,
+.theme-blanc,
+.theme-vert,
+.theme-rouge,
+.theme-jaune,
+.theme-bleu {
+  background-color: var(--background-fallback) !important;
+}
 
-  .bg-\[\#0d162a\]\/60,
-  .bg-\[\#101930\],
-  .bg-\[\#070b13\],
-  .bg-zinc-950\/20,
-  .bg-zinc-950\/40,
-  .bg-zinc-950\/60,
-  .bg-zinc-950\/70 {
-    background-color: var(--panel-bg) !important;
-  }
+.theme-noir body,
+.theme-blanc body,
+.theme-vert body,
+.theme-rouge body,
+.theme-jaune body,
+.theme-bleu body {
+  background-color: var(--background-fallback) !important;
+}
 
-  .border-zinc-800,
-  .border-zinc-850,
-  .border-zinc-900,
-  .border-zinc-855 {
-    border-color: var(--panel-border) !important;
-  }
+.theme-noir .bg-zinc-950,
+.theme-blanc .bg-zinc-950,
+.theme-vert .bg-zinc-950,
+.theme-rouge .bg-zinc-950,
+.theme-jaune .bg-zinc-950,
+.theme-bleu .bg-zinc-950,
+.theme-noir .bg-slate-950,
+.theme-blanc .bg-slate-950,
+.theme-vert .bg-slate-950,
+.theme-rouge .bg-slate-950,
+.theme-jaune .bg-slate-950,
+.theme-bleu .bg-slate-950,
+.theme-noir .bg-black,
+.theme-blanc .bg-black,
+.theme-vert .bg-black,
+.theme-rouge .bg-black,
+.theme-jaune .bg-black,
+.theme-bleu .bg-black {
+  background-color: var(--background-fallback) !important;
+}
+
+/* Glass panel overrides */
+.theme-noir .glass-panel,
+.theme-blanc .glass-panel,
+.theme-vert .glass-panel,
+.theme-rouge .glass-panel,
+.theme-jaune .glass-panel,
+.theme-bleu .glass-panel {
+  background: var(--panel-bg) !important;
+  border-color: var(--panel-border) !important;
+}
+
+.theme-noir .glass-panel-active,
+.theme-blanc .glass-panel-active,
+.theme-vert .glass-panel-active,
+.theme-rouge .glass-panel-active,
+.theme-jaune .glass-panel-active,
+.theme-bleu .glass-panel-active {
+  background: var(--panel-active-bg) !important;
+  border-color: var(--panel-active-border) !important;
+  box-shadow: 0 0 20px var(--panel-shadow) !important;
+}
+
+/* Dark background overrides */
+[class*="theme-"] .bg-zinc-900,
+[class*="theme-"] .bg-zinc-900\/50,
+[class*="theme-"] .bg-zinc-900\/30 {
+  background-color: var(--panel-bg) !important;
+}
+
+/* Border overrides */
+[class*="theme-"] .border-zinc-800,
+[class*="theme-"] .border-zinc-900 {
+  border-color: var(--panel-border) !important;
+}
+
+/* Text color overrides for all non-blanc dark themes */
+.theme-noir .text-white,
+.theme-vert .text-white,
+.theme-rouge .text-white,
+.theme-jaune .text-white,
+.theme-bleu .text-white,
+.theme-noir .text-zinc-100,
+.theme-vert .text-zinc-100,
+.theme-rouge .text-zinc-100,
+.theme-jaune .text-zinc-100,
+.theme-bleu .text-zinc-100 {
+  color: var(--text-primary) !important;
+}
+
+.theme-noir .text-zinc-400,
+.theme-vert .text-zinc-400,
+.theme-rouge .text-zinc-400,
+.theme-jaune .text-zinc-400,
+.theme-bleu .text-zinc-400,
+.theme-noir .text-zinc-500,
+.theme-vert .text-zinc-500,
+.theme-rouge .text-zinc-500,
+.theme-jaune .text-zinc-500,
+.theme-bleu .text-zinc-500 {
+  color: var(--text-muted) !important;
 }
 
 /* Specific styling overrides for theme-blanc to convert light colors to dark */
