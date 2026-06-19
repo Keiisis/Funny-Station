@@ -103,7 +103,27 @@
   <div id="game"></div>
 
   <script>
-    // 1. Monkeypatch WebGL texture filtering to force nearest-neighbor (sharp pixels)
+    // 0. Force override of video settings in localStorage to prevent cached blurry settings
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('ejs-') || key === 'ejs-settings')) {
+          try {
+            const val = localStorage.getItem(key);
+            if (val) {
+              const parsed = JSON.parse(val);
+              if (parsed && parsed.settings) {
+                parsed.settings['video_smooth'] = 'false';
+                parsed.settings['video_scale_integer'] = 'true';
+                localStorage.setItem(key, JSON.stringify(parsed));
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    // 1. Monkeypatch WebGL texture & sampler filtering to force nearest-neighbor (sharp pixels)
     (function() {
       function patchWebGL(ctxPrototype) {
         if (!ctxPrototype) return;
@@ -133,6 +153,36 @@
           }
           return originalTexParameterf.call(this, target, pname, param);
         };
+
+        const originalSamplerParameteri = ctxPrototype.samplerParameteri;
+        if (originalSamplerParameteri) {
+          ctxPrototype.samplerParameteri = function(sampler, pname, param) {
+            if (pname === this.TEXTURE_MIN_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+              else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            } else if (pname === this.TEXTURE_MAG_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+            }
+            return originalSamplerParameteri.call(this, sampler, pname, param);
+          };
+        }
+
+        const originalSamplerParameterf = ctxPrototype.samplerParameterf;
+        if (originalSamplerParameterf) {
+          ctxPrototype.samplerParameterf = function(sampler, pname, param) {
+            if (pname === this.TEXTURE_MIN_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+              else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            } else if (pname === this.TEXTURE_MAG_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+            }
+            return originalSamplerParameterf.call(this, sampler, pname, param);
+          };
+        }
       }
 
       if (typeof WebGLRenderingContext !== 'undefined') {
@@ -176,6 +226,10 @@
       window.EJS_gameUrl = romUrl;
       window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
       window.EJS_startOnLoaded = true;
+      window.EJS_defaultOptions = {
+        'video_smooth': 'false',
+        'video_scale_integer': 'true'
+      };
 
       // Hide the control bar but NOT the start overlay
       window.EJS_Buttons = {

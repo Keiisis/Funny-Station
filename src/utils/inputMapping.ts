@@ -25,7 +25,7 @@ export const DEFAULT_KEY_MAPPING: KeyMapping = {
   Y: 'f',          // Special / Weapon Switch
   L: 'l',          // Left shoulder / Special light
   R: 'r',          // Right shoulder / Reload
-  START: 'Escape', // Pause
+  START: 'Enter',  // Pause
   SELECT: 'Tab',   // Menu
 };
 
@@ -40,6 +40,13 @@ export function loadKeyMapping(): KeyMapping {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      // Migrate old START: 'Escape' to 'Enter' to avoid clash with global exit key
+      if (parsed.START === 'Escape') {
+        parsed.START = 'Enter';
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        } catch (e) {}
+      }
       // Ensure all standard actions are present in the loaded mapping
       return { ...DEFAULT_KEY_MAPPING, ...parsed };
     }

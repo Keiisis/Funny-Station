@@ -766,7 +766,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     if (!selectedGame) return;
 
     const handleInputToExit = (e: any) => {
-      if (e.key === 'Escape' || e.detail?.direction === 'BACK' || e.detail?.direction === 'OPTION') {
+      if (e.key === 'Escape' || e.detail?.direction === 'OPTION') {
         handleExitGame();
       }
     };
