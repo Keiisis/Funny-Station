@@ -5,6 +5,7 @@ export class AudioEngine {
   private currentAmbientGain: GainNode | null = null;
   private ambientElement: HTMLAudioElement | null = null;
   private isAmbientSynthesized = false;
+  private volume = 1.0;
 
   private constructor() {
     // Initialisé à la demande pour respecter la politique d'autoplay
@@ -31,13 +32,21 @@ export class AudioEngine {
   }
 
   // Jouer un effet sonore système (synthétisé ou chargé en local)
-  public playSFX(type: 'navigate' | 'select' | 'trophy') {
+  public playSFX(type: 'navigate' | 'select' | 'trophy', pan: number = 0) {
     this.initCtx();
     if (!this.ctx) return;
 
     try {
-      const dest = this.ctx.destination;
       const now = this.ctx.currentTime;
+      let outputNode: AudioNode = this.ctx.destination;
+
+      // Utiliser StereoPannerNode pour la spatialisation stéréo 3D
+      if (this.ctx.createStereoPanner) {
+        const panner = this.ctx.createStereoPanner();
+        panner.pan.setValueAtTime(pan, now);
+        panner.connect(this.ctx.destination);
+        outputNode = panner;
+      }
 
       if (type === 'navigate') {
         // Son de navigation PS5 : Un petit click/pluck rapide
@@ -52,7 +61,7 @@ export class AudioEngine {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
         osc.connect(gain);
-        gain.connect(dest);
+        gain.connect(outputNode);
 
         osc.start(now);
         osc.stop(now + 0.08);
@@ -75,7 +84,7 @@ export class AudioEngine {
 
         osc1.connect(gain);
         osc2.connect(gain);
-        gain.connect(dest);
+        gain.connect(outputNode);
 
         osc1.start(now);
         osc2.start(now);
@@ -84,10 +93,10 @@ export class AudioEngine {
       } else if (type === 'trophy') {
         // Son de trophée : Fanfare scintillante et triomphale
         const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // Accord C Maj (C5, E5, G5, C6, E6)
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
-        gain.connect(dest);
+        const mainGain = this.ctx.createGain();
+        mainGain.gain.setValueAtTime(0.25, now);
+        mainGain.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+        mainGain.connect(outputNode);
 
         notes.forEach((freq, index) => {
           if (!this.ctx) return;
@@ -110,7 +119,7 @@ export class AudioEngine {
           oscGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
           
           osc.connect(oscGain);
-          oscGain.connect(gain);
+          oscGain.connect(mainGain);
           
           lfo.start(now);
           osc.start(now + index * 0.06);
@@ -133,7 +142,7 @@ export class AudioEngine {
       this.isAmbientSynthesized = false;
       this.ambientElement = new Audio(url);
       this.ambientElement.loop = true;
-      this.ambientElement.volume = 0.25;
+      this.ambientElement.volume = 0.25 * this.volume;
       this.ambientElement.play().catch((err) => {
         console.warn("L'autoplay de la musique d'ambiance a été bloqué par le navigateur:", err);
       });
@@ -145,7 +154,7 @@ export class AudioEngine {
       const now = this.ctx.currentTime;
       this.currentAmbientGain = this.ctx.createGain();
       this.currentAmbientGain.gain.setValueAtTime(0, now);
-      this.currentAmbientGain.gain.linearRampToValueAtTime(0.08, now + 2.0); // fade in
+      this.currentAmbientGain.gain.linearRampToValueAtTime(0.08 * this.volume, now + 2.0); // fade in
       
       // Filtre passe-bas très bas pour rendre le son étouffé et ambient
       const filter = this.ctx.createBiquadFilter();
@@ -208,5 +217,20 @@ export class AudioEngine {
       this.currentAmbientSource = null;
       this.currentAmbientGain = null;
     }
+  }
+
+  public setVolume(level: number) {
+    this.volume = Math.max(0, Math.min(1, level));
+    if (this.ambientElement) {
+      this.ambientElement.volume = this.volume * 0.25;
+    }
+    if (this.currentAmbientGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.currentAmbientGain.gain.setValueAtTime(this.volume * 0.08, now);
+    }
+  }
+
+  public getVolume(): number {
+    return this.volume;
   }
 }

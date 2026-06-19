@@ -1,4 +1,5 @@
 import { GamepadDirection } from '@/types';
+import { KeyMapping, loadKeyMapping, ConsoleAction } from '@/utils/inputMapping';
 
 // Types WebHID pour le compilateur TypeScript
 export interface HIDDevice {
@@ -24,6 +25,11 @@ export class GamepadController {
   private animationFrameId: number | null = null;
   private prevStates: Map<number, boolean[]> = new Map();
   private dualSenseDevice: HIDDevice | null = null;
+  
+  private _paused = false;
+  private _keyboardInjectionEnabled = false;
+  private mapping = loadKeyMapping();
+  private stickStates: Map<number, Record<string, boolean>> = new Map();
 
   // Configuration des seuils (Deadzone) pour les sticks analogiques
   private axisThreshold = 0.5;
@@ -31,6 +37,11 @@ export class GamepadController {
 
   private constructor() {
     this.initListeners();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('funny_station_mapping_changed', (e: any) => {
+        this.mapping = e.detail;
+      });
+    }
   }
 
   public static getInstance(): GamepadController {
@@ -61,6 +72,7 @@ export class GamepadController {
     window.addEventListener('gamepaddisconnected', (e) => {
       this.prevStates.delete(e.gamepad.index);
       this.axisCooldowns.delete(e.gamepad.index);
+      this.stickStates.delete(e.gamepad.index);
       if (this.prevStates.size === 0 && this.animationFrameId) {
         cancelAnimationFrame(this.animationFrameId);
         this.animationFrameId = null;
@@ -99,8 +111,43 @@ export class GamepadController {
     }
   }
 
+  /**
+   * Met en pause la navigation gamepad dans les menus de la Funny Station.
+   */
+  public pause() {
+    this._paused = true;
+    console.log('[GamepadController] Polling navigation en pause (jeu embarqué actif)');
+  }
+
+  /**
+   * Reprend la navigation gamepad dans les menus de la Funny Station.
+   */
+  public resume() {
+    this._paused = false;
+    console.log('[GamepadController] Polling navigation repris');
+  }
+
+  public get paused() { return this._paused; }
+
+  /**
+   * Active ou désactive la conversion des touches manette physique en KeyboardEvents.
+   */
+  public enableKeyboardInjection(enabled: boolean) {
+    this._keyboardInjectionEnabled = enabled;
+    console.log('[GamepadController] Mode injection clavier:', enabled);
+  }
+
+  public get keyboardInjectionEnabled() { return this._keyboardInjectionEnabled; }
+
   // Boucle de mise à jour des entrées
   private pollGamepad = () => {
+    // Si en pause ET que l'injection clavier n'est pas activée,
+    // on continue la boucle rAF mais sans lire le gamepad pour économiser le CPU
+    if (this._paused && !this._keyboardInjectionEnabled) {
+      this.animationFrameId = requestAnimationFrame(this.pollGamepad);
+      return;
+    }
+
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
     
     for (let i = 0; i < gamepads.length; i++) {
@@ -114,26 +161,131 @@ export class GamepadController {
       // Lecture des boutons principaux
       const current = gp.buttons.map(b => b.pressed);
 
-      // Détection des transitions montantes (appui instantané)
-      if (current[12] && !prev[12]) this.dispatchAction('UP');
-      if (current[13] && !prev[13]) this.dispatchAction('DOWN');
-      if (current[14] && !prev[14]) this.dispatchAction('LEFT');
-      if (current[15] && !prev[15]) this.dispatchAction('RIGHT');
+      // --- 1. TRADUCTION DES BOUTONS DE LA MANETTE ---
+      const BUTTON_MAP: Record<number, ConsoleAction> = {
+        12: 'UP',
+        13: 'DOWN',
+        14: 'LEFT',
+        15: 'RIGHT',
+        0: 'A',
+        1: 'B',
+        2: 'X',
+        3: 'Y',
+        4: 'L',
+        5: 'R',
+        8: 'SELECT',
+        9: 'START',
+      };
 
-      // Bouton A / Croix (PS) -> 0
-      if (current[0] && !prev[0]) this.dispatchAction('CONFIRM');
-      // Bouton B / Rond (PS) -> 1
-      if (current[1] && !prev[1]) this.dispatchAction('BACK');
-      // Bouton Options (PS) -> 9
-      if (current[9] && !prev[9]) this.dispatchAction('OPTION');
+      for (const [btnIdxStr, action] of Object.entries(BUTTON_MAP)) {
+        const btnIdx = parseInt(btnIdxStr, 10);
+        if (btnIdx >= current.length) continue;
 
-      // Détection sur les sticks analogiques (Gauche)
-      const leftStickX = gp.axes[0];
-      const leftStickY = gp.axes[1];
+        const isPressed = current[btnIdx];
+        const wasPressed = prev[btnIdx];
 
-      // Gérer la deadzone et la transition de direction pour le stick
-      this.handleStickDirection(leftStickX, 'LEFT', 'RIGHT', cooldowns);
-      this.handleStickDirection(leftStickY, 'UP', 'DOWN', cooldowns);
+        if (isPressed !== wasPressed) {
+          const state = isPressed ? 'down' : 'up';
+
+          // A. Dispatcher funny_gamepad_action pour la navigation UI
+          if (!this._paused && isPressed) {
+            let dir: GamepadDirection | null = null;
+            if (action === 'UP') dir = 'UP';
+            else if (action === 'DOWN') dir = 'DOWN';
+            else if (action === 'LEFT') dir = 'LEFT';
+            else if (action === 'RIGHT') dir = 'RIGHT';
+            else if (action === 'A') dir = 'CONFIRM';
+            else if (action === 'B') dir = 'BACK';
+            else if (action === 'START') dir = 'OPTION';
+            else if (action === 'X') dir = 'SQUARE';
+            else if (action === 'Y') dir = 'TRIANGLE';
+
+            if (dir) {
+              this.dispatchAction(dir);
+            }
+          }
+
+          // B. Injecter des événements clavier standard dans le jeu
+          if (this._keyboardInjectionEnabled) {
+            const key = this.mapping[action];
+            if (key) {
+              this.dispatchKeyboardEvent(key, state);
+            }
+          }
+        }
+      }
+
+      // --- 2. TRADUCTION DU STICK GAUCHE (Émulation Clavier continue) ---
+      if (this._keyboardInjectionEnabled) {
+        const leftStickX = gp.axes[0];
+        const leftStickY = gp.axes[1];
+        
+        let states = this.stickStates.get(gp.index);
+        if (!states) {
+          states = { UP: false, DOWN: false, LEFT: false, RIGHT: false };
+          this.stickStates.set(gp.index, states);
+        }
+
+        // Axe Horizontal (Gauche / Droite)
+        if (leftStickX < -this.axisThreshold) {
+          if (!states.LEFT) {
+            states.LEFT = true;
+            this.dispatchKeyboardEvent(this.mapping.LEFT, 'down');
+          }
+          if (states.RIGHT) {
+            states.RIGHT = false;
+            this.dispatchKeyboardEvent(this.mapping.RIGHT, 'up');
+          }
+        } else if (leftStickX > this.axisThreshold) {
+          if (!states.RIGHT) {
+            states.RIGHT = true;
+            this.dispatchKeyboardEvent(this.mapping.RIGHT, 'down');
+          }
+          if (states.LEFT) {
+            states.LEFT = false;
+            this.dispatchKeyboardEvent(this.mapping.LEFT, 'up');
+          }
+        } else {
+          if (states.LEFT) {
+            states.LEFT = false;
+            this.dispatchKeyboardEvent(this.mapping.LEFT, 'up');
+          }
+          if (states.RIGHT) {
+            states.RIGHT = false;
+            this.dispatchKeyboardEvent(this.mapping.RIGHT, 'up');
+          }
+        }
+
+        // Axe Vertical (Haut / Bas)
+        if (leftStickY < -this.axisThreshold) {
+          if (!states.UP) {
+            states.UP = true;
+            this.dispatchKeyboardEvent(this.mapping.UP, 'down');
+          }
+          if (states.DOWN) {
+            states.DOWN = false;
+            this.dispatchKeyboardEvent(this.mapping.DOWN, 'up');
+          }
+        } else if (leftStickY > this.axisThreshold) {
+          if (!states.DOWN) {
+            states.DOWN = true;
+            this.dispatchKeyboardEvent(this.mapping.DOWN, 'down');
+          }
+          if (states.UP) {
+            states.UP = false;
+            this.dispatchKeyboardEvent(this.mapping.UP, 'up');
+          }
+        } else {
+          if (states.UP) {
+            states.UP = false;
+            this.dispatchKeyboardEvent(this.mapping.UP, 'up');
+          }
+          if (states.DOWN) {
+            states.DOWN = false;
+            this.dispatchKeyboardEvent(this.mapping.DOWN, 'up');
+          }
+        }
+      }
 
       this.prevStates.set(gp.index, current);
     }
@@ -141,29 +293,41 @@ export class GamepadController {
     this.animationFrameId = requestAnimationFrame(this.pollGamepad);
   };
 
-  private handleStickDirection(
-    val: number,
-    negDir: GamepadDirection,
-    posDir: GamepadDirection,
-    cooldowns: { [key: string]: boolean }
-  ) {
-    if (val < -this.axisThreshold) {
-      if (!cooldowns[negDir]) {
-        this.dispatchAction(negDir);
-        cooldowns[negDir] = true;
-      }
-    } else {
-      cooldowns[negDir] = false;
-    }
+  private dispatchKeyboardEvent(keyName: string, action: 'down' | 'up') {
+    if (typeof window === 'undefined') return;
 
-    if (val > this.axisThreshold) {
-      if (!cooldowns[posDir]) {
-        this.dispatchAction(posDir);
-        cooldowns[posDir] = true;
+    // Cible l'élément actif du document parent
+    const targets: EventTarget[] = [window.document.activeElement || window.document, window];
+    
+    // Propage dans tous les iframes enfants same-origin
+    const iframes = document.querySelectorAll('iframe');
+    iframes.forEach(iframe => {
+      try {
+        const iframeWindow = iframe.contentWindow;
+        if (iframeWindow) {
+          const iframeTarget = iframeWindow.document.activeElement || iframeWindow.document;
+          targets.push(iframeTarget);
+          targets.push(iframeWindow);
+        }
+      } catch (e) {
+        // Ignorer les erreurs d'origines différentes
       }
-    } else {
-      cooldowns[posDir] = false;
-    }
+    });
+
+    targets.forEach(target => {
+      try {
+        const eventType = action === 'down' ? 'keydown' : 'keyup';
+        const event = new KeyboardEvent(eventType, {
+          key: keyName,
+          bubbles: true,
+          cancelable: true,
+          code: keyName,
+        });
+        target.dispatchEvent(event);
+      } catch (e) {
+        // Ignorer
+      }
+    });
   }
 
   private dispatchAction(direction: GamepadDirection) {

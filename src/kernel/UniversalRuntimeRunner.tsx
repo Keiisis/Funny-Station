@@ -2,9 +2,41 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/utils/supabase/client';
+import { unlockTrophyByKey } from '@/lib/db';
 import { initVFS, VirtualFileSystem } from './vfs';
-import { GameLanguage, NetworkMode } from '@/types';
+import { MemorySwapManager } from './swap';
+import { GameLanguage, NetworkMode, TrophyTier } from '@/types';
 import { GameStateSync } from '@/multiplayer/GameStateSync';
+import { GamepadController } from '../drivers/GamepadController';
+import { loadKeyMapping, ConsoleAction } from '@/utils/inputMapping';
+import { Zap, Check, ArrowLeft } from 'lucide-react';
+import { AudioEngine } from '@/drivers/AudioEngine';
+
+interface Cheat {
+  id: string;
+  gameSlug: string;
+  name: string;
+  description: string;
+  code: string;
+}
+
+const AVAILABLE_CHEATS: Cheat[] = [
+  { id: 'c-neon-god', gameSlug: 'neon-runner', name: 'Invincibilité (God Mode)', description: 'Rend le vaisseau complètement invincible aux obstacles.', code: 'god_mode' },
+  { id: 'c-neon-score', gameSlug: 'neon-runner', name: 'Score Multiplier x10', description: 'Multiplie tous les points de score obtenus par 10.', code: 'score_x10' },
+  { id: 'c-jackie-lives', gameSlug: 'jackie-chan', name: 'Vies Infinies', description: 'Bloque le compteur de vies à 99.', code: 'infinite_lives' },
+  { id: 'c-jackie-inv', gameSlug: 'jackie-chan', name: 'Invincibilité Stunt', description: 'Jackie ne subit plus de dégâts des ennemis.', code: 'god_mode' },
+  { id: 'c-ray-speed', gameSlug: 'wasm-raytracer', name: 'Moteur Turbo', description: 'Accélère considérablement la vitesse de rendu.', code: 'turbo_render' },
+  { id: 'c-horror-ammo', gameSlug: 'top-down-horror', name: 'Munitions Infinies', description: 'Vos armes ne se vident jamais.', code: 'infinite_ammo' }
+];
+
+/** Donnée transmise à l'UI quand un trophée est débloqué (pour l'overlay). */
+export interface TrophyUnlockPayload {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  tier: TrophyTier;
+}
 
 interface GameRunnerProps {
   gameId: string;
@@ -17,7 +49,7 @@ interface GameRunnerProps {
     python_libs?: string[];
     screen_ratio?: string;
   };
-  onTrophyUnlocked?: (trophyName: string) => void;
+  onTrophyUnlocked?: (trophy: TrophyUnlockPayload) => void;
   onExit?: () => void;
   // Online multiplayer props
   networkMode?: NetworkMode;
@@ -41,11 +73,198 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const vfsRef = useRef<VirtualFileSystem | null>(null);
+  const wasmRafRef = useRef<number | null>(null);
 
   const [isReady, setIsReady] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
+
+  const [gameSlug, setGameSlug] = useState<string>('');
+  const [ownedCheats, setOwnedCheats] = useState<string[]>([]);
+  const [activeCheats, setActiveCheats] = useState<Record<string, boolean>>({});
+  const [isCheatPanelOpen, setIsCheatPanelOpen] = useState(false);
+  const [focusedCheatIndex, setFocusedCheatIndex] = useState(0);
+  const [androidNativeApp, setAndroidNativeApp] = useState<boolean>(false);
+  const [selectedDemoGame, setSelectedDemoGame] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+    import('@/lib/db').then(({ fetchGameById }) => {
+      fetchGameById(gameId).then((g) => {
+        if (active && g) {
+          setGameSlug(g.slug);
+        }
+      });
+    });
+    return () => { active = false; };
+  }, [gameId]);
+
+  useEffect(() => {
+    let active = true;
+    const loadUserCheats = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && active) {
+        const stored = localStorage.getItem(`funny_station_cheats_${user.id}`);
+        if (stored) {
+          try {
+            setOwnedCheats(JSON.parse(stored));
+          } catch (e) {}
+        }
+      }
+    };
+    loadUserCheats();
+    return () => { active = false; };
+  }, []);
+
+  const currentCheatPacks = AVAILABLE_CHEATS.filter(c => c.gameSlug === gameSlug && ownedCheats.includes(c.id));
+
+  const injectCheatCode = (code: string, enabled: boolean) => {
+    console.log(`[Cheat Injector] Injecting cheat: ${code} -> ${enabled}`);
+
+    // 1. JS IFrame
+    if (iframeRef.current?.contentWindow) {
+      try {
+        iframeRef.current.contentWindow.postMessage({
+          type: 'FUNNY_BUS_CHEAT_STATUS',
+          payload: { code, enabled }
+        }, '*');
+
+        const win = iframeRef.current.contentWindow;
+        if (code === 'god_mode') {
+          (win as any).godMode = enabled;
+          (win as any).infiniteHealth = enabled;
+        } else if (code === 'score_x10') {
+          (win as any).scoreMultiplier = enabled ? 10 : 1;
+        } else if (code === 'infinite_ammo') {
+          (win as any).infiniteAmmo = enabled;
+        } else if (code === 'infinite_lives') {
+          (win as any).infiniteLives = enabled;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Python Web Worker
+    if (workerRef.current) {
+      workerRef.current.postMessage({
+        type: 'inject_cheat',
+        payload: { code, enabled }
+      });
+    }
+
+    // 3. Emulator Cheats
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({
+        type: 'EMULATOR_CHEAT_INJECT',
+        payload: { code, enabled }
+      }, '*');
+    }
+  };
+
+  // Keyboard C & Gamepad Triangle panel toggle
+  useEffect(() => {
+    const handleInput = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+      if (e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('select');
+        setIsCheatPanelOpen(prev => !prev);
+      }
+    };
+
+    const handleGamepadInput = (e: CustomEvent<{ direction: string; action?: string }>) => {
+      if (e.detail.action === 'up') return;
+      if (e.detail.direction === 'TRIANGLE') {
+        AudioEngine.getInstance().playSFX('select');
+        setIsCheatPanelOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleInput);
+    window.addEventListener('funny_gamepad_action', handleGamepadInput as EventListener);
+    return () => {
+      window.removeEventListener('keydown', handleInput);
+      window.removeEventListener('funny_gamepad_action', handleGamepadInput as EventListener);
+    };
+  }, []);
+
+  // Cheat Panel Navigation
+  useEffect(() => {
+    if (!isCheatPanelOpen || currentCheatPacks.length === 0) return;
+
+    const handleNav = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('navigate', -0.1);
+        setFocusedCheatIndex(prev => (prev - 1 + currentCheatPacks.length) % currentCheatPacks.length);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('navigate', 0.1);
+        setFocusedCheatIndex(prev => (prev + 1) % currentCheatPacks.length);
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('select');
+        const cheat = currentCheatPacks[focusedCheatIndex];
+        const nextState = !activeCheats[cheat.code];
+        
+        setActiveCheats(prev => ({ ...prev, [cheat.code]: nextState }));
+        injectCheatCode(cheat.code, nextState);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('select');
+        setIsCheatPanelOpen(false);
+      }
+    };
+
+    const handleGamepadNav = (e: CustomEvent<{ direction: string; action?: string }>) => {
+      if (e.detail.action === 'up') return;
+      const dir = e.detail.direction;
+
+      if (dir === 'UP') {
+        AudioEngine.getInstance().playSFX('navigate', -0.1);
+        setFocusedCheatIndex(prev => (prev - 1 + currentCheatPacks.length) % currentCheatPacks.length);
+      } else if (dir === 'DOWN') {
+        AudioEngine.getInstance().playSFX('navigate', 0.1);
+        setFocusedCheatIndex(prev => (prev + 1) % currentCheatPacks.length);
+      } else if (dir === 'CONFIRM') {
+        AudioEngine.getInstance().playSFX('select');
+        const cheat = currentCheatPacks[focusedCheatIndex];
+        const nextState = !activeCheats[cheat.code];
+        
+        setActiveCheats(prev => ({ ...prev, [cheat.code]: nextState }));
+        injectCheatCode(cheat.code, nextState);
+      } else if (dir === 'BACK') {
+        AudioEngine.getInstance().playSFX('select');
+        setIsCheatPanelOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleNav, { capture: true });
+    window.addEventListener('funny_gamepad_action', handleGamepadNav as EventListener);
+    return () => {
+      window.removeEventListener('keydown', handleNav, { capture: true });
+      window.removeEventListener('funny_gamepad_action', handleGamepadNav as EventListener);
+    };
+  }, [isCheatPanelOpen, focusedCheatIndex, currentCheatPacks, activeCheats]);
+
+  useEffect(() => {
+    // Mettre en pause le GamepadController global pour que Funny Station ne capte plus les touches
+    const gamepad = GamepadController.getInstance();
+    gamepad.pause();
+
+    // Activer l'injection clavier pour GBA, PSP ou JS standard, mais pas pour Unity (entryPoint finit par .html)
+    const isUnityGame = language === 'js' && entryPoint.endsWith('.html');
+    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || (language === 'js' && !isUnityGame);
+    gamepad.enableKeyboardInjection(shouldInjectKeyboard);
+
+    return () => {
+      // Désactiver l'injection clavier et reprendre le GamepadController global à la sortie du jeu
+      gamepad.enableKeyboardInjection(false);
+      gamepad.resume();
+    };
+  }, [language, entryPoint]);
 
   useEffect(() => {
     let active = true;
@@ -78,6 +297,12 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           await setupLuaEnvironment(vfs);
         } else if (language === 'java') {
           await setupJavaEnvironment(vfs);
+        } else if (language === 'gba') {
+          await setupGbaEnvironment(vfs);
+        } else if (language === 'psp') {
+          await setupPspEnvironment(vfs);
+        } else if (language === 'android') {
+          await setupAndroidEnvironment(vfs);
         } else {
           throw new Error(`Le langage '${language}' n'est pas encore supporté par le noyau.`);
         }
@@ -113,6 +338,13 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           break;
         case 'FUNNY_BUS_EXIT':
           if (onExit) onExit();
+          break;
+        case 'FUNNY_BUS_GAME_READY':
+          console.log('[Kernel] Le jeu est prêt. Focus sur le canvas.');
+          if (iframeRef.current) {
+            iframeRef.current.focus();
+            iframeRef.current.contentWindow?.postMessage({ type: 'FUNNY_STATION_FOCUS' }, '*');
+          }
           break;
         default:
           break;
@@ -188,6 +420,9 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
       if (workerRef.current) {
         workerRef.current.terminate();
       }
+      if (wasmRafRef.current) {
+        cancelAnimationFrame(wasmRafRef.current);
+      }
     };
   }, [gameId, language]);
 
@@ -238,30 +473,28 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     }
   };
 
-  const handleUnlockTrophy = async (trophyId: string) => {
+  // Le paramètre est la CLÉ STABLE du trophée (ex: 'first_steps'), pas un UUID.
+  const handleUnlockTrophy = async (trophyKey: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        // Mode hors ligne : Simuler le déblocage visuel
-        if (onTrophyUnlocked) onTrophyUnlocked(trophyId);
+        // Invité non authentifié : déblocage visuel uniquement (pas de persistance).
+        onTrophyUnlocked?.({ id: trophyKey, key: trophyKey, name: 'Succès débloqué', description: '', tier: 'bronze' });
         return;
       }
 
-      // Insérer en base Supabase
-      const { error } = await supabase.from('user_trophies').insert({
-        user_id: user.id,
-        trophy_id: trophyId
-      });
-
-      if (!error && onTrophyUnlocked) {
-        onTrophyUnlocked(trophyId);
-      } else if (error) {
-        // Débloquer visuellement quand même si déjà débloqué en base
-        if (error.code === '23505') { // Unique constraint violation (déjà débloqué)
-          if (onTrophyUnlocked) onTrophyUnlocked(trophyId);
-        } else {
-          console.error("[Funny-Bus] Erreur déblocage trophée Supabase:", error);
-        }
+      // Résolution clé → trophée + insertion réelle (le trigger SQL crédite les coins).
+      const trophy = await unlockTrophyByKey(user.id, gameId, trophyKey);
+      if (trophy) {
+        onTrophyUnlocked?.({
+          id: trophy.id,
+          key: trophy.trophy_key,
+          name: trophy.name,
+          description: trophy.description,
+          tier: trophy.tier,
+        });
+      } else {
+        console.warn(`[Funny-Bus] Trophée inconnu pour ce jeu: '${trophyKey}'`);
       }
     } catch (err) {
       console.error("[Funny-Bus] Exception déblocage trophée:", err);
@@ -274,40 +507,63 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     setLoadingProgress(60);
     // JS standard isolé dans une IFrame avec Content Security Policy stricte
     if (iframeRef.current) {
-      const sandboxDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
-      if (sandboxDoc) {
-        // Code SDK à injecter
-        const injectSDK = `
-          window.funnyStation = {
-            save: (slot, data) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
-            load: (slot) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
-            unlockTrophy: (trophyId) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
-            exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
-            networkMode: '${networkMode}',
-            playerNumber: ${localPlayerNumber}
-          };
-        `;
-
-        // Récupérer le code source du point d'entrée
-        const entryPath = `${gameUrl}/${entryPoint}`;
+      const entryPath = `${gameUrl}/${entryPoint}`;
+      
+      if (entryPoint.endsWith('.html')) {
+        // Pour les points d'entrée HTML (ex: WebGL Unity), on charge directement l'URL
+        iframeRef.current.src = entryPath;
         
-        sandboxDoc.open();
-        sandboxDoc.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8">
-              <title>Funny Sandbox</title>
-              <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: *;">
-              <script>${injectSDK}</script>
-              <script src="${entryPath}" type="module" defer></script>
-            </head>
-            <body style="margin: 0; overflow: hidden; background: #000; color: #fff; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;">
-              <div id="game-canvas-container" style="width:100%; height:100%;"></div>
-            </body>
-          </html>
-        `);
-        sandboxDoc.close();
+        const injectBridge = () => {
+          try {
+            if (iframeRef.current?.contentWindow) {
+              (iframeRef.current.contentWindow as any).funnyStation = {
+                save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
+                load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
+                unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
+                exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+                networkMode: networkMode,
+                playerNumber: localPlayerNumber
+              };
+            }
+          } catch (e) {
+            console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe HTML:", e);
+          }
+        };
+
+        iframeRef.current.onload = injectBridge;
+      } else {
+        const sandboxDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+        if (sandboxDoc) {
+          // Code SDK à injecter
+          const injectSDK = `
+            window.funnyStation = {
+              save: (slot, data) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
+              load: (slot) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
+              unlockTrophy: (trophyId) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
+              exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+              networkMode: '${networkMode}',
+              playerNumber: ${localPlayerNumber}
+            };
+          `;
+
+          sandboxDoc.open();
+          sandboxDoc.write(`
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta charset="utf-8">
+                <title>Funny Sandbox</title>
+                <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: *;">
+                <script>${injectSDK}</script>
+                <script src="${entryPath}" type="module" defer></script>
+              </head>
+              <body style="margin: 0; overflow: hidden; background: #000; color: #fff; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;">
+                <div id="game-canvas-container" style="width:100%; height:100%;"></div>
+              </body>
+            </html>
+          `);
+          sandboxDoc.close();
+        }
       }
     }
   };
@@ -356,38 +612,72 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     };
   };
 
-  const setupWasmEnvironment = async (vfs: VirtualFileSystem) => {
+  const setupWasmEnvironment = async (_vfs: VirtualFileSystem) => {
     setLoadingProgress(70);
-    // Instanciation directe de WASM avec injection de la table mémoire virtuelle
-    const response = await fetch(`${gameUrl}/${entryPoint}`);
-    if (!response.ok) throw new Error("Impossible de charger le binaire WASM.");
-    const buffer = await response.arrayBuffer();
+    // Chargement du binaire via le gestionnaire mémoire/swap : cache RAM + IndexedDB (LRU).
+    // Les relances du jeu repartent du cache local sans re-télécharger.
+    const swap = new MemorySwapManager(gameId, manifest.maxMemoryMb ?? 128);
+    await swap.init();
+    const bytes = await swap.loadAsset(`wasm/${entryPoint}`, `${gameUrl}/${entryPoint}`);
+    // Copie dans un ArrayBuffer contigu (overload BufferSource de WebAssembly.instantiate).
+    const buffer = bytes.slice().buffer as ArrayBuffer;
 
-    const importObject = {
+    // SDK natif réel : le module peut journaliser et lire/écrire dans sa mémoire linéaire.
+    let exportedMemory: WebAssembly.Memory | null = null;
+    const readCString = (ptr: number) => {
+      if (!exportedMemory) return '';
+      const bytes = new Uint8Array(exportedMemory.buffer, ptr);
+      let end = 0;
+      while (bytes[end] !== 0 && end < 4096) end++;
+      return new TextDecoder().decode(new Uint8Array(exportedMemory.buffer, ptr, end));
+    };
+
+    const importObject: WebAssembly.Imports = {
       env: {
-        memory: new WebAssembly.Memory({ 
-          initial: 256, 
-          maximum: manifest.maxMemoryMb ? (manifest.maxMemoryMb * 16) : 512 
-        }),
-        funny_station_save: (ptr: number, length: number) => {
-          console.log('[WASM SDK] funny_station_save trigger');
-          // En production, lire dans la mémoire WASM à l'adresse ptr
-        },
-        funny_station_log: (ptr: number) => {
-          console.log('[WASM SDK] Log depuis le code natif');
-        }
-      }
+        // Permet aux modules compilés (C/Rust) d'utiliser les fonctions trigonométriques.
+        sinf: (x: number) => Math.sin(x),
+        cosf: (x: number) => Math.cos(x),
+        funny_station_log: (ptr: number) => console.log('[WASM]', readCString(ptr)),
+      },
     };
 
     setLoadingProgress(85);
     const wasmModule = await WebAssembly.instantiate(buffer, importObject);
-    
-    // Exécuter le point d'entrée
-    if (wasmModule.instance.exports.main) {
-      (wasmModule.instance.exports.main as Function)();
-    } else if (wasmModule.instance.exports._main) {
-      (wasmModule.instance.exports._main as Function)();
+    const exports = wasmModule.instance.exports as Record<string, unknown>;
+
+    if (exports.memory instanceof WebAssembly.Memory) {
+      exportedMemory = exports.memory;
     }
+
+    setLoadingProgress(100);
+
+    // Cas 1 — module graphique : exporte `render(w,h,t)` + `memory`.
+    // Le runtime lit les pixels calculés par le WASM et les peint sur le canvas.
+    if (typeof exports.render === 'function' && exportedMemory) {
+      const render = exports.render as (w: number, h: number, t: number) => void;
+      const memory = exportedMemory;
+      const canvas = document.getElementById('wasm-canvas') as HTMLCanvasElement | null;
+      const ctx = canvas?.getContext('2d');
+      const W = 480, H = 320;
+      if (canvas) { canvas.width = W; canvas.height = H; }
+
+      const start = performance.now();
+      const frame = () => {
+        const t = (performance.now() - start) / 1000;
+        render(W, H, t);
+        if (ctx) {
+          const pixels = new Uint8ClampedArray(memory.buffer, 0, W * H * 4);
+          ctx.putImageData(new ImageData(pixels, W, H), 0, 0);
+        }
+        wasmRafRef.current = requestAnimationFrame(frame);
+      };
+      frame();
+      return;
+    }
+
+    // Cas 2 — module classique : point d'entrée main()/_main().
+    if (typeof exports.main === 'function') (exports.main as () => void)();
+    else if (typeof exports._main === 'function') (exports._main as () => void)();
   };
 
   const setupLuaEnvironment = async (vfs: VirtualFileSystem) => {
@@ -470,6 +760,203 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     }
   };
 
+  const setupGbaEnvironment = async (vfs: VirtualFileSystem) => {
+    setLoadingProgress(70);
+    if (iframeRef.current) {
+      const romPath = `${gameUrl}/${entryPoint}`;
+      iframeRef.current.src = `/games/gba-runner.html?rom=${encodeURIComponent(romPath)}`;
+      
+      const injectBridge = () => {
+        try {
+          if (iframeRef.current?.contentWindow) {
+            (iframeRef.current.contentWindow as any).funnyStation = {
+              save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
+              load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
+              unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
+              exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+              networkMode: networkMode,
+              playerNumber: localPlayerNumber
+            };
+          }
+        } catch (e) {
+          console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe GBA:", e);
+        }
+      };
+
+      iframeRef.current.onload = injectBridge;
+    }
+  };
+
+  const setupPspEnvironment = async (vfs: VirtualFileSystem) => {
+    setLoadingProgress(70);
+    if (iframeRef.current) {
+      const romPath = `${gameUrl}/${entryPoint}`;
+      iframeRef.current.src = `/games/psp-runner.html?rom=${encodeURIComponent(romPath)}`;
+      
+      const injectBridge = () => {
+        try {
+          if (iframeRef.current?.contentWindow) {
+            (iframeRef.current.contentWindow as any).funnyStation = {
+              save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
+              load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
+              unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
+              exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+              networkMode: networkMode,
+              playerNumber: localPlayerNumber
+            };
+          }
+        } catch (e) {
+          console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe PSP:", e);
+        }
+      };
+
+      iframeRef.current.onload = injectBridge;
+    }
+  };
+
+  const setupAndroidEnvironment = async (vfs: VirtualFileSystem) => {
+    setLoadingProgress(70);
+    if (entryPoint.endsWith('.apk') || entryPoint === 'game.apk') {
+      setAndroidNativeApp(true);
+    } else if (iframeRef.current) {
+      const gamePath = `${gameUrl}/${entryPoint}`;
+      iframeRef.current.src = gamePath;
+    }
+    setLoadingProgress(100);
+  };
+
+  // Gestion de la traduction des touches personnalisées en entrées attendues par l'émulateur GBA
+  useEffect(() => {
+    if (language !== 'gba') return;
+
+    let currentMapping = loadKeyMapping();
+
+    const handleMappingChange = (e: any) => {
+      currentMapping = e.detail;
+    };
+    window.addEventListener('funny_station_mapping_changed', handleMappingChange);
+
+    // Mappage des actions standard de la console vers les touches attendues par le GBA d'EmulatorJS :
+    // UP->ArrowUp, DOWN->ArrowDown, LEFT->ArrowLeft, RIGHT->ArrowRight, A->x, B->z, L->a, R->s, START->Enter, SELECT->Shift
+    const actionToGbaKey: Record<ConsoleAction, string> = {
+      UP: 'ArrowUp',
+      DOWN: 'ArrowDown',
+      LEFT: 'ArrowLeft',
+      RIGHT: 'ArrowRight',
+      A: 'x',
+      B: 'z',
+      X: 'x',
+      Y: 'z',
+      L: 'a',
+      R: 's',
+      START: 'Enter',
+      SELECT: 'Shift'
+    };
+
+    const handleKeyboardTranslation = (e: KeyboardEvent) => {
+      // Trouver l'action correspondante à la touche physique
+      const action = Object.keys(currentMapping).find(
+        (act) => currentMapping[act as ConsoleAction] === e.key
+      ) as ConsoleAction | undefined;
+
+      if (action) {
+        const targetGbaKey = actionToGbaKey[action];
+        if (targetGbaKey && iframeRef.current?.contentWindow) {
+          e.preventDefault();
+          try {
+            const eventType = e.type === 'keydown' ? 'keydown' : 'keyup';
+            const translatedEvent = new KeyboardEvent(eventType, {
+              key: targetGbaKey,
+              code: targetGbaKey,
+              bubbles: true,
+              cancelable: true
+            });
+            const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
+            const target = doc.activeElement || doc;
+            target.dispatchEvent(translatedEvent);
+          } catch (err) {
+            console.error("[Kernel] Échec de la traduction des entrées GBA:", err);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyboardTranslation, { capture: true });
+    window.addEventListener('keyup', handleKeyboardTranslation, { capture: true });
+
+    return () => {
+      window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
+      window.removeEventListener('keydown', handleKeyboardTranslation, { capture: true });
+      window.removeEventListener('keyup', handleKeyboardTranslation, { capture: true });
+    };
+  }, [language]);
+
+  // Gestion de la traduction des touches personnalisées en entrées attendues par l'émulateur PSP
+  useEffect(() => {
+    if (language !== 'psp') return;
+
+    let currentMapping = loadKeyMapping();
+
+    const handleMappingChange = (e: any) => {
+      currentMapping = e.detail;
+    };
+    window.addEventListener('funny_station_mapping_changed', handleMappingChange);
+
+    // Mappage des actions standard vers les touches attendues par le core PSP (PPSSPP) :
+    // A->x (Cross), B->z (Circle), X->s (Square), Y->a (Triangle), L->q, R->e, START->Enter, SELECT->Shift
+    const actionToPspKey: Record<ConsoleAction, string> = {
+      UP: 'ArrowUp',
+      DOWN: 'ArrowDown',
+      LEFT: 'ArrowLeft',
+      RIGHT: 'ArrowRight',
+      A: 'x',
+      B: 'z',
+      X: 's',
+      Y: 'a',
+      L: 'q',
+      R: 'e',
+      START: 'Enter',
+      SELECT: 'Shift'
+    };
+
+    const handleKeyboardTranslation = (e: KeyboardEvent) => {
+      // Trouver l'action correspondante à la touche physique
+      const action = Object.keys(currentMapping).find(
+        (act) => currentMapping[act as ConsoleAction] === e.key
+      ) as ConsoleAction | undefined;
+
+      if (action) {
+        const targetPspKey = actionToPspKey[action];
+        if (targetPspKey && iframeRef.current?.contentWindow) {
+          e.preventDefault();
+          try {
+            const eventType = e.type === 'keydown' ? 'keydown' : 'keyup';
+            const translatedEvent = new KeyboardEvent(eventType, {
+              key: targetPspKey,
+              code: targetPspKey,
+              bubbles: true,
+              cancelable: true
+            });
+            const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
+            const target = doc.activeElement || doc;
+            target.dispatchEvent(translatedEvent);
+          } catch (err) {
+            console.error("[Kernel] Échec de la traduction des entrées PSP:", err);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyboardTranslation, { capture: true });
+    window.addEventListener('keyup', handleKeyboardTranslation, { capture: true });
+
+    return () => {
+      window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
+      window.removeEventListener('keydown', handleKeyboardTranslation, { capture: true });
+      window.removeEventListener('keyup', handleKeyboardTranslation, { capture: true });
+    };
+  }, [language]);
+
   return (
     <div ref={containerRef} className="relative w-full h-full bg-black flex items-center justify-center rounded-lg overflow-hidden border border-zinc-800">
       {!isReady && (
@@ -491,8 +978,138 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           ref={iframeRef}
           className="w-full h-full border-none bg-black"
           sandbox="allow-scripts allow-same-origin"
+          allow="gamepad"
           title="Sandbox Game Process"
         />
+      )}
+
+      {language === 'gba' && (
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none bg-black"
+          sandbox="allow-scripts allow-same-origin"
+          title="GBA Emulator Process"
+        />
+      )}
+
+      {language === 'psp' && (
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none bg-black"
+          sandbox="allow-scripts allow-same-origin"
+          title="PSP Emulator Process"
+        />
+      )}
+
+      {language === 'android' && !androidNativeApp && (
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none bg-black"
+          sandbox="allow-scripts allow-same-origin"
+          allow="gamepad"
+          title="Android Web Runtime Process"
+        />
+      )}
+
+      {language === 'android' && androidNativeApp && (
+        <div className="w-full h-full bg-zinc-950 flex flex-col relative text-white font-sans overflow-hidden">
+          {/* Simulation Notification Overlay */}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 bg-amber-500/90 text-zinc-950 font-black text-[9px] uppercase tracking-widest px-3 py-1 rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.5)] border border-amber-400 flex items-center gap-1.5 backdrop-blur-md">
+            <Zap className="w-3.5 h-3.5 fill-zinc-950" />
+            <span>Mode Sandbox Android Actif (APK Natif)</span>
+          </div>
+
+          {/* Simulated Android Device Screen */}
+          <div className="flex-1 w-full h-full flex flex-col relative">
+            {selectedDemoGame ? (
+              <div className="w-full h-full flex flex-col relative">
+                {/* Close/Back Button */}
+                <button 
+                  onClick={() => setSelectedDemoGame('')}
+                  className="absolute top-4 left-4 z-40 p-2 rounded-xl bg-black/70 hover:bg-black/90 border border-zinc-800 text-zinc-400 hover:text-white transition-all cursor-pointer flex items-center justify-center shadow-lg"
+                  title="Retour à l'accueil"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                
+                {/* Game IFrame */}
+                <iframe
+                  src={
+                    selectedDemoGame === 'flappy'
+                      ? 'https://mario.moe/flappybird/'
+                      : selectedDemoGame === '2048'
+                      ? 'https://gabrielecirulli.github.io/2048/'
+                      : 'https://wayou.github.io/t-rex-runner/'
+                  }
+                  className="flex-1 w-full h-full border-none bg-black"
+                  sandbox="allow-scripts allow-same-origin"
+                  title="Android Simulated Game"
+                />
+              </div>
+            ) : (
+              /* Android Home Screen */
+              <div 
+                className="w-full h-full flex flex-col justify-between p-8 relative bg-cover bg-center"
+                style={{
+                  backgroundImage: `radial-gradient(circle, rgba(2,6,23,0.65) 0%, rgba(2,6,23,0.95) 100%), url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop')`
+                }}
+              >
+                {/* Clock Widget */}
+                <div className="flex flex-col items-center mt-12 animate-in fade-in slide-in-from-top-6 duration-300">
+                  <span className="text-6xl font-extralight tracking-wide text-zinc-100">
+                    {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <span className="text-xs text-zinc-400 uppercase tracking-widest mt-2 font-bold font-mono">
+                    {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </span>
+                </div>
+
+                {/* Grid of Apps */}
+                <div className="flex-1 flex items-center justify-center animate-in fade-in zoom-in-95 duration-500">
+                  <div className="grid grid-cols-3 gap-12 max-w-md w-full">
+                    {/* Flappy Bird */}
+                    <div 
+                      onClick={() => { AudioEngine.getInstance().playSFX('select'); setSelectedDemoGame('flappy'); }}
+                      className="flex flex-col items-center gap-3 group cursor-pointer"
+                    >
+                      <div className="w-18 h-18 rounded-3xl bg-gradient-to-tr from-yellow-450 to-amber-550 border border-yellow-350 flex items-center justify-center shadow-[0_10px_20px_rgba(245,158,11,0.25)] transition-all transform group-hover:scale-110 active:scale-95 group-hover:shadow-[0_0_20px_rgba(245,158,11,0.5)]">
+                        <span className="text-4xl">🐤</span>
+                      </div>
+                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest group-hover:text-zinc-200 transition-colors">Flappy Bird</span>
+                    </div>
+
+                    {/* 2048 */}
+                    <div 
+                      onClick={() => { AudioEngine.getInstance().playSFX('select'); setSelectedDemoGame('2048'); }}
+                      className="flex flex-col items-center gap-3 group cursor-pointer"
+                    >
+                      <div className="w-18 h-18 rounded-3xl bg-gradient-to-tr from-orange-450 to-red-550 border border-orange-350 flex items-center justify-center shadow-[0_10px_20px_rgba(239,68,68,0.25)] transition-all transform group-hover:scale-110 active:scale-95 group-hover:shadow-[0_0_20px_rgba(239,68,68,0.5)]">
+                        <span className="text-2xl font-black text-white tracking-tighter">2048</span>
+                      </div>
+                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest group-hover:text-zinc-200 transition-colors">2048</span>
+                    </div>
+
+                    {/* Chrome Dino */}
+                    <div 
+                      onClick={() => { AudioEngine.getInstance().playSFX('select'); setSelectedDemoGame('dino'); }}
+                      className="flex flex-col items-center gap-3 group cursor-pointer"
+                    >
+                      <div className="w-18 h-18 rounded-3xl bg-gradient-to-tr from-zinc-700 to-zinc-850 border border-zinc-600 flex items-center justify-center shadow-[0_10px_20px_rgba(0,0,0,0.5)] transition-all transform group-hover:scale-110 active:scale-95 group-hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                        <span className="text-4xl">🦖</span>
+                      </div>
+                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest group-hover:text-zinc-200 transition-colors">T-Rex Run</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer instructions */}
+                <div className="text-center text-[9px] text-zinc-550 font-mono uppercase tracking-wider animate-pulse">
+                  Sélectionnez un jeu tactile Android pour démarrer
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {language === 'python' && (
@@ -516,6 +1133,88 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
         <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-950 p-4 font-mono text-xs text-zinc-400">
           <div className="mb-4">Binaire WASM instancié avec succès.</div>
           <canvas id="wasm-canvas" className="w-full h-full bg-black max-w-lg max-h-96 rounded border border-zinc-800" />
+        </div>
+      )}
+
+      {/* Active Cheat HUD */}
+      {Object.values(activeCheats).some(v => v) && (
+        <div className="absolute top-4 right-4 z-40 flex items-center gap-1.5 px-3 py-1 bg-blue-950/80 border border-blue-500/50 rounded-full shadow-[0_0_12px_rgba(59,130,246,0.3)] backdrop-blur-md animate-pulse">
+          <Zap className="w-3.5 h-3.5 text-blue-400 fill-blue-400" />
+          <span className="text-[10px] font-bold tracking-wider text-blue-200 uppercase">Cheats Actifs</span>
+        </div>
+      )}
+
+      {/* Cheat Panel Overlay */}
+      {isCheatPanelOpen && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-gradient-to-b from-zinc-950/95 to-blue-950/95 border border-blue-500/30 rounded-xl shadow-[0_0_30px_rgba(0,0,0,0.8),0_0_15px_rgba(59,130,246,0.15)] overflow-hidden animate-in fade-in zoom-in-95 duration-200 animate-fade-in">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/40">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-500 animate-pulse" />
+                <h3 className="font-bold text-sm tracking-wide text-zinc-100 uppercase">Injecteur de Cheats</h3>
+              </div>
+              <span className="text-[10px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">Touche C / Triangle</span>
+            </div>
+            
+            {/* Cheat List */}
+            <div className="p-4 max-h-[300px] overflow-y-auto space-y-2">
+              {currentCheatPacks.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500">
+                  <Zap className="w-8 h-8 mx-auto mb-2 text-zinc-700" />
+                  <p className="text-xs">Aucun code de triche possédé pour ce jeu.</p>
+                  <p className="text-[10px] text-zinc-600 mt-1">Achetez des packs de cheats dans le FunnyStore.</p>
+                </div>
+              ) : (
+                currentCheatPacks.map((cheat, index) => {
+                  const isFocused = index === focusedCheatIndex;
+                  const isActive = !!activeCheats[cheat.code];
+                  return (
+                    <div
+                      key={cheat.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
+                        isFocused
+                          ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.2)]'
+                          : 'bg-zinc-900/60 border-zinc-800/80 hover:bg-zinc-800/40'
+                      }`}
+                    >
+                      <div className="flex-1 pr-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-bold ${isFocused ? 'text-blue-400' : 'text-zinc-200'}`}>
+                            {cheat.name}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-400 mt-0.5 line-clamp-2 leading-relaxed">
+                          {cheat.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-center">
+                        <div 
+                          className={`w-10 h-6 rounded-full p-0.5 transition-colors duration-200 ${
+                            isActive ? 'bg-blue-500' : 'bg-zinc-700'
+                          }`}
+                        >
+                          <div 
+                            className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 flex items-center justify-center ${
+                              isActive ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          >
+                            {isActive && <Check className="w-3 h-3 text-blue-600 stroke-[3]" />}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            {/* Navigation Info / Footer */}
+            <div className="px-5 py-3 border-t border-zinc-900 bg-zinc-950/80 flex justify-between items-center text-[10px] text-zinc-500">
+              <span>{currentCheatPacks.length > 0 ? "▲▼ Naviguer • ENTRÉE Activer" : ""}</span>
+              <span>ÉCHAP pour fermer</span>
+            </div>
+          </div>
         </div>
       )}
     </div>

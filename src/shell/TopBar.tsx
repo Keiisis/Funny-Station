@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad, Settings, User, Coins, Search } from 'lucide-react';
+import { Gamepad, Settings, User, Coins, Search, Power } from 'lucide-react';
 import { AudioEngine } from '@/drivers/AudioEngine';
 
 interface TopBarProps {
@@ -12,6 +12,7 @@ interface TopBarProps {
   onChangeTab: (tab: 'games' | 'store' | 'profile') => void;
   onOpenSettings?: () => void;
   onOpenControllerMenu?: () => void;
+  onOpenPowerMenu?: () => void;
   activeControllerType?: 'pc' | 'mobile' | 'online' | null;
 }
 
@@ -23,6 +24,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onChangeTab,
   onOpenSettings,
   onOpenControllerMenu,
+  onOpenPowerMenu,
   activeControllerType
 }) => {
   const [time, setTime] = useState<string>('');
@@ -160,6 +162,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           title="Paramètres / Se déconnecter"
         >
           <Settings size={16} className="text-zinc-400 hover:text-white hover:rotate-45 transition-transform duration-300" />
+        </button>
+
+        {/* Alimentation */}
+        <button
+          onClick={() => {
+            AudioEngine.getInstance().playSFX('select');
+            onOpenPowerMenu?.();
+          }}
+          className="hover:text-red-400 transition-colors duration-200 outline-none flex items-center cursor-pointer"
+          title="Alimentation"
+        >
+          <Power size={16} className="text-zinc-400 hover:text-red-500 transition-transform duration-300" />
         </button>
 
         {/* Avatar Profil clickable */}

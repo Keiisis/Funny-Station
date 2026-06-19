@@ -1,19 +1,34 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Game, Trophy, TrophyTier, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Game, Trophy, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
 import { useGamepadNavigation } from '@/hooks/useGamepadNavigation';
 import { TopBar } from './TopBar';
 import { StoreView } from './StoreView';
 import { ProfileSpace } from './ProfileSpace';
-import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
+import { UniversalRuntimeRunner, TrophyUnlockPayload } from '@/kernel/UniversalRuntimeRunner';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { FunnyStudio } from './FunnyStudio';
-import { Play, Code, Trophy as TrophyIcon, CornerDownLeft, Gamepad, Smartphone, Users, Globe, Copy, Check, Lock, Coins, ShoppingBag } from 'lucide-react';
+import { Play, Code, Trophy as TrophyIcon, CornerDownLeft, Gamepad, Smartphone, Users, Globe, Copy, Check, Lock, Coins, ShoppingBag, Power } from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
 import QRCode from 'qrcode';
 import { GameRoom } from '@/multiplayer/GameRoom';
 import { GameStateSync } from '@/multiplayer/GameStateSync';
+import { DynamicAura } from './DynamicAura';
+import { ControlCenter } from './ControlCenter';
+import { ShutdownScreen } from './ShutdownScreen';
+import { loadKeyMapping, saveKeyMapping, KeyMapping, ConsoleAction, DEFAULT_KEY_MAPPING, ACTION_LABELS } from '@/utils/inputMapping';
+import {
+  fetchPublishedGames,
+  fetchGamesByAuthor,
+  fetchTrophiesForGame,
+  fetchUnlockedTrophyIds,
+  buyGame,
+  publishGame,
+  deleteGame,
+  setGameStatus,
+  incrementPlayCount,
+} from '@/lib/db';
 
 // Couleurs par joueur pour l'UI
 const PLAYER_COLORS = [
@@ -25,10 +40,10 @@ const PLAYER_COLORS = [
 
 // Mapping clavier par joueur (P1: Flèches, P2: ZQSD, P3: IJKL, P4: Numpad)
 const PLAYER_KEY_MAPS: Record<string, string>[] = [
-  { 'UP': 'ArrowUp', 'DOWN': 'ArrowDown', 'LEFT': 'ArrowLeft', 'RIGHT': 'ArrowRight', 'CONFIRM': 'Enter', 'BACK': 'Escape', 'OPTION': 'Escape', 'TRIANGLE': 'ArrowUp', 'SQUARE': ' ' },
-  { 'UP': 'w', 'DOWN': 's', 'LEFT': 'a', 'RIGHT': 'd', 'CONFIRM': 'e', 'BACK': 'q', 'OPTION': 'q', 'TRIANGLE': 'w', 'SQUARE': 'f' },
-  { 'UP': 'i', 'DOWN': 'k', 'LEFT': 'j', 'RIGHT': 'l', 'CONFIRM': 'o', 'BACK': 'u', 'OPTION': 'u', 'TRIANGLE': 'i', 'SQUARE': 'h' },
-  { 'UP': '8', 'DOWN': '5', 'LEFT': '4', 'RIGHT': '6', 'CONFIRM': '0', 'BACK': '7', 'OPTION': '7', 'TRIANGLE': '8', 'SQUARE': '1' },
+  { 'UP': 'ArrowUp', 'DOWN': 'ArrowDown', 'LEFT': 'ArrowLeft', 'RIGHT': 'ArrowRight', 'CONFIRM': 'Enter', 'BACK': 'Escape', 'OPTION': 'Escape', 'TRIANGLE': 'ArrowUp', 'SQUARE': ' ', 'SELECT': 'Tab', 'START': 'Escape', 'L': 'l', 'R': 'r' },
+  { 'UP': 'w', 'DOWN': 's', 'LEFT': 'a', 'RIGHT': 'd', 'CONFIRM': 'e', 'BACK': 'q', 'OPTION': 'q', 'TRIANGLE': 'w', 'SQUARE': 'f', 'SELECT': '1', 'START': '2', 'L': 'c', 'R': 'v' },
+  { 'UP': 'i', 'DOWN': 'k', 'LEFT': 'j', 'RIGHT': 'l', 'CONFIRM': 'o', 'BACK': 'u', 'OPTION': 'u', 'TRIANGLE': 'i', 'SQUARE': 'h', 'SELECT': '7', 'START': '8', 'L': 'n', 'R': 'm' },
+  { 'UP': '8', 'DOWN': '5', 'LEFT': '4', 'RIGHT': '6', 'CONFIRM': '0', 'BACK': '7', 'OPTION': '7', 'TRIANGLE': '8', 'SQUARE': '1', 'SELECT': '/', 'START': '*', 'L': '-', 'R': '+' },
 ];
 
 interface ConnectedPlayer {
@@ -41,112 +56,70 @@ interface DashboardProps {
   profile: ProfileData;
   onSignOut: () => void;
   onUpdateProfile: (updated: ProfileData) => void;
+  /** Recharge le profil depuis Supabase (après achat/trophée) — branché en Phase 3. */
+  onRefreshProfile?: () => void | Promise<void>;
 }
 
-const DEFAULT_GAMES: Game[] = [
-  {
-    id: 'g1',
-    title: 'Neon Runner',
-    slug: 'neon-runner',
-    description: 'Esquivez les obstacles néons dans cette simulation de course à haute vitesse s\'exécutant nativement en HTML5 Canvas.',
-    runtime: 'js',
-    entry_point: 'index.js',
-    assets_bucket_path: '/games/neon-runner',
-    background_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
-    video_url: 'https://player.vimeo.com/external/371433846.sd.mp4?s=236da2f3c054f4d9b3e3909bbb0079549f3e1b39&profile_id=139&oauth2_token_id=57447761',
-    manifest: { screen_ratio: '16/9' },
-    play_count: 24,
-    rating: 4.8,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'g2',
-    title: 'PyPyodide Math Canvas',
-    slug: 'pypyodide-math',
-    description: 'Une démonstration de calcul matriciel en Python avec le runtime Pyodide, évaluant des trajectoires mathématiques en temps réel.',
-    runtime: 'python',
-    entry_point: 'main.py',
-    assets_bucket_path: '/games/py-math',
-    background_url: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1470&auto=format&fit=crop',
-    video_url: 'https://player.vimeo.com/external/510850877.sd.mp4?s=d5c8d67584100b81ca20949850610c144e054c2a&profile_id=165&oauth2_token_id=57447761',
-    price: 150,
-    manifest: { python_libs: ['numpy'] },
-    play_count: 8,
-    rating: 4.5,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'g3',
-    title: 'Wasm Raytracer',
-    slug: 'wasm-raytracer',
-    description: 'Un moteur de rendu de raytracing de fractales écrit en C++ et compilé en binaire WebAssembly pour des performances de calcul optimales.',
-    runtime: 'wasm',
-    entry_point: 'game.wasm',
-    assets_bucket_path: '/games/wasm-raytracer',
-    background_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1364&auto=format&fit=crop',
-    video_url: 'https://player.vimeo.com/external/384761655.sd.mp4?s=382a513f5cbbb726611145143d1c162629b2e697&profile_id=139&oauth2_token_id=57447761',
-    price: 300,
-    manifest: { maxMemoryMb: 256 },
-    play_count: 15,
-    rating: 4.9,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'g4',
-    title: 'Lua Adventure',
-    slug: 'lua-adventure',
-    description: 'Un jeu textuel d\'aventure interactif développé en Lua s\'exécutant dans l\'interpréteur Fengari.',
-    runtime: 'lua',
-    entry_point: 'game.lua',
-    assets_bucket_path: '/games/lua-adventure',
-    background_url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1374&auto=format&fit=crop',
-    video_url: 'https://player.vimeo.com/external/435674703.sd.mp4?s=7b31274bc6f0ef77df768f56ef830026e6ef1b71&profile_id=165&oauth2_token_id=57447761',
-    manifest: {},
-    play_count: 5,
-    rating: 4.6,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'g5',
-    title: 'Java Retro Game',
-    slug: 'java-retro',
-    description: 'Un mini-jeu rétro compilé en JAR exécuté via CheerpJ dans une machine virtuelle Java complète.',
-    runtime: 'java',
-    entry_point: 'game.jar',
-    assets_bucket_path: '/games/java-retro',
-    background_url: 'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?q=80&w=1470&auto=format&fit=crop',
-    video_url: 'https://player.vimeo.com/external/517602126.sd.mp4?s=f5249a9971ab60424c8789d3d3ef0c0d83296813&profile_id=165&oauth2_token_id=57447761',
-    price: 500,
-    manifest: {},
-    play_count: 3,
-    rating: 4.2,
-    created_at: new Date().toISOString()
-  }
-];
+// Plus de DEFAULT_GAMES / MOCK_TROPHIES : tout vient de Supabase (lib/db.ts).
 
-const MOCK_TROPHIES: Trophy[] = [
-  { id: 't1', game_id: 'g1', name: 'Premiers Pas', description: 'Lancer votre premier jeu sur Funny Station.', tier: 'bronze', coin_reward: 10, created_at: '' },
-  { id: 't2', game_id: 'g2', name: 'Développeur Python', description: 'Exécuter un script Python isolé dans le Kernel.', tier: 'silver', coin_reward: 50, created_at: '' },
-  { id: 't3', game_id: 'g2', name: 'Maître Haptique', description: 'Activer les moteurs de vibration de la DualSense.', tier: 'gold', coin_reward: 100, created_at: '' },
-  { id: 't4', game_id: 'g1', name: 'Légende de la Funny Station', description: 'Débloquer tous les secrets du système.', tier: 'platinum', coin_reward: 250, created_at: '' },
-  { id: 't5', game_id: 'g4', name: 'Aventurier Lua', description: 'Exécuter un script Lua avec l\'interpréteur Fengari.', tier: 'bronze', coin_reward: 15, created_at: '' },
-  { id: 't6', game_id: 'g5', name: 'Machine Java', description: 'Lancer l\'émulation de la JVM CheerpJ.', tier: 'gold', coin_reward: 120, created_at: '' }
-];
-
-export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpdateProfile }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpdateProfile, onRefreshProfile }) => {
   const [games, setGames] = useState<Game[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [unlockedTrophyIds, setUnlockedTrophyIds] = useState<string[]>([]);
-  
+  const [trophies, setTrophies] = useState<Trophy[]>([]);
+
   // Tab views
   const [activeTab, setActiveTab] = useState<'games' | 'store' | 'profile'>('games');
+
+  // Control Center & Power Menu Systems
+  const [isControlCenterOpen, setIsControlCenterOpen] = useState(false);
+  const [isPowerMenuOpen, setIsPowerMenuOpen] = useState(false);
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
+  const [powerFocusedIndex, setPowerFocusedIndex] = useState(0);
+  const [gamepadConnected, setGamepadConnected] = useState(false);
 
   const [isControllerModalOpen, setIsControllerModalOpen] = useState(false);
   const [controllerType, setControllerType] = useState<'pc' | 'mobile' | 'online' | null>(null);
   const [lobbyId, setLobbyId] = useState<string>('');
   const [connectedPlayers, setConnectedPlayers] = useState<ConnectedPlayer[]>([]);
+  
+  const [listeningAction, setListeningAction] = useState<ConsoleAction | null>(null);
+  const [keyMapping, setKeyMapping] = useState<KeyMapping>(loadKeyMapping());
+
+  // Écouter les changements globaux de mappage
+  useEffect(() => {
+    const handleMappingChange = (e: any) => {
+      setKeyMapping(e.detail);
+    };
+    window.addEventListener('funny_station_mapping_changed', handleMappingChange);
+    return () => window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
+  }, []);
+
+  // Intercepter les touches pour le remappage
+  useEffect(() => {
+    if (!listeningAction) return;
+
+    const handleKeyCapture = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Ignorer les touches modificatrices nues (Shift/Control/Alt) sauf Tab ou Escape
+      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key) && e.key !== 'Tab' && e.key !== 'Escape') {
+        return;
+      }
+
+      const updated = { ...keyMapping, [listeningAction]: e.key };
+      setKeyMapping(updated);
+      saveKeyMapping(updated);
+      setListeningAction(null);
+      AudioEngine.getInstance().playSFX('select');
+    };
+
+    window.addEventListener('keydown', handleKeyCapture, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyCapture, { capture: true });
+  }, [listeningAction, keyMapping]);
   const connectedPlayersRef = useRef<ConnectedPlayer[]>([]);
   useEffect(() => {
     connectedPlayersRef.current = connectedPlayers;
@@ -165,21 +138,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [onlineHostQrCodeUrl, setOnlineHostQrCodeUrl] = useState<string>('');
   const [showOnlineControllerQr, setShowOnlineControllerQr] = useState(false);
 
-  // Load custom community games on mount
-  useEffect(() => {
-    const savedGames = localStorage.getItem('funny_station_custom_games');
-    if (savedGames) {
-      setGames([...JSON.parse(savedGames), ...DEFAULT_GAMES]);
-    } else {
-      setGames(DEFAULT_GAMES);
+  // Chargement du catalogue depuis Supabase (jeux publiés + brouillons de l'auteur).
+  const reloadGames = useCallback(async () => {
+    try {
+      const published = await fetchPublishedGames();
+      const mine = profile.accountType === 'creator' ? await fetchGamesByAuthor(profile.id) : [];
+      // Fusion sans doublons : les jeux de l'auteur (brouillons inclus) en premier.
+      const map = new Map<string, Game>();
+      [...mine, ...published].forEach((g) => map.set(g.id, g));
+      setGames(Array.from(map.values()));
+    } catch (e) {
+      console.error('[Dashboard] Échec du chargement des jeux:', e);
     }
-  }, []);
+  }, [profile.id, profile.accountType]);
 
-  // Sync custom games to localStorage when they change
-  const saveCustomGames = (updatedGamesList: Game[]) => {
-    const customOnly = updatedGamesList.filter(g => !DEFAULT_GAMES.some(dg => dg.id === g.id));
-    localStorage.setItem('funny_station_custom_games', JSON.stringify(customOnly));
-  };
+  useEffect(() => {
+    reloadGames();
+  }, [reloadGames]);
+
+  // Trophées déjà débloqués par l'utilisateur (état global, toutes parties confondues).
+  useEffect(() => {
+    fetchUnlockedTrophyIds(profile.id)
+      .then(setUnlockedTrophyIds)
+      .catch((e) => console.error('[Dashboard] Trophées débloqués:', e));
+  }, [profile.id]);
 
   // --- PERSISTANCE DE LA SESSION ---
 
@@ -281,8 +263,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         })
       );
       
-      const keyMap = PLAYER_KEY_MAPS[playerNumber] || PLAYER_KEY_MAPS[0];
-      const keyName = keyMap[direction];
+      let keyName = '';
+      if (playerNumber === 0) {
+        // Mappage dynamique pour le joueur local (Player 1)
+        const customMapping = loadKeyMapping();
+        let consoleAction: ConsoleAction = direction as ConsoleAction;
+        if (direction === 'CONFIRM') consoleAction = 'A';
+        else if (direction === 'BACK') consoleAction = 'B';
+        else if (direction === 'SQUARE') consoleAction = 'X';
+        else if (direction === 'TRIANGLE') consoleAction = 'Y';
+        else if (direction === 'OPTION') consoleAction = 'START';
+        
+        keyName = customMapping[consoleAction] || '';
+      } else {
+        const keyMap = PLAYER_KEY_MAPS[playerNumber] || PLAYER_KEY_MAPS[0];
+        keyName = keyMap[direction];
+      }
       
       if (keyName) {
         if (effectiveAction === 'down') {
@@ -298,12 +294,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           try {
             const iframeWindow = iframe.contentWindow;
             if (iframeWindow) {
+              const target = iframeWindow.document.activeElement || iframeWindow.document;
               if (effectiveAction === 'down') {
                 const iframeKeydown = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
-                iframeWindow.dispatchEvent(iframeKeydown);
+                target.dispatchEvent(iframeKeydown);
               } else {
                 const iframeKeyup = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
-                iframeWindow.dispatchEvent(iframeKeyup);
+                target.dispatchEvent(iframeKeyup);
               }
             }
           } catch (e) {
@@ -401,6 +398,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     }
   }, [focusedIndex, selectedGame, isStudioOpen, activeGame, activeTab]);
 
+  // Trophées du jeu focalisé (chargés depuis la DB).
+  const activeGameId = activeGame?.id;
+  useEffect(() => {
+    if (!activeGameId) return;
+    let cancelled = false;
+    fetchTrophiesForGame(activeGameId)
+      .then((t) => { if (!cancelled) setTrophies(t); })
+      .catch((e) => console.error('[Dashboard] Trophées du jeu:', e));
+    return () => { cancelled = true; };
+  }, [activeGameId]);
+
   const handleStartGame = () => {
     if (!activeGame) return;
     if (!isGameOwned(activeGame)) {
@@ -428,21 +436,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     }
   };
 
-  const handleTrophyUnlocked = (trophyId: string) => {
-    if (unlockedTrophyIds.includes(trophyId)) return;
+  const handleTrophyUnlocked = async (trophy: TrophyUnlockPayload) => {
+    if (unlockedTrophyIds.includes(trophy.id)) return;
+    setUnlockedTrophyIds(prev => [...prev, trophy.id]);
 
-    setUnlockedTrophyIds(prev => [...prev, trophyId]);
+    // L'insertion en DB est déjà faite par le runner (unlockTrophyByKey) ; ici on
+    // rafraîchit le solde de coins (crédité par le trigger SQL) et on notifie l'UI.
+    await onRefreshProfile?.();
 
-    const trophy = MOCK_TROPHIES.find(t => t.id === trophyId);
-    if (trophy) {
-      onUpdateProfile({
-        ...profile,
-        funnyCoins: profile.funnyCoins + trophy.coin_reward
-      });
-    }
-
-    const event = new CustomEvent('funny_station_trophy', { detail: { trophyId } });
-    window.dispatchEvent(event);
+    window.dispatchEvent(new CustomEvent('funny_station_trophy', { detail: { trophy } }));
   };
 
   const handleOpenStudio = () => {
@@ -461,53 +463,62 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     return profile.ownedGames.includes(game.id) || game.author_id === profile.id;
   };
 
-  // Handle direct purchase from home screen
-  const handleBuyGameDirect = (game: Game) => {
+  // Achat direct depuis l'accueil — RPC atomique côté serveur (anti-triche).
+  const handleBuyGameDirect = async (game: Game) => {
     if (!game.price) return;
     if (profile.funnyCoins < game.price) {
       AudioEngine.getInstance().playSFX('navigate');
       alert(`FunnyCoins insuffisants ! Il vous faut ${game.price} FC pour acheter ${game.title}. Débloquez des trophées pour en gagner !`);
       return;
     }
-
     AudioEngine.getInstance().playSFX('select');
-    const updated: ProfileData = {
-      ...profile,
-      funnyCoins: profile.funnyCoins - game.price,
-      ownedGames: [...profile.ownedGames, game.id]
-    };
-    onUpdateProfile(updated);
+    try {
+      await buyGame(game.id);     // débit coins + possession en une transaction
+      await onRefreshProfile?.(); // recharge coins + ownedGames depuis la DB
+    } catch (e) {
+      AudioEngine.getInstance().playSFX('navigate');
+      alert(e instanceof Error ? e.message : "L'achat a échoué.");
+    }
   };
 
-  // Creator publish game helper
-  const handlePublishGame = (newGameData: Omit<Game, 'id' | 'play_count' | 'rating' | 'created_at'>) => {
-    const newGame: Game = {
-      ...newGameData,
-      id: `g-${Date.now()}`,
-      play_count: 0,
-      rating: 5.0,
-      created_at: new Date().toISOString()
-    };
-    
-    const updatedGamesList = [newGame, ...games];
-    setGames(updatedGamesList);
-    saveCustomGames(updatedGamesList);
+  // Publication d'un jeu par un créateur : brouillon → upload des fichiers → publication.
+  const handlePublishGame = async (
+    newGameData: Omit<Game, 'id' | 'author_id' | 'play_count' | 'rating' | 'rating_count' | 'created_at'>,
+    file?: File | null
+  ) => {
+    try {
+      // 1. Créer en brouillon pour obtenir un id stable.
+      const created = await publishGame(profile.id, { ...newGameData, status: 'draft' });
 
-    // Auto own creator's own published game
-    const updatedProfile: ProfileData = {
-      ...profile,
-      ownedGames: [...profile.ownedGames, newGame.id]
-    };
-    onUpdateProfile(updatedProfile);
+      // 2. Téléverser les fichiers du jeu (.zip) vers Supabase Storage via /api/install.
+      //    L'API détecte le runtime/point d'entrée et met à jour assets_bucket_path.
+      if (file) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('gameId', created.id);
+        const res = await fetch('/api/install', { method: 'POST', body: fd });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || "Échec de l'upload des fichiers du jeu.");
+      }
+
+      // 3. Publier le jeu (visible dans le Store).
+      await setGameStatus(created.id, 'published');
+      await reloadGames();
+      await onRefreshProfile?.();
+    } catch (e) {
+      console.error('[Dashboard] Échec de publication:', e);
+      alert(e instanceof Error ? e.message : 'La publication a échoué.');
+    }
   };
 
-  const handleDeleteGame = (gameId: string) => {
-    const updatedGamesList = games.filter(g => g.id !== gameId);
-    setGames(updatedGamesList);
-    saveCustomGames(updatedGamesList);
-    
-    if (focusedIndex >= updatedGamesList.length) {
-      setFocusedIndex(Math.max(0, updatedGamesList.length - 1));
+  const handleDeleteGame = async (gameId: string) => {
+    try {
+      await deleteGame(gameId);
+      await reloadGames();
+      setFocusedIndex(i => Math.max(0, Math.min(i, games.length - 2)));
+    } catch (e) {
+      console.error('[Dashboard] Échec de suppression:', e);
+      alert(e instanceof Error ? e.message : 'La suppression a échoué.');
     }
   };
 
@@ -518,8 +529,220 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     setFocusedIndex,
     handleStartGame,
     onSignOut,
-    games.length
+    games.length,
+    !!selectedGame || isStudioOpen || isControlCenterOpen || isPowerMenuOpen || isShuttingDown
   );
+
+  const triggerPowerOption = (index: number) => {
+    setIsPowerMenuOpen(false);
+    if (index === 0) {
+      // Mode repos : Déconnexion
+      onSignOut();
+    } else if (index === 1) {
+      // Redémarrer : recharger la page
+      window.location.reload();
+    } else if (index === 2) {
+      // Éteindre
+      setIsShuttingDown(true);
+    }
+  };
+
+  // Detect if a physical gamepad is connected
+  useEffect(() => {
+    const checkGamepads = () => {
+      if (typeof navigator !== 'undefined' && navigator.getGamepads) {
+        const gps = navigator.getGamepads();
+        const anyConnected = Array.from(gps).some(gp => gp !== null);
+        setGamepadConnected(anyConnected);
+      }
+    };
+    checkGamepads();
+    window.addEventListener('gamepadconnected', checkGamepads);
+    window.addEventListener('gamepaddisconnected', checkGamepads);
+    return () => {
+      window.removeEventListener('gamepadconnected', checkGamepads);
+      window.removeEventListener('gamepaddisconnected', checkGamepads);
+    };
+  }, []);
+
+  // Poll physical gamepad for Home/PS button (index 16)
+  useEffect(() => {
+    if (selectedGame || isShuttingDown) return;
+
+    let holdTimeout: NodeJS.Timeout | null = null;
+    let isHolding = false;
+    let holdTriggered = false;
+    let active = true;
+
+    const checkGamepadHome = () => {
+      if (!active) return;
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      let homePressed = false;
+
+      for (let i = 0; i < gamepads.length; i++) {
+        const gp = gamepads[i];
+        if (gp && gp.buttons.length > 16) {
+          if (gp.buttons[16].pressed) {
+            homePressed = true;
+            break;
+          }
+        }
+      }
+
+      if (homePressed) {
+        if (!isHolding) {
+          isHolding = true;
+          holdTriggered = false;
+          holdTimeout = setTimeout(() => {
+            holdTriggered = true;
+            AudioEngine.getInstance().playSFX('select');
+            setIsPowerMenuOpen(true);
+          }, 1500);
+        }
+      } else {
+        if (isHolding) {
+          if (holdTimeout) clearTimeout(holdTimeout);
+          if (!holdTriggered) {
+            AudioEngine.getInstance().playSFX('select');
+            setIsControlCenterOpen(prev => !prev);
+          }
+          isHolding = false;
+          holdTriggered = false;
+        }
+      }
+
+      requestAnimationFrame(checkGamepadHome);
+    };
+
+    const animId = requestAnimationFrame(checkGamepadHome);
+    return () => {
+      active = false;
+      cancelAnimationFrame(animId);
+      if (holdTimeout) clearTimeout(holdTimeout);
+    };
+  }, [selectedGame, isShuttingDown]);
+
+  // Keyboard Escape & Tab listeners
+  useEffect(() => {
+    if (selectedGame || isStudioOpen || isShuttingDown) return;
+
+    let escapeTimer: NodeJS.Timeout | null = null;
+    let isHoldingEscape = false;
+    let holdTriggered = false;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('select');
+        setIsControlCenterOpen(prev => !prev);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (isPowerMenuOpen) {
+          e.preventDefault();
+          setIsPowerMenuOpen(false);
+          AudioEngine.getInstance().playSFX('select');
+          return;
+        }
+
+        if (isControlCenterOpen) {
+          e.preventDefault();
+          setIsControlCenterOpen(false);
+          AudioEngine.getInstance().playSFX('select');
+          return;
+        }
+
+        if (!isHoldingEscape) {
+          isHoldingEscape = true;
+          holdTriggered = false;
+          escapeTimer = setTimeout(() => {
+            holdTriggered = true;
+            AudioEngine.getInstance().playSFX('select');
+            setIsPowerMenuOpen(true);
+          }, 1500);
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (escapeTimer) {
+          clearTimeout(escapeTimer);
+          escapeTimer = null;
+        }
+        if (isHoldingEscape) {
+          isHoldingEscape = false;
+          if (!holdTriggered) {
+            AudioEngine.getInstance().playSFX('select');
+            setIsControlCenterOpen(prev => !prev);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      if (escapeTimer) clearTimeout(escapeTimer);
+    };
+  }, [selectedGame, isStudioOpen, isShuttingDown, isControlCenterOpen, isPowerMenuOpen]);
+
+  // Power Menu navigation
+  useEffect(() => {
+    if (!isPowerMenuOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const maxOptions = 3;
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('navigate', -0.1);
+        setPowerFocusedIndex(prev => (prev - 1 + maxOptions) % maxOptions);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('navigate', 0.1);
+        setPowerFocusedIndex(prev => (prev + 1) % maxOptions);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('select');
+        triggerPowerOption(powerFocusedIndex);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        AudioEngine.getInstance().playSFX('select');
+        setIsPowerMenuOpen(false);
+      }
+    };
+
+    const handleGamepadAction = (e: CustomEvent<{ direction: string; action?: string }>) => {
+      if (e.detail.action === 'up') return;
+      const dir = e.detail.direction;
+      const maxOptions = 3;
+
+      if (dir === 'UP') {
+        AudioEngine.getInstance().playSFX('navigate', -0.1);
+        setPowerFocusedIndex(prev => (prev - 1 + maxOptions) % maxOptions);
+      } else if (dir === 'DOWN') {
+        AudioEngine.getInstance().playSFX('navigate', 0.1);
+        setPowerFocusedIndex(prev => (prev + 1) % maxOptions);
+      } else if (dir === 'CONFIRM') {
+        AudioEngine.getInstance().playSFX('select');
+        triggerPowerOption(powerFocusedIndex);
+      } else if (dir === 'BACK') {
+        AudioEngine.getInstance().playSFX('select');
+        setIsPowerMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('funny_gamepad_action', handleGamepadAction as EventListener);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('funny_gamepad_action', handleGamepadAction as EventListener);
+    };
+  }, [isPowerMenuOpen, powerFocusedIndex]);
 
   // Keyboard option listening for IDE
   useEffect(() => {
@@ -599,7 +822,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   }
 
   // Calculate trophies info
-  const activeTrophies = MOCK_TROPHIES.filter(t => t.game_id === activeGame?.id);
+  const activeTrophies = trophies;
   const unlockedCount = activeTrophies.filter(t => unlockedTrophyIds.includes(t.id)).length;
   const progressPercentage = activeTrophies.length > 0 ? Math.round((unlockedCount / activeTrophies.length) * 100) : 0;
   const owned = activeGame ? isGameOwned(activeGame) : false;
@@ -616,6 +839,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         onChangeTab={setActiveTab}
         onOpenSettings={onSignOut}
         onOpenControllerMenu={() => setIsControllerModalOpen(true)}
+        onOpenPowerMenu={() => setIsPowerMenuOpen(true)}
         activeControllerType={controllerType}
       />
 
@@ -625,17 +849,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           profile={profile}
           games={games}
           onClose={() => { AudioEngine.getInstance().playSFX('select'); setActiveTab('games'); }}
-          onBuyGame={(gameId, price) => {
-            const updated: ProfileData = {
-              ...profile,
-              funnyCoins: profile.funnyCoins - price,
-              ownedGames: [...profile.ownedGames, gameId]
-            };
-            onUpdateProfile(updated);
+          onBuyGame={async (gameId) => {
+            try {
+              await buyGame(gameId);      // RPC atomique (débit + possession)
+              await onRefreshProfile?.();
+            } catch (e) {
+              alert(e instanceof Error ? e.message : "L'achat a échoué.");
+            }
           }}
           onStartGame={(game) => {
+            incrementPlayCount(game.id);
             setSelectedGame(game);
           }}
+          onRefreshProfile={onRefreshProfile}
         />
       ) : activeTab === 'profile' ? (
         <ProfileSpace
@@ -670,6 +896,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   style={{ backgroundImage: `url(${activeGame.background_url})` }}
                 />
               )}
+              {/* Dynamic Aura background effect */}
+              <DynamicAura gameSlug={activeGame?.slug} />
+
               {/* Shading gradients to keep text readable on the left and trophies panel readable on the bottom */}
               <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/40 to-transparent pointer-events-none" />
               <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/30 pointer-events-none" />
@@ -736,6 +965,92 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
               <div className="text-[10px] font-bold text-zinc-400 mt-1 uppercase tracking-wider">
                 {activeGame?.title} {activeGame?.price ? `• ${activeGame.price} FC` : '• Gratuit'}
               </div>
+
+              {/* Activity Cards Row */}
+              {activeGame && (
+                <div className="flex items-center gap-4 mt-3 overflow-x-auto no-scrollbar py-1">
+                  {/* Card 1: Resume Play */}
+                  <div className="glass-panel p-3.5 rounded-2xl w-48 border border-zinc-800/60 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between h-24 relative overflow-hidden group">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[7px] uppercase tracking-widest font-black text-zinc-500">Activité</span>
+                      <span className="text-[9.5px] font-black text-zinc-200 uppercase truncate">Reprendre la partie</span>
+                      <span className="text-[8px] text-zinc-500">Joué {activeGame.play_count || 0} fois</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 z-10">
+                      <button 
+                        onClick={handleStartGame}
+                        className="bg-white text-zinc-950 p-1.5 rounded-full hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+                      >
+                        <Play size={8} fill="currentColor" />
+                      </button>
+                      <span className="text-[7px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-900/60 px-2 py-0.5 border border-zinc-800/80 rounded-md">
+                        Lancer
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Next Trophy */}
+                  {activeTrophies.length > 0 && (
+                    <div className="glass-panel p-3.5 rounded-2xl w-48 border border-zinc-800/60 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between h-24">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[7px] uppercase tracking-widest font-black text-zinc-500">Défi Suivant</span>
+                        {(() => {
+                          const nextLockedTrophy = activeTrophies.find(t => !unlockedTrophyIds.includes(t.id));
+                          if (nextLockedTrophy) {
+                            return (
+                              <>
+                                <span className="text-[9.5px] font-black text-zinc-200 uppercase truncate flex items-center gap-0.5">
+                                  <TrophyIcon size={8} className="text-yellow-500" /> {nextLockedTrophy.name}
+                                </span>
+                                <span className="text-[8px] text-zinc-500 truncate">{nextLockedTrophy.description}</span>
+                              </>
+                            );
+                          } else {
+                            return (
+                              <>
+                                <span className="text-[9.5px] font-black text-zinc-200 uppercase truncate flex items-center gap-0.5">
+                                  <TrophyIcon size={8} className="text-cyan-400" /> Trophée de platine
+                                </span>
+                                <span className="text-[8px] text-zinc-500">Complété à 100% !</span>
+                              </>
+                            );
+                          }
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[7px] font-black uppercase tracking-wider text-zinc-400 bg-zinc-900/60 px-2 py-0.5 border border-zinc-800/80 rounded-md">
+                          En cours
+                        </span>
+                        {activeTrophies.find(t => !unlockedTrophyIds.includes(t.id)) && (
+                          <span className="text-[8px] font-black text-amber-400">
+                            +{activeTrophies.find(t => !unlockedTrophyIds.includes(t.id))?.coin_reward || 0} FC
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card 3: Overall Progress */}
+                  <div className="glass-panel p-3.5 rounded-2xl w-48 border border-zinc-800/60 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between h-24">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[7px] uppercase tracking-widest font-black text-zinc-500">Progression</span>
+                      <span className="text-[9.5px] font-black text-zinc-200 uppercase truncate">Complétion</span>
+                      <div className="w-full h-1 bg-zinc-800 rounded-full mt-1 overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] transition-all duration-500" 
+                          style={{ width: `${progressPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[9px] font-black text-zinc-150">{progressPercentage}%</span>
+                      <span className="text-[7px] text-zinc-500 uppercase tracking-widest font-bold">
+                        {unlockedCount}/{activeTrophies.length} Succès
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bottom-left: Active Game Meta info & Play buttons */}
@@ -1162,32 +1477,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
             ) : controllerType === 'pc' ? (
               <>
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 animate-pulse">
-                    <Gamepad size={32} />
+                  <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <Gamepad size={24} />
                   </div>
-                  <h3 className="text-lg font-black tracking-wider text-zinc-100 uppercase mt-2">Mode Clavier / Manette PC Actif</h3>
-                  <p className="text-xs text-zinc-400 max-w-xs leading-relaxed">
-                    Les entrées clavier (flèches, Entrée, Échap) et les manettes USB/Bluetooth connectées à ce PC sont actives.
+                  <h3 className="text-md font-black tracking-wider text-zinc-100 uppercase mt-1">Configuration des Touches</h3>
+                  <p className="text-[10px] text-zinc-400 max-w-xs leading-normal">
+                    Cliquez sur une action, puis pressez n'importe quelle touche du clavier pour la réassigner.
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-3 mt-4">
+                {/* Grille de Configuration des touches de la manette */}
+                <div className="grid grid-cols-2 gap-2 my-2 max-h-60 overflow-y-auto pr-1 text-left">
+                  {Object.keys(ACTION_LABELS).map((actionKey) => {
+                    const action = actionKey as ConsoleAction;
+                    const isListening = listeningAction === action;
+                    return (
+                      <div key={action} className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-2.5 flex flex-col justify-between gap-1">
+                        <span className="text-[9px] text-zinc-550 font-bold uppercase tracking-wider">
+                          {ACTION_LABELS[action]}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setListeningAction(action);
+                            AudioEngine.getInstance().playSFX('select');
+                          }}
+                          className={`w-full py-1.5 px-3 rounded-lg text-[10px] font-mono font-bold border transition-all text-center uppercase cursor-pointer ${
+                            isListening
+                              ? 'bg-blue-500/20 border-blue-400 text-blue-400 animate-pulse'
+                              : 'bg-zinc-900 border-zinc-850 text-zinc-350 hover:border-zinc-700 hover:text-white'
+                          }`}
+                        >
+                          {isListening ? 'Appuyez...' : keyMapping[action] === ' ' ? 'Espace' : keyMapping[action]}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const defaults = { ...DEFAULT_KEY_MAPPING };
+                      setKeyMapping(defaults);
+                      saveKeyMapping(defaults);
+                      AudioEngine.getInstance().playSFX('select');
+                    }}
+                    className="flex-1 py-2 rounded-full border border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-white transition-all text-[10px] font-bold uppercase tracking-wider bg-zinc-950/40 cursor-pointer"
+                  >
+                    Réinitialiser
+                  </button>
                   <button
                     onClick={() => {
                       setControllerType(null);
                       AudioEngine.getInstance().playSFX('select');
                     }}
-                    className="w-full py-3 rounded-full border border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:text-white transition-all text-xs font-bold uppercase tracking-wider bg-zinc-950/40 cursor-pointer"
+                    className="flex-1 py-2 rounded-full border border-zinc-800 text-zinc-350 hover:border-zinc-700 hover:text-white transition-all text-[10px] font-bold uppercase tracking-wider bg-zinc-950/40 cursor-pointer"
                   >
-                    Changer de mode
-                  </button>
-                  <button
-                    onClick={() => setIsControllerModalOpen(false)}
-                    className="w-full py-3 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
-                  >
-                    Terminer
+                    Retour
                   </button>
                 </div>
+
+                <button
+                  onClick={() => setIsControllerModalOpen(false)}
+                  className="w-full py-2.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-200 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  Valider
+                </button>
               </>
             ) : (
               <>
@@ -1280,6 +1635,85 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           </div>
         </div>
       )}
+      {/* Control Center Bottom Overlay */}
+      <ControlCenter
+        isOpen={isControlCenterOpen}
+        onClose={() => setIsControlCenterOpen(false)}
+        onOpenPowerMenu={() => {
+          setIsControlCenterOpen(false);
+          setIsPowerMenuOpen(true);
+        }}
+        onChangeTab={(tab) => {
+          setActiveTab(tab);
+          setIsControlCenterOpen(false);
+        }}
+        activeGameTrophiesCount={activeTrophies.length}
+        activeGameUnlockedTrophiesCount={unlockedCount}
+        gamepadConnected={gamepadConnected}
+        controllerType={controllerType}
+      />
+
+      {/* Power Options Contextual Menu Modal */}
+      {isPowerMenuOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center animate-fade-in">
+          <div className="glass-panel max-w-sm w-full p-6 rounded-3xl border border-zinc-800/80 flex flex-col gap-5 text-center shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+            <div className="flex flex-col gap-1 items-center">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-2">
+                <Power size={20} />
+              </div>
+              <h3 className="text-md font-black tracking-widest text-zinc-150 uppercase">Options d'alimentation</h3>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Sélectionnez une option</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {[
+                { title: 'Entrer en mode repos', desc: 'Déconnecte la session et met la console en veille.' },
+                { title: 'Redémarrer la FunnyStation', desc: 'Ferme tous les jeux et redémarre la console.' },
+                { title: 'Éteindre la FunnyStation', desc: 'Éteint proprement la console (10s de cinématique).' }
+              ].map((opt, idx) => {
+                const isFocused = idx === powerFocusedIndex;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      AudioEngine.getInstance().playSFX('select');
+                      triggerPowerOption(idx);
+                    }}
+                    onMouseEnter={() => setPowerFocusedIndex(idx)}
+                    className={`w-full p-3 rounded-2xl border text-left transition-all duration-300 cursor-pointer ${
+                      isFocused
+                        ? 'border-red-500 bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.25)] scale-[1.02]'
+                        : 'border-zinc-850 bg-zinc-900/30'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span className={`text-xs font-black uppercase tracking-wide ${isFocused ? 'text-red-400' : 'text-zinc-200'}`}>
+                        {opt.title}
+                      </span>
+                      <span className="text-[9px] text-zinc-500">
+                        {opt.desc}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => {
+                AudioEngine.getInstance().playSFX('select');
+                setIsPowerMenuOpen(false);
+              }}
+              className="mt-1 text-zinc-500 hover:text-white text-[10px] font-black tracking-widest uppercase transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Shutdown Cinematic and Fallback Overlay */}
+      <ShutdownScreen isShuttingDown={isShuttingDown} />
     </div>
   );
 };

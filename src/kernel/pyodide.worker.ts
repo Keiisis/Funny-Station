@@ -144,4 +144,19 @@ sys.modules['funny_station'] = fs_module
       postMessage({ type: 'error', error: err.message });
     }
   }
+
+  if (type === 'inject_cheat') {
+    if (pyodide) {
+      try {
+        const { code, enabled } = e.data.payload;
+        pyodide.runPython(`
+import sys
+if 'funny_station' in sys.modules:
+    setattr(sys.modules['funny_station'], "${code}", ${enabled ? 'True' : 'False'})
+`);
+      } catch (err) {
+        console.error("Failed to inject cheat in Pyodide:", err);
+      }
+    }
+  }
 });

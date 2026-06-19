@@ -265,7 +265,7 @@ function update() {
       if (players[0].score >= 200 && !trophyUnlocked) {
         trophyUnlocked = true;
         if (window.funnyStation && window.funnyStation.unlockTrophy) {
-          window.funnyStation.unlockTrophy('t1');
+          window.funnyStation.unlockTrophy('first_steps');
         }
       }
     }

@@ -13,50 +13,38 @@ interface TrophyData {
   tier: TrophyTier;
 }
 
-const TROPHY_DICT: { [key: string]: TrophyData } = {
-  't1': { id: 't1', name: 'Premiers Pas', description: 'Lancer votre premier jeu sur Funny Station.', tier: 'bronze' },
-  't2': { id: 't2', name: 'Développeur Python', description: 'Exécuter un script Python isolé dans le Kernel.', tier: 'silver' },
-  't3': { id: 't3', name: 'Maître Haptique', description: 'Activer les moteurs de vibration de la DualSense.', tier: 'gold' },
-  't4': { id: 't4', name: 'Légende de la Funny Station', description: 'Débloquer tous les secrets du système.', tier: 'platinum' }
-};
-
 export const TrophyOverlay: React.FC = () => {
   const pathname = usePathname();
   const [activeTrophy, setActiveTrophy] = useState<TrophyData | null>(null);
   const [visible, setVisible] = useState(false);
 
+  useEffect(() => {
+    // L'événement transporte désormais les infos complètes du trophée (résolu en DB).
+    const handleTrophyUnlock = (e: Event) => {
+      const trophy = (e as CustomEvent<{ trophy: TrophyData }>).detail?.trophy;
+      if (!trophy) return;
+
+      AudioEngine.getInstance().playSFX('trophy');
+      setActiveTrophy({
+        id: trophy.id,
+        name: trophy.name || 'Succès débloqué',
+        description: trophy.description || 'Félicitations pour cet exploit !',
+        tier: trophy.tier || 'bronze',
+      });
+      setVisible(true);
+
+      setTimeout(() => setVisible(false), 4500);
+    };
+
+    window.addEventListener('funny_station_trophy', handleTrophyUnlock);
+    return () => {
+      window.removeEventListener('funny_station_trophy', handleTrophyUnlock);
+    };
+  }, []);
+
   if (pathname && pathname.startsWith('/controller')) {
     return null;
   }
-
-  useEffect(() => {
-    const handleTrophyUnlock = (e: CustomEvent<{ trophyId: string }>) => {
-      const trophyId = e.detail.trophyId;
-      const trophy = TROPHY_DICT[trophyId] || {
-        id: trophyId,
-        name: 'Succès Débloqué',
-        description: 'Félicitations pour cet exploit !',
-        tier: 'bronze'
-      };
-
-      // Jouer le son de trophée
-      AudioEngine.getInstance().playSFX('trophy');
-
-      // Afficher le popup
-      setActiveTrophy(trophy);
-      setVisible(true);
-
-      // Masquer après 4.5 secondes (durée de l'animation CSS)
-      setTimeout(() => {
-        setVisible(false);
-      }, 4500);
-    };
-
-    window.addEventListener('funny_station_trophy' as any, handleTrophyUnlock);
-    return () => {
-      window.removeEventListener('funny_station_trophy' as any, handleTrophyUnlock);
-    };
-  }, []);
 
   if (!visible || !activeTrophy) return null;
 

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Funny GBA Runner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    /* Reset & Hidden styles to ensure 100% invisible emulator UI */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000 !important;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    #game {
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background-color: #000 !important;
+    }
+
+    /*
+     * Hide EmulatorJS control bars and menus AFTER game starts.
+     * DO NOT hide generic `button` — EmulatorJS uses an internal start button
+     * that must remain clickable for the game to boot.
+     */
+    .ejs--hide-after-start #menu, .ejs--hide-after-start .menu,
+    .ejs--hide-after-start #menu-btn, .ejs--hide-after-start .menu-btn,
+    .ejs--hide-after-start .ejs-control-bar,
+    .ejs--hide-after-start .ejs-menu,
+    .ejs--hide-after-start div[class*="bar"] {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
+
+    /* Ensure only the canvas is visible and fills the screen */
+    canvas, #canvas, .canvas, div#game, div#game-container, div#player {
+      display: block !important;
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      z-index: 1 !important;
+    }
+
+    #loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: opacity 0.5s ease-out;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: #3b82f6;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div style="font-size: 11px; color: #a1a1aa; letter-spacing: 0.1em; text-transform: uppercase;">Démarrage du jeu GBA...</div>
+  </div>
+
+  <div id="game"></div>
+
+  <script>
+    // Parse the ROM URL from query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const romUrl = urlParams.get('rom');
+
+    if (!romUrl) {
+      document.getElementById('loading').innerText = "Erreur : URL de ROM manquante.";
+      console.error("[GBA Runner] ROM URL parameter is missing.");
+    } else {
+      // Configuration values for EmulatorJS
+      window.EJS_player = '#game';
+      window.EJS_core = 'mgba';  // Use mgba core (more compatible than 'gba')
+      window.EJS_gameUrl = romUrl;
+      window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+      window.EJS_startOnLoaded = true;
+
+      // Hide the control bar but NOT the start overlay
+      window.EJS_Buttons = {
+        playPause: false,
+        restart: false,
+        mute: false,
+        volume: false,
+        fullscreen: false,
+        saveState: false,
+        loadState: false,
+        settings: false,
+        screenshot: false,
+        quickSave: false,
+        quickLoad: false,
+        cheats: false,
+        slowMotion: false,
+        fastForward: false,
+        gamepad: false,
+        loadLocalState: false,
+        saveLocalState: false
+      };
+
+      // Disable built-in virtual gamepad / keyboard settings overlay
+      window.EJS_mouse = false;
+
+      // Hide loading screen once emulator is active
+      window.EJS_onGameStart = function() {
+        console.log("[GBA Runner] Emulator started.");
+        const loader = document.getElementById('loading');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => {
+            loader.style.display = 'none';
+          }, 500);
+        }
+        // Add the hide class to suppress control bars after game boots
+        document.body.classList.add('ejs--hide-after-start');
+        // Let the parent window know we are ready
+        window.parent.postMessage({ type: 'FUNNY_BUS_GAME_READY' }, '*');
+      };
+    }
+  </script>
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+
+</body>
+</html>

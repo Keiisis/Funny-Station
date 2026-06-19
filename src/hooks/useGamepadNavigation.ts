@@ -67,13 +67,20 @@ export const useGamepadNavigation = (
 
       const direction = e.detail.direction;
       let nextIndex = currentIndex;
+      let pan = 0;
 
       switch (direction) {
         case 'LEFT':
-          if (currentIndex > 0) nextIndex = currentIndex - 1;
+          if (currentIndex > 0) {
+            nextIndex = currentIndex - 1;
+            pan = -0.4;
+          }
           break;
         case 'RIGHT':
-          if (currentIndex < itemsCount - 1) nextIndex = currentIndex + 1;
+          if (currentIndex < itemsCount - 1) {
+            nextIndex = currentIndex + 1;
+            pan = 0.4;
+          }
           break;
         case 'UP':
           if (currentIndex - cols >= 0) nextIndex = currentIndex - cols;
@@ -94,7 +101,7 @@ export const useGamepadNavigation = (
       if (nextIndex !== currentIndex) {
         setCurrentIndex(nextIndex);
         // Jouer le son de navigation système
-        AudioEngine.getInstance().playSFX('navigate');
+        AudioEngine.getInstance().playSFX('navigate', pan);
       }
     };
 

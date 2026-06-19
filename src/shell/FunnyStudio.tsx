@@ -5,11 +5,14 @@ import Editor from '@monaco-editor/react';
 import { Game } from '@/types';
 import { Play, Save, Code, Terminal, Trophy, X, RefreshCw } from 'lucide-react';
 import { initVFS } from '@/kernel/vfs';
+import { supabase } from '@/utils/supabase/client';
+import { fetchTrophiesForGame, unlockTrophyByKey } from '@/lib/db';
+import type { TrophyUnlockPayload } from '@/kernel/UniversalRuntimeRunner';
 
 interface FunnyStudioProps {
   game: Game;
   onClose: () => void;
-  onTrophyUnlocked: (trophyId: string) => void;
+  onTrophyUnlocked: (trophy: TrophyUnlockPayload) => void;
 }
 
 const DEFAULT_CODE_TEMPLATES: { [key: string]: string } = {
@@ -170,17 +173,30 @@ export const FunnyStudio: React.FC<FunnyStudioProps> = ({ game, onClose, onTroph
       }
 
       setIsSaving(false);
-    } catch (err: any) {
-      setConsoleOutput(prev => [...prev, `[Error] Échec de la sauvegarde: ${err.message}`]);
+    } catch (err) {
+      setConsoleOutput(prev => [...prev, `[Error] Échec de la sauvegarde: ${err instanceof Error ? err.message : err}`]);
       setIsSaving(false);
     }
   };
 
-  const handleRunTestTrophy = () => {
-    // Permet de tester le trigger de trophée manuellement dans l'IDE
-    const trophyId = game.runtime === 'js' ? 't1' : game.runtime === 'python' ? 't2' : 't3';
-    onTrophyUnlocked(trophyId);
-    setConsoleOutput(prev => [...prev, `[System] Déclenchement de test pour le trophée ${trophyId}...`]);
+  // Débloque réellement le premier trophée du jeu (résolu par clé + inséré en DB).
+  const handleRunTestTrophy = async () => {
+    try {
+      const list = await fetchTrophiesForGame(game.id);
+      if (list.length === 0) {
+        setConsoleOutput(prev => [...prev, `[System] Aucun trophée défini pour ce jeu.`]);
+        return;
+      }
+      const t = list[0];
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await unlockTrophyByKey(user.id, game.id, t.trophy_key);
+      }
+      onTrophyUnlocked({ id: t.id, key: t.trophy_key, name: t.name, description: t.description, tier: t.tier });
+      setConsoleOutput(prev => [...prev, `[System] Trophée débloqué : « ${t.name} » (clé: ${t.trophy_key}).`]);
+    } catch (e) {
+      setConsoleOutput(prev => [...prev, `[Error] Déblocage de trophée impossible: ${e instanceof Error ? e.message : e}`]);
+    }
   };
 
   return (

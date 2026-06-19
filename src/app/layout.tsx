@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Geist } from 'next/font/google';
 import './globals.css';
-import { WebGPUBackground } from '@/drivers/WebGPUBackground';
+import { WebGLBackground } from '@/drivers/WebGLBackground';
 import { TrophyOverlay } from '@/shell/TrophyOverlay';
 import { ThemeManager } from '@/shell/ThemeManager';
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Funny Station - Universal Web-Console & Social OS',
   description: 'Une console de jeux universelle inspirée de la PS5 fonctionnant entièrement dans le navigateur, supportant le multi-runtime JS, WASM, Python et l\'haptique DualSense.',
-  keywords: 'Cloud Gaming, WebGPU, WebAssembly, Pyodide, DualSense, WebHID, Next.js, PS5 UI',
+  keywords: 'Cloud Gaming, WebGL, WebAssembly, Pyodide, DualSense, WebHID, Next.js, PS5 UI',
   authors: [{ name: 'Funny Station Team' }]
 };
 
@@ -23,13 +23,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={cn("h-full antialiased no-scrollbar", "font-sans", geist.variable)}>
-      <body className={`${inter.className} min-h-full bg-zinc-950 text-slate-100 overflow-hidden relative`}>
+    <html lang="fr" className={cn("h-full antialiased no-scrollbar", "font-sans", geist.variable)} suppressHydrationWarning>
+      <body className={`${inter.className} min-h-full bg-zinc-950 text-slate-100 overflow-hidden relative`} suppressHydrationWarning>
         {/* Gestionnaire de thème aléatoire */}
         <ThemeManager />
 
-        {/* Rendu 3D Shader Arrière-plan PS5 */}
-        <WebGPUBackground />
+        {/* Shader WebGL — arrière-plan animé PS5 */}
+        <WebGLBackground />
         
         {/* Notifications globales de trophées débloqués */}
         <TrophyOverlay />

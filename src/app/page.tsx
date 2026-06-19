@@ -1,88 +1,68 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ProfileSelector } from '@/shell/ProfileSelector';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Dashboard } from '@/shell/Dashboard';
 import { GamepadController } from '@/drivers/GamepadController';
 import { AudioEngine } from '@/drivers/AudioEngine';
+import { supabase } from '@/utils/supabase/client';
+import { fetchProfileData } from '@/lib/db';
+import { signOutAction } from './auth/actions';
 import { ProfileData } from '@/types';
+import { BootScreen } from '@/shell/BootScreen';
 
 export default function Home() {
-  const [activeProfile, setActiveProfile] = useState<ProfileData | null>(null);
-  const [isSessionLoaded, setIsSessionLoaded] = useState(false);
+  const router = useRouter();
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  // Recharge le profil applicatif depuis Supabase (source de vérité).
+  const loadProfile = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.replace('/auth/login');
+      return;
+    }
+    const data = await fetchProfileData(user.id);
+    setProfile(data);
+    setLoaded(true);
+  }, [router]);
 
   useEffect(() => {
-    // Initialiser le contrôleur de manette globale
-    const controller = GamepadController.getInstance();
-    
-    // Essayer de reprendre le contexte audio lors du premier clic utilisateur
+    // Init manette + reprise audio au premier geste utilisateur.
+    GamepadController.getInstance();
     const resumeAudio = () => {
-      AudioEngine.getInstance().playAmbientMusic(); // Lance la musique douce PS5
+      const isBooted = sessionStorage.getItem('funnystation_booted') === 'true';
+      if (!isBooted) return;
+      AudioEngine.getInstance().playAmbientMusic();
       window.removeEventListener('click', resumeAudio);
       window.removeEventListener('keydown', resumeAudio);
     };
-
     window.addEventListener('click', resumeAudio);
     window.addEventListener('keydown', resumeAudio);
 
-    // Restaurer la session utilisateur
-    const storedActiveProfile = localStorage.getItem('funny_station_active_profile');
-    if (storedActiveProfile) {
-      try {
-        const parsed: ProfileData = JSON.parse(storedActiveProfile);
-        const storedProfiles = localStorage.getItem('funny_station_profiles');
-        if (storedProfiles) {
-          const list: ProfileData[] = JSON.parse(storedProfiles);
-          const found = list.find(p => p.id === parsed.id);
-          if (found) {
-            setActiveProfile(found);
-          }
-        } else {
-          setActiveProfile(parsed);
-        }
-      } catch (e) {
-        console.error('Erreur restauration session profil actif:', e);
-      }
-    }
-    setIsSessionLoaded(true);
+    loadProfile();
 
     return () => {
       window.removeEventListener('click', resumeAudio);
       window.removeEventListener('keydown', resumeAudio);
     };
-  }, []);
+  }, [loadProfile]);
 
-  const handleSelectProfile = (profile: ProfileData) => {
-    setActiveProfile(profile);
-    localStorage.setItem('funny_station_active_profile', JSON.stringify(profile));
+  // Mise à jour optimiste locale ; la DB reste la vérité (refetch via refreshProfile).
+  const handleUpdateProfile = (updated: ProfileData) => {
+    setProfile(updated);
   };
 
-  const handleUpdateProfile = (updatedProfile: ProfileData) => {
-    setActiveProfile(updatedProfile);
-    localStorage.setItem('funny_station_active_profile', JSON.stringify(updatedProfile));
-    
-    // Update profile list in local storage
-    const stored = localStorage.getItem('funny_station_profiles');
-    if (stored) {
-      const list: ProfileData[] = JSON.parse(stored);
-      const idx = list.findIndex(p => p.id === updatedProfile.id);
-      if (idx !== -1) {
-        list[idx] = updatedProfile;
-        localStorage.setItem('funny_station_profiles', JSON.stringify(list));
-      }
-    }
-  };
-
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     AudioEngine.getInstance().playSFX('select');
-    setActiveProfile(null);
-    localStorage.removeItem('funny_station_active_profile');
-    sessionStorage.removeItem('funny_station_active_tab');
-    sessionStorage.removeItem('funny_station_focused_index');
-    sessionStorage.removeItem('funny_station_selected_game_slug');
+    AudioEngine.getInstance().stopAmbientMusic();
+    await signOutAction();
+    router.replace('/auth/login');
+    router.refresh();
   };
 
-  if (!isSessionLoaded) {
+  if (!loaded || !profile) {
     return (
       <div className="w-screen h-screen bg-zinc-950 flex items-center justify-center text-zinc-400">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
@@ -90,15 +70,14 @@ export default function Home() {
     );
   }
 
-  if (!activeProfile) {
-    return <ProfileSelector onSelectProfile={handleSelectProfile} />;
-  }
-
   return (
-    <Dashboard
-      profile={activeProfile}
-      onSignOut={handleSignOut}
-      onUpdateProfile={handleUpdateProfile}
-    />
+    <BootScreen>
+      <Dashboard
+        profile={profile}
+        onSignOut={handleSignOut}
+        onUpdateProfile={handleUpdateProfile}
+        onRefreshProfile={loadProfile}
+      />
+    </BootScreen>
   );
 }

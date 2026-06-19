@@ -29,7 +29,7 @@ if container then
             
             -- Débloquer le trophée via le SDK Funny Station
             if window.funnyStation then
-                window.funnyStation:unlockTrophy("t5")
+                window.funnyStation:unlockTrophy("lua_adventurer")
             end
         end
     end

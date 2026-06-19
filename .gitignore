@@ -44,3 +44,8 @@ next-env.d.ts
 .agents/
 skills-lock.json
 
+# Unity build and project files
+unity-project/
+*.unitypackage
+unity_*.txt
+

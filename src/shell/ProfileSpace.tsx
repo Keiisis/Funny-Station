@@ -1,16 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ProfileData, Game } from '@/types';
+import { ProfileData, Game, GameLanguage } from '@/types';
 import { AudioEngine } from '@/drivers/AudioEngine';
-import { User, Lock, Camera, Coins, Trophy, Gamepad2, ArrowLeft, PlusCircle, Trash, CheckCircle2, X } from 'lucide-react';
+import { supabase } from '@/utils/supabase/client';
+import { updateProfile } from '@/lib/db';
+import { User, Lock, Camera, Coins, Trophy, Gamepad2, PlusCircle, Trash, CheckCircle2, X, RefreshCw } from 'lucide-react';
 
 interface ProfileSpaceProps {
   profile: ProfileData;
   games: Game[];
   onClose: () => void;
   onUpdateProfile: (updated: ProfileData) => void;
-  onPublishGame?: (gameData: Omit<Game, 'id' | 'play_count' | 'rating' | 'created_at'>) => void;
+  onPublishGame?: (
+    gameData: Omit<Game, 'id' | 'author_id' | 'play_count' | 'rating' | 'rating_count' | 'created_at'>,
+    file?: File | null
+  ) => void;
   onDeleteGame?: (gameId: string) => void;
 }
 
@@ -35,7 +40,7 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
   
   const [username, setUsername] = useState(profile.username);
   const [avatar, setAvatar] = useState(profile.avatar);
-  const [pin, setPin] = useState(profile.password || '');
+  const [newPin, setNewPin] = useState(''); // changement de PIN optionnel (vide = inchangé)
   const [accountType, setAccountType] = useState<'gamer' | 'creator'>(profile.accountType || 'gamer');
   const [showAvatarPresets, setShowAvatarPresets] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -44,56 +49,97 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
   const [newGameTitle, setNewGameTitle] = useState('');
   const [newGameDescription, setNewGameDescription] = useState('');
   const [newGamePrice, setNewGamePrice] = useState(0);
-  const [newGameRuntime, setNewGameRuntime] = useState<'js' | 'python' | 'wasm' | 'lua' | 'java'>('js');
+  const [newGameRuntime, setNewGameRuntime] = useState<GameLanguage>('js');
   const [newGameVideoUrl, setNewGameVideoUrl] = useState('');
   const [newGameBgUrl, setNewGameBgUrl] = useState('');
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
-  const handleSaveInfo = (e: React.FormEvent) => {
+  const handleSaveInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return;
-
     AudioEngine.getInstance().playSFX('select');
-    onUpdateProfile({
-      ...profile,
-      username: username.trim(),
-      avatar,
-      password: pin.trim() || undefined,
-      accountType
-    });
 
-    setSuccessMsg('Profil enregistré !');
-    setTimeout(() => setSuccessMsg(''), 2500);
+    try {
+      // Profil (username, avatar, type) en DB.
+      await updateProfile(profile.id, {
+        username: username.trim(),
+        avatar_url: avatar,
+        account_type: accountType,
+      });
+
+      // Changement de PIN optionnel via l'auth Supabase (mot de passe = PIN).
+      if (newPin) {
+        if (!/^\d{4}$/.test(newPin)) {
+          setSuccessMsg('');
+          alert('Le nouveau code PIN doit comporter 4 chiffres.');
+          return;
+        }
+        const { error } = await supabase.auth.updateUser({ password: newPin });
+        if (error) {
+          alert(`Changement de PIN impossible : ${error.message}`);
+          return;
+        }
+        setNewPin('');
+      }
+
+      // MAJ optimiste de la vue locale.
+      onUpdateProfile({ ...profile, username: username.trim(), avatar, accountType });
+      setSuccessMsg('Profil enregistré !');
+      setTimeout(() => setSuccessMsg(''), 2500);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "L'enregistrement a échoué.");
+    }
   };
 
-  const handlePublishGameSubmit = (e: React.FormEvent) => {
+  const handlePublishGameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newGameTitle.trim() || !onPublishGame) return;
+    if (!newGameTitle.trim() || !onPublishGame || publishing) return;
 
     AudioEngine.getInstance().playSFX('select');
-    onPublishGame({
-      title: newGameTitle.trim(),
-      slug: newGameTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      description: newGameDescription.trim(),
-      runtime: newGameRuntime,
-      entry_point: newGameRuntime === 'js' ? 'index.js' : newGameRuntime === 'python' ? 'main.py' : newGameRuntime === 'wasm' ? 'game.wasm' : newGameRuntime === 'lua' ? 'game.lua' : 'game.jar',
-      assets_bucket_path: `/games/${newGameTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      background_url: newGameBgUrl.trim() || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
-      video_url: newGameVideoUrl.trim() || undefined,
-      price: newGamePrice > 0 ? newGamePrice : undefined,
-      manifest: {},
-      author_id: profile.id
-    });
+    const slug = newGameTitle.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    setPublishing(true);
+    try {
+      // assets_bucket_path est renseigné par /api/install après upload ; valeur initiale neutre.
+      await onPublishGame(
+        {
+          title: newGameTitle.trim(),
+          slug,
+          description: newGameDescription.trim(),
+          runtime: newGameRuntime,
+          entry_point:
+            newGameRuntime === 'js' ? 'index.js' :
+            newGameRuntime === 'python' ? 'main.py' :
+            newGameRuntime === 'wasm' ? 'game.wasm' :
+            newGameRuntime === 'lua' ? 'game.lua' :
+            newGameRuntime === 'gba' ? 'game.gba' :
+            newGameRuntime === 'psp' ? 'game.cso' :
+            newGameRuntime === 'android' ? 'game.apk' :
+            'game.jar',
+          assets_bucket_path: `games/${slug}`,
+          background_url: newGameBgUrl.trim() || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+          video_url: newGameVideoUrl.trim() || undefined,
+          price: newGamePrice > 0 ? newGamePrice : 0,
+          manifest: {},
+          status: 'published',
+        },
+        zipFile
+      );
 
-    // Reset Form
-    setNewGameTitle('');
-    setNewGameDescription('');
-    setNewGamePrice(0);
-    setNewGameRuntime('js');
-    setNewGameVideoUrl('');
-    setNewGameBgUrl('');
+      // Reset Form
+      setNewGameTitle('');
+      setNewGameDescription('');
+      setNewGamePrice(0);
+      setNewGameRuntime('js');
+      setNewGameVideoUrl('');
+      setNewGameBgUrl('');
+      setZipFile(null);
 
-    setSuccessMsg('Jeu publié dans le Store !');
-    setTimeout(() => setSuccessMsg(''), 2500);
+      setSuccessMsg(zipFile ? 'Jeu publié dans le Store !' : 'Jeu créé (sans fichiers — pense à uploader un .zip pour qu\'il soit jouable).');
+      setTimeout(() => setSuccessMsg(''), 3500);
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const myCreatedGames = games.filter(g => g.author_id === profile.id);
@@ -231,17 +277,16 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
 
                 <div className="flex flex-col gap-2">
                   <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold flex items-center gap-1">
-                    <Lock size={11} /> Code PIN de protection à 4 chiffres (Obligatoire)
+                    <Lock size={11} /> Changer le code PIN (laisser vide pour conserver l&apos;actuel)
                   </label>
                   <input
                     type="text"
                     pattern="[0-9]{4}"
                     maxLength={4}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full px-4 py-2.5 rounded-xl bg-zinc-950 border border-zinc-850 text-white text-xs font-bold focus:border-blue-500/50 focus:outline-none font-mono tracking-widest"
-                    placeholder="Code PIN à 4 chiffres"
-                    required
+                    placeholder="Nouveau PIN à 4 chiffres (optionnel)"
                   />
                 </div>
 
@@ -322,6 +367,9 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                         <option value="wasm">WebAssembly (C++)</option>
                         <option value="lua">Lua (Fengari)</option>
                         <option value="java">Java (CheerpJ)</option>
+                        <option value="gba">Game Boy Advance (GBA)</option>
+                        <option value="psp">PlayStation Portable (PSP)</option>
+                        <option value="android">Android (APK)</option>
                       </select>
                     </div>
                   </div>
@@ -370,11 +418,30 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                     />
                   </div>
 
+                  {/* Fichiers du jeu (.zip) — uploadés dans Supabase Storage via /api/install */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[8px] uppercase tracking-wider text-zinc-500 font-bold">
+                      Fichiers du jeu (.zip) — index.js / main.py / game.wasm / game.lua…
+                    </label>
+                    <input
+                      type="file"
+                      accept=".zip,.apk,application/zip,application/vnd.android.package-archive"
+                      onChange={(e) => setZipFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-[10px] text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-purple-600/80 file:text-white file:text-[9px] file:font-bold file:uppercase file:cursor-pointer cursor-pointer"
+                    />
+                    {zipFile ? (
+                      <span className="text-[9px] text-emerald-400">{zipFile.name} ({Math.round(zipFile.size / 1024)} Ko)</span>
+                    ) : (
+                      <span className="text-[9px] text-amber-500/80">Sans .zip, le jeu sera créé mais non jouable tant que tu n&apos;uploades pas ses fichiers.</span>
+                    )}
+                  </div>
+
                   <button
                     type="submit"
-                    className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-550 text-white font-bold uppercase tracking-widest text-[9px] shadow-md transition-all active:scale-95 cursor-pointer mt-2"
+                    disabled={publishing}
+                    className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-550 disabled:bg-zinc-700 disabled:text-zinc-400 text-white font-bold uppercase tracking-widest text-[9px] shadow-md transition-all active:scale-95 cursor-pointer mt-2 flex items-center justify-center gap-2"
                   >
-                    Publier dans la Boutique Store
+                    {publishing ? (<><RefreshCw size={11} className="animate-spin" /> Publication…</>) : 'Publier dans la Boutique Store'}
                   </button>
                 </form>
 

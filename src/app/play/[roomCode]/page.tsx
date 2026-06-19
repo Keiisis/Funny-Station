@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
+import { fetchGameById } from '@/lib/db';
 import { GameRoom } from '@/multiplayer/GameRoom';
 import { GameStateSync } from '@/multiplayer/GameStateSync';
 import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
-import type { OnlinePlayer } from '@/types';
+import type { OnlinePlayer, Game } from '@/types';
 import { Users, Wifi, WifiOff, Copy, Check, ArrowLeft, Gamepad, Smartphone, X } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -27,7 +28,7 @@ function PlayContent() {
   const localPlayerNumberRef = useRef(0);
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [gameId, setGameId] = useState('g1'); // Default to Neon Runner
+  const [game, setGame] = useState<Game | null>(null);
   const [username, setUsername] = useState('');
   const [hasJoined, setHasJoined] = useState(false);
 
@@ -117,7 +118,10 @@ function PlayContent() {
     // Listen for events
     room.onEvent((event) => {
       if (event.type === 'game_start') {
-        setGameId(event.gameId);
+        // Charge le vrai jeu de la room (assets/runtime/entry_point réels).
+        fetchGameById(event.gameId)
+          .then((g) => setGame(g))
+          .catch((e) => console.error('[Play] Chargement du jeu:', e));
         setStatus('playing');
       }
       if (event.type === 'room_closed') {
@@ -386,18 +390,25 @@ function PlayContent() {
         </div>
       </div>
 
-      {/* Game */}
+      {/* Game — chargé dynamiquement depuis la DB selon la room */}
       <div className="flex-1 pt-10">
-        <UniversalRuntimeRunner
-          gameId={gameId}
-          gameUrl="/games/neon-runner"
-          entryPoint="index.js"
-          language="js"
-          manifest={{ screen_ratio: '16/9' }}
-          networkMode="client"
-          gameStateSync={syncRef.current}
-          localPlayerNumber={localPlayerNumber}
-        />
+        {game ? (
+          <UniversalRuntimeRunner
+            gameId={game.id}
+            gameUrl={game.assets_bucket_path}
+            entryPoint={game.entry_point}
+            language={game.runtime}
+            manifest={game.manifest}
+            networkMode="client"
+            gameStateSync={syncRef.current}
+            localPlayerNumber={localPlayerNumber}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-zinc-500 text-sm">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-zinc-400 mr-3" />
+            Chargement du jeu…
+          </div>
+        )}
       </div>
 
       {/* Mobile Controller Modal (in-game) */}

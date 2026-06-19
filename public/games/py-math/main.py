@@ -42,6 +42,6 @@ except Exception as e:
 # Débloquer un trophée via le SDK Python
 print("\n[Étape 4] Notification au Funny Kernel...")
 print("[Python] Envoi de l'événement de déblocage de trophée 't2'...")
-funny_station.unlock_trophy('t2')
+funny_station.unlock_trophy('python_dev')
 
 print("\nCalculs terminés avec succès. Processus en veille.")

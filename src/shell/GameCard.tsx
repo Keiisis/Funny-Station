@@ -21,6 +21,12 @@ export const GameCard: React.FC<GameCardProps> = ({ game, isFocused, onSelect })
     langBadgeColor = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
   } else if (game.runtime === 'java') {
     langBadgeColor = 'bg-red-500/10 text-red-400 border-red-500/20';
+  } else if (game.runtime === 'gba') {
+    langBadgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  } else if (game.runtime === 'psp') {
+    langBadgeColor = 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20';
+  } else if (game.runtime === 'android') {
+    langBadgeColor = 'bg-lime-500/10 text-lime-400 border-lime-500/20';
   }
 
   return (
