@@ -54,10 +54,10 @@
       z-index: 1 !important;
       
       /* Crisp retro rendering */
-      image-rendering: -moz-crisp-edges;
-      image-rendering: -webkit-crisp-edges;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
+      image-rendering: -moz-crisp-edges !important;
+      image-rendering: -webkit-crisp-edges !important;
+      image-rendering: pixelated !important;
+      image-rendering: crisp-edges !important;
     }
 
     #loading {
@@ -102,6 +102,65 @@
   <div id="game"></div>
 
   <script>
+    // 1. Monkeypatch WebGL texture filtering to force nearest-neighbor (sharp pixels)
+    (function() {
+      function patchWebGL(ctxPrototype) {
+        if (!ctxPrototype) return;
+        
+        const originalTexParameteri = ctxPrototype.texParameteri;
+        ctxPrototype.texParameteri = function(target, pname, param) {
+          if (pname === this.TEXTURE_MIN_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+            else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+          } else if (pname === this.TEXTURE_MAG_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+          }
+          return originalTexParameteri.call(this, target, pname, param);
+        };
+
+        const originalTexParameterf = ctxPrototype.texParameterf;
+        ctxPrototype.texParameterf = function(target, pname, param) {
+          if (pname === this.TEXTURE_MIN_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+            else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+          } else if (pname === this.TEXTURE_MAG_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+          }
+          return originalTexParameterf.call(this, target, pname, param);
+        };
+      }
+
+      if (typeof WebGLRenderingContext !== 'undefined') {
+        patchWebGL(WebGLRenderingContext.prototype);
+      }
+      if (typeof WebGL2RenderingContext !== 'undefined') {
+        patchWebGL(WebGL2RenderingContext.prototype);
+      }
+    })();
+
+    // 2. Periodic Canvas Style & Context Image Smoothing Enforcer
+    setInterval(() => {
+      const canvases = document.querySelectorAll('canvas');
+      canvases.forEach(canvas => {
+        if (canvas.style.imageRendering !== 'pixelated') {
+          canvas.style.setProperty('image-rendering', 'pixelated', 'important');
+        }
+        try {
+          const ctx = canvas.getContext('2d');
+          if (ctx && ctx.imageSmoothingEnabled !== false) {
+            ctx.imageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+          }
+        } catch (e) {}
+      });
+    }, 250);
+
     // Parse the ROM URL from query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const romUrl = urlParams.get('rom');

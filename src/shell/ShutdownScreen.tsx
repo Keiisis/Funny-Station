@@ -11,6 +11,47 @@ interface ShutdownScreenProps {
 export const ShutdownScreen: React.FC<ShutdownScreenProps> = ({ isShuttingDown }) => {
   const [showFallback, setShowFallback] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const safetyTimeoutRef = useRef<any>(null);
+
+  const triggerCloseSequence = () => {
+    // 2. ATTEMPT WINDOW CLOSE
+    console.log('[System] Tentative de fermeture de la fenêtre...');
+    
+    // Try standard close
+    window.close();
+
+    // Try standard hacks for closing current tab
+    try {
+      window.open('about:blank', '_self');
+      window.close();
+    } catch (e) {}
+
+    // Check after 150ms if window was closed successfully
+    setTimeout(() => {
+      // If document is still visible, show fallback screen
+      if (!document.hidden) {
+        setShowFallback(true);
+      }
+    }, 150);
+  };
+
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const durationSec = video.duration;
+    if (durationSec && !isNaN(durationSec)) {
+      const ms = Math.ceil(durationSec * 1000) + 1500; // duration + 1.5s margin
+      console.log(`[System] Shutdown video duration loaded: ${durationSec}s. Safety timeout set to ${ms}ms.`);
+      
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
+      
+      safetyTimeoutRef.current = setTimeout(() => {
+        console.warn('[System] Fallback safety timeout reached. Forcing close sequence.');
+        triggerCloseSequence();
+      }, ms);
+    }
+  };
 
   useEffect(() => {
     if (!isShuttingDown) return;
@@ -45,48 +86,40 @@ export const ShutdownScreen: React.FC<ShutdownScreenProps> = ({ isShuttingDown }
       return;
     }
 
-    // Play video
-    const video = videoRef.current;
-    if (video) {
-      video.muted = false;
-      video.volume = 1.0;
-      video.play().catch((err) => {
-        console.warn('Shutdown video blocked/failed, bypassing to close:', err);
-        triggerCloseSequence();
-      });
-    }
-
-    // Fallback safety timeout (11 seconds in case onEnded doesn't fire)
-    const safetyTimeout = setTimeout(() => {
+    // Default safety timeout (11 seconds fallback if metadata doesn't load)
+    safetyTimeoutRef.current = setTimeout(() => {
+      console.warn('[System] Default fallback safety timeout reached. Forcing close sequence.');
       triggerCloseSequence();
     }, 11000);
 
+    // Play video
+    const video = videoRef.current;
+    if (video) {
+      // Robust start muted, then unmute
+      video.muted = true;
+      video.currentTime = 0;
+      
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            video.muted = false;
+            video.volume = 1.0;
+            console.log('[System] Shutdown video started playing and was unmuted.');
+          })
+          .catch((err) => {
+            console.warn('Shutdown video blocked/failed, bypassing to close:', err);
+            triggerCloseSequence();
+          });
+      }
+    }
+
     return () => {
-      clearTimeout(safetyTimeout);
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
     };
   }, [isShuttingDown]);
-
-  const triggerCloseSequence = () => {
-    // 2. ATTEMPT WINDOW CLOSE
-    console.log('[System] Tentative de fermeture de la fenêtre...');
-    
-    // Try standard close
-    window.close();
-
-    // Try standard hacks for closing current tab
-    try {
-      window.open('about:blank', '_self');
-      window.close();
-    } catch (e) {}
-
-    // Check after 150ms if window was closed successfully
-    setTimeout(() => {
-      // If document is still visible, show fallback screen
-      if (!document.hidden) {
-        setShowFallback(true);
-      }
-    }, 150);
-  };
 
   if (!isShuttingDown) return null;
 
@@ -116,6 +149,7 @@ export const ShutdownScreen: React.FC<ShutdownScreenProps> = ({ isShuttingDown }
           className="w-full h-full object-cover"
           preload="auto"
           playsInline
+          onLoadedMetadata={handleLoadedMetadata}
           onEnded={triggerCloseSequence}
         />
       )}
