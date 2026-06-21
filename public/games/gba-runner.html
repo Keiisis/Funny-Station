@@ -141,7 +141,22 @@
     (function() {
       function patchWebGL(ctxPrototype) {
         if (!ctxPrototype) return;
-        
+
+        // IMPORTANT : EmulatorJS/RetroArch s'appuie souvent sur le filtre LINEAR PAR DÉFAUT
+        // (sans appeler texParameteri) → l'upscale est flou. On force donc NEAREST après
+        // CHAQUE création de texture. C'est ce qui rend réellement l'image nette (pixel art).
+        const origTexImage2D = ctxPrototype.texImage2D;
+        if (origTexImage2D) {
+          ctxPrototype.texImage2D = function() {
+            const r = origTexImage2D.apply(this, arguments);
+            try {
+              this.texParameteri(this.TEXTURE_2D, this.TEXTURE_MIN_FILTER, this.NEAREST);
+              this.texParameteri(this.TEXTURE_2D, this.TEXTURE_MAG_FILTER, this.NEAREST);
+            } catch (e) {}
+            return r;
+          };
+        }
+
         const originalTexParameteri = ctxPrototype.texParameteri;
         ctxPrototype.texParameteri = function(target, pname, param) {
           if (pname === this.TEXTURE_MIN_FILTER) {

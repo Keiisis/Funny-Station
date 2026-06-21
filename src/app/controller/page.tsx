@@ -253,6 +253,19 @@ function ControllerContent() {
     };
   }, [isFullscreen]);
 
+  // Bloque le menu contextuel mobile (appui long → "imprimer / télécharger / enregistrer")
+  // et la sélection de texte, pour que l'appui long sur une touche reste une commande.
+  useEffect(() => {
+    const preventContext = (e: Event) => e.preventDefault();
+    const preventSelect = (e: Event) => e.preventDefault();
+    document.addEventListener('contextmenu', preventContext);
+    document.addEventListener('selectstart', preventSelect);
+    return () => {
+      document.removeEventListener('contextmenu', preventContext);
+      document.removeEventListener('selectstart', preventSelect);
+    };
+  }, []);
+
   // Cleanup: unlock orientation on unmount
   useEffect(() => {
     return () => {
