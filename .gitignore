@@ -56,4 +56,6 @@ public/games/**/*.gba
 public/games/**/*.bin
 public/games/**/*.data
 public/games/**/*.cue
+public/games/**/*.cso
+public/games/**/*.iso
 
