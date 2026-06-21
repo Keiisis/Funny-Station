@@ -49,3 +49,9 @@ unity-project/
 *.unitypackage
 unity_*.txt
 
+# Game ROMs
+public/games/*.gba
+public/games/**/*.gba
+public/games/**/*.bin
+public/games/**/*.cue
+

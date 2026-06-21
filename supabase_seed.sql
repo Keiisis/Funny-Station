@@ -112,6 +112,12 @@ VALUES
    'Le jeu de combat légendaire avec 31 personnages uniques. Choisissez votre style de combat (Isms) et dominez l''arène.',
    'gba', 'Street Fighter Alpha 3 (USA).gba', '/games',
    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+   0, '{}'::jsonb, 'published'),
+
+  ('Street Fighter Alpha 2 Gold', 'street-fighter-alpha-2-gold',
+   'L''expérience ultime de combat 2D sur PlayStation 1. Retrouvez des personnages inédits, des modes de jeu approfondis et la jouabilité technique légendaire de la saga Alpha.',
+   'psx', 'Street Fighter Collection [Disc2of2] (Street Fighter Alpha 2 Gold) [SLUS-00584].cue', '/games/Street Fighter Collection [Disc2of2] (Street Fighter Alpha 2 Gold) [SLUS-00584] [bin]',
+   'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
    0, '{}'::jsonb, 'published')
 ON CONFLICT (slug) DO NOTHING;
 
@@ -147,7 +153,9 @@ FROM (VALUES
     ('one-piece', 'grand_line', 'Départ pour Grand Line', 'Réunir les premiers membres de l''équipage du Chapeau de Paille.', 'bronze', 15),
     ('one-piece', 'pirate_king', 'Le Roi des Pirates', 'Trouver le trésor légendaire et vaincre tous les boss.', 'gold', 150),
     ('street-fighter-alpha-3', 'first_victory', 'Premier K.O.', 'Remporter votre premier combat dans le mode Arcade.', 'bronze', 15),
-    ('street-fighter-alpha-3', 'world_warrior', 'Guerrier Ultime', 'Terminer le mode Arcade sans utiliser de continue.', 'gold', 150)
+    ('street-fighter-alpha-3', 'world_warrior', 'Guerrier Ultime', 'Terminer le mode Arcade sans utiliser de continue.', 'gold', 150),
+    ('street-fighter-alpha-2-gold', 'first_combo', 'Combo Master', 'Réaliser un combo de 5 coups ou plus en plein combat.', 'bronze', 15),
+    ('street-fighter-alpha-2-gold', 'arcade_champion', 'Champion Suprême', 'Vaincre Shin Akuma et terminer le mode Arcade.', 'gold', 150)
 ) AS t(slug, trophy_key, name, description, tier, coin_reward)
 JOIN public.games g ON g.slug = t.slug
 WHERE NOT EXISTS (

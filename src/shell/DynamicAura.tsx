@@ -34,6 +34,7 @@ const COMPONENT_PALETTES: Record<string, string[]> = {
   'nfs-most-wanted': ['#10b981', '#06b6d4', '#064e3b'],
   'one-piece': ['#facc15', '#3b82f6', '#b45309'],
   'street-fighter-alpha-3': ['#ef4444', '#a855f7', '#7e22ce'],
+  'street-fighter-alpha-2-gold': ['#dc2626', '#f59e0b', '#7f1d1d'],
   'default': ['#1e3a8a', '#581c87', '#0f172a']            // Deep Blue, Purple, Dark Slate
 };
 
