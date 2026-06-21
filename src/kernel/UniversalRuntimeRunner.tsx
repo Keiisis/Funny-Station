@@ -38,6 +38,18 @@ export interface TrophyUnlockPayload {
   tier: TrophyTier;
 }
 
+/**
+ * Si l'asset est hébergé sur un domaine externe (ex: Cloudflare R2), on le sert via
+ * le proxy same-origin /api/ext → reste compatible avec l'isolation COEP (sinon
+ * « Failed to fetch »). Les chemins relatifs (same-origin) passent inchangés.
+ */
+function resolveAssetUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) {
+    return `/api/ext?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 interface GameRunnerProps {
   gameId: string;
   gameUrl: string;
@@ -509,7 +521,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     setLoadingProgress(60);
     // JS standard isolé dans une IFrame avec Content Security Policy stricte
     if (iframeRef.current) {
-      const entryPath = `${gameUrl}/${entryPoint}`;
+      const entryPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
       
       if (entryPoint.endsWith('.html')) {
         // Pour les points d'entrée HTML (ex: WebGL Unity), on charge directement l'URL
@@ -591,7 +603,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
         // Envoi du script d'entrée au worker pour exécution
         workerRef.current?.postMessage({
           type: 'run',
-          codePath: `${gameUrl}/${entryPoint}`,
+          codePath: resolveAssetUrl(`${gameUrl}/${entryPoint}`),
           vfsData,
           libs: manifest.python_libs || []
         });
@@ -620,7 +632,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     // Les relances du jeu repartent du cache local sans re-télécharger.
     const swap = new MemorySwapManager(gameId, manifest.maxMemoryMb ?? 128);
     await swap.init();
-    const bytes = await swap.loadAsset(`wasm/${entryPoint}`, `${gameUrl}/${entryPoint}`);
+    const bytes = await swap.loadAsset(`wasm/${entryPoint}`, resolveAssetUrl(`${gameUrl}/${entryPoint}`));
     // Copie dans un ArrayBuffer contigu (overload BufferSource de WebAssembly.instantiate).
     const buffer = bytes.slice().buffer as ArrayBuffer;
 
@@ -695,7 +707,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
             exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*')
           };
         `;
-        const entryPath = `${gameUrl}/${entryPoint}`;
+        const entryPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
         sandboxDoc.open();
         sandboxDoc.write(`
           <!DOCTYPE html>
@@ -732,7 +744,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
             exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*')
           };
         `;
-        const entryPath = `${gameUrl}/${entryPoint}`;
+        const entryPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
         sandboxDoc.open();
         sandboxDoc.write(`
           <!DOCTYPE html>
@@ -765,7 +777,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
   const setupGbaEnvironment = async (vfs: VirtualFileSystem) => {
     setLoadingProgress(70);
     if (iframeRef.current) {
-      const romPath = `${gameUrl}/${entryPoint}`;
+      const romPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
       iframeRef.current.src = `/games/gba-runner.html?rom=${encodeURIComponent(romPath)}`;
       
       const injectBridge = () => {
@@ -792,7 +804,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
   const setupPspEnvironment = async (vfs: VirtualFileSystem) => {
     setLoadingProgress(70);
     if (iframeRef.current) {
-      const romPath = `${gameUrl}/${entryPoint}`;
+      const romPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
       iframeRef.current.src = `/games/psp-runner.html?rom=${encodeURIComponent(romPath)}`;
       
       const injectBridge = () => {
@@ -819,7 +831,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
   const setupPsxEnvironment = async (vfs: VirtualFileSystem) => {
     setLoadingProgress(70);
     if (iframeRef.current) {
-      const romPath = `${gameUrl}/${entryPoint}`;
+      const romPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
       iframeRef.current.src = `/games/psx-runner.html?rom=${encodeURIComponent(romPath)}`;
 
       const injectBridge = () => {
@@ -848,7 +860,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     if (entryPoint.endsWith('.apk') || entryPoint === 'game.apk') {
       setAndroidNativeApp(true);
     } else if (iframeRef.current) {
-      const gamePath = `${gameUrl}/${entryPoint}`;
+      const gamePath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
       iframeRef.current.src = gamePath;
     }
     setLoadingProgress(100);

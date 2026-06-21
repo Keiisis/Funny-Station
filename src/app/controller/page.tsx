@@ -859,14 +859,14 @@ function ControllerContent() {
               </div>
             </div>
 
-            {/* TRIANGLE (▲) - HAUT — masqué sur émulateur GBA/PSP (pas de bouton Y) */}
-            {!isGba && (
+            {/* TRIANGLE (▲) - HAUT — toujours présent ; inactif sur GBA (pas de bouton Y) */}
             <button
-              onPointerDown={() => sendAction('TRIANGLE', 'down')}
-              onPointerUp={() => sendAction('TRIANGLE', 'up')}
-              onPointerLeave={() => sendAction('TRIANGLE', 'up')}
-              onPointerCancel={() => sendAction('TRIANGLE', 'up')}
-              className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
+              disabled={isGba}
+              onPointerDown={() => { if (!isGba) sendAction('TRIANGLE', 'down'); }}
+              onPointerUp={() => { if (!isGba) sendAction('TRIANGLE', 'up'); }}
+              onPointerLeave={() => { if (!isGba) sendAction('TRIANGLE', 'up'); }}
+              onPointerCancel={() => { if (!isGba) sendAction('TRIANGLE', 'up'); }}
+              className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGba ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'TRIANGLE'
                   ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
                   : 'bg-zinc-900/80 border-emerald-500/30 text-emerald-500/80 hover:bg-zinc-800/60'
@@ -874,7 +874,6 @@ function ControllerContent() {
             >
               <span className="text-sm font-bold">▲</span>
             </button>
-            )}
 
             {/* CROSS (✕) - BAS - CONFIRM (= bouton A sur GBA/PSP) */}
             <button
@@ -891,14 +890,14 @@ function ControllerContent() {
               <span className="text-sm font-bold">{isGba ? 'A' : '✕'}</span>
             </button>
 
-            {/* SQUARE (■) - GAUCHE — masqué sur émulateur GBA/PSP (pas de bouton X) */}
-            {!isGba && (
+            {/* SQUARE (■) - GAUCHE — toujours présent ; inactif sur GBA (pas de bouton X) */}
             <button
-              onPointerDown={() => sendAction('SQUARE', 'down')}
-              onPointerUp={() => sendAction('SQUARE', 'up')}
-              onPointerLeave={() => sendAction('SQUARE', 'up')}
-              onPointerCancel={() => sendAction('SQUARE', 'up')}
-              className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
+              disabled={isGba}
+              onPointerDown={() => { if (!isGba) sendAction('SQUARE', 'down'); }}
+              onPointerUp={() => { if (!isGba) sendAction('SQUARE', 'up'); }}
+              onPointerLeave={() => { if (!isGba) sendAction('SQUARE', 'up'); }}
+              onPointerCancel={() => { if (!isGba) sendAction('SQUARE', 'up'); }}
+              className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGba ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'SQUARE'
                   ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.6)]'
                   : 'bg-zinc-900/80 border-purple-500/30 text-purple-500/80 hover:bg-zinc-800/60'
@@ -906,7 +905,6 @@ function ControllerContent() {
             >
               <span className="text-xs font-bold">■</span>
             </button>
-            )}
 
             {/* CIRCLE (◯) - DROITE - BACK (= bouton B sur GBA/PSP) */}
             <button
