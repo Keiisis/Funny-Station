@@ -300,7 +300,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
           <div className="flex flex-col">
             <h1 className="text-sm font-black tracking-widest text-zinc-100 uppercase flex items-center gap-2">
               <ShoppingBag size={15} className="text-purple-400" />
-              <span>PlayStation Store</span>
+              <span>FunnyStation Store</span>
             </h1>
             <span className="text-[8px] text-zinc-500 uppercase tracking-widest mt-0.5">Offres de jeux, contenus additionnels et codes de triche</span>
           </div>

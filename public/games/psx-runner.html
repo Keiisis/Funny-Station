@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Funny GBA Runner</title>
+  <title>Funny PS1 Runner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <style>
     /* Reset & Hidden styles to ensure 100% invisible emulator UI */
@@ -26,8 +26,7 @@
 
     /*
      * Hide EmulatorJS control bars and menus AFTER game starts.
-     * DO NOT hide generic `button` — EmulatorJS uses an internal start button
-     * that must remain clickable for the game to boot.
+     * DO NOT hide generic `button` — EmulatorJS needs its internal start button.
      */
     .ejs--hide-after-start #menu, .ejs--hide-after-start .menu,
     .ejs--hide-after-start #menu-btn, .ejs--hide-after-start .menu-btn,
@@ -56,9 +55,8 @@
     }
 
     /*
-     * Canvas : on PRÉSERVE le ratio natif GBA (240x160, 3:2).
-     * height:100% + width:auto => agrandi au maximum SANS déformation ni flou.
-     * (L'ancien width/height:100% étirait l'image et la rendait floue.)
+     * Canvas : ratio natif PSP (480x272) PRÉSERVÉ — agrandi au max sans déformation.
+     * L'ancien width/height:100% étirait l'image (flou). height:100% + width:auto = net.
      */
     canvas, #canvas, .canvas {
       display: block !important;
@@ -68,7 +66,6 @@
       max-height: 100% !important;
       margin: auto !important;
       object-fit: contain !important;
-      /* Rendu rétro net (nearest-neighbor). */
       image-rendering: -moz-crisp-edges !important;
       image-rendering: -webkit-crisp-edges !important;
       image-rendering: pixelated !important;
@@ -96,7 +93,7 @@
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      border-left-color: #3b82f6;
+      border-left-color: #a855f7;
       animation: spin 1s linear infinite;
       margin-bottom: 15px;
     }
@@ -111,7 +108,7 @@
 
   <div id="loading">
     <div class="spinner"></div>
-    <div style="font-size: 11px; color: #a1a1aa; letter-spacing: 0.1em; text-transform: uppercase;">Démarrage du jeu GBA...</div>
+    <div style="font-size: 11px; color: #a1a1aa; tracking-wider: 0.1em; text-transform: uppercase;">Démarrage de l'émulateur PSP...</div>
   </div>
 
   <div id="game"></div>
@@ -232,23 +229,23 @@
 
     if (!romUrl) {
       document.getElementById('loading').innerText = "Erreur : URL de ROM manquante.";
-      console.error("[GBA Runner] ROM URL parameter is missing.");
+      console.error("[PSP Runner] ROM URL parameter is missing.");
     } else {
       // Configuration values for EmulatorJS
       window.EJS_player = '#game';
-      window.EJS_core = 'gba';  // Correct core identifier for Game Boy Advance in EmulatorJS
+      window.EJS_core = 'psx';
       window.EJS_gameUrl = romUrl;
       window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
       window.EJS_startOnLoaded = true;
       // Cœur multi-threadé activé automatiquement quand l'environnement est cross-origin
-      // isolé (en-têtes COOP/COEP de la FunnyStation) → émulation plus fluide.
+      // isolé (en-têtes COOP/COEP) → indispensable pour la fluidité du PSP.
       window.EJS_threads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated);
       window.EJS_defaultOptions = {
         'video_smooth': 'false',
         'video_scale_integer': 'true'
       };
 
-      // Hide the control bar but NOT the start overlay
+      // Hide all UI buttons
       window.EJS_Buttons = {
         playPause: false,
         restart: false,
@@ -264,17 +261,36 @@
         cheats: false,
         slowMotion: false,
         fastForward: false,
-        gamepad: false,
+        gamepad: false, // Disables internal gamepad to avoid conflicts with our KeyboardInjection
         loadLocalState: false,
         saveLocalState: false
       };
 
+      // Define default keyboard mappings for PPSSPP/RetroPad to ensure our translated inputs match
+      window.EJS_defaultControls = {
+        0: { // Player 1
+          0: { value: 'x' },         // Cross (✕) / Confirm
+          1: { value: 's' },         // Square (■)
+          2: { value: 'Shift' },     // Select
+          3: { value: 'Enter' },     // Start
+          4: { value: 'ArrowUp' },   // D-Pad Up
+          5: { value: 'ArrowDown' }, // D-Pad Down
+          6: { value: 'ArrowLeft' }, // D-Pad Left
+          7: { value: 'ArrowRight' },// D-Pad Right
+          8: { value: 'z' },         // Circle (◯) / Cancel
+          9: { value: 'a' },         // Triangle (▲)
+          10: { value: 'q' },        // L Shoulder trigger
+          11: { value: 'e' }         // R Shoulder trigger
+        }
+      };
+
       // Disable built-in virtual gamepad / keyboard settings overlay
+      window.EJS_gamepadButtonMap = {};
       window.EJS_mouse = false;
 
       // Hide loading screen once emulator is active
       window.EJS_onGameStart = function() {
-        console.log("[GBA Runner] Emulator started.");
+        console.log("[PSP Runner] Emulator started.");
         const loader = document.getElementById('loading');
         if (loader) {
           loader.style.opacity = '0';
@@ -282,9 +298,8 @@
             loader.style.display = 'none';
           }, 500);
         }
-        // Add the hide class to suppress control bars after game boots
-        document.body.classList.add('ejs--hide-after-start');
         // Let the parent window know we are ready
+        document.body.classList.add('ejs--hide-after-start');
         window.parent.postMessage({ type: 'FUNNY_BUS_GAME_READY' }, '*');
       };
     }

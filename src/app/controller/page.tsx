@@ -212,6 +212,10 @@ function FullscreenGate({ onEnter }: { onEnter: () => void }) {
 function ControllerContent() {
   const searchParams = useSearchParams();
   const lobbyId = searchParams.get('lobbyId') || 'demo-lobby';
+  // Runtime du jeu en cours → adapte le layout de la manette.
+  // GBA = 2 boutons (A/B) uniquement. PSP = 4 boutons PlayStation (✕◯■▲) → layout complet conservé.
+  const runtime = searchParams.get('runtime') || '';
+  const isGba = runtime === 'gba';
   // Chaque téléphone génère un ID unique stable (pas de userId dans l'URL pour le multi)
   const userIdRef = useRef(
     searchParams.get('userId') || `mobile-${Math.random().toString(36).substring(2, 9)}`
@@ -277,7 +281,9 @@ function ControllerContent() {
     
     const channel = supabase.channel(`lobby:${lobbyId}`, {
       config: {
-        broadcast: { self: true, ack: true },
+        // Latence minimale : pas d'écho local (self) ni d'attente d'accusé (ack)
+        // → l'input part instantanément vers la console.
+        broadcast: { self: false, ack: false },
         presence: { key: userId }
       }
     });
@@ -840,7 +846,8 @@ function ControllerContent() {
               </div>
             </div>
 
-            {/* TRIANGLE (▲) - HAUT */}
+            {/* TRIANGLE (▲) - HAUT — masqué sur émulateur GBA/PSP (pas de bouton Y) */}
+            {!isGba && (
             <button
               onPointerDown={() => sendAction('TRIANGLE', 'down')}
               onPointerUp={() => sendAction('TRIANGLE', 'up')}
@@ -854,8 +861,9 @@ function ControllerContent() {
             >
               <span className="text-sm font-bold">▲</span>
             </button>
+            )}
 
-            {/* CROSS (✕) - BAS - CONFIRM */}
+            {/* CROSS (✕) - BAS - CONFIRM (= bouton A sur GBA/PSP) */}
             <button
               onPointerDown={() => sendAction('CONFIRM', 'down')}
               onPointerUp={() => sendAction('CONFIRM', 'up')}
@@ -867,10 +875,11 @@ function ControllerContent() {
                   : 'bg-zinc-900/80 border-cyan-500/30 text-cyan-500/80 hover:bg-zinc-800/60'
               }`}
             >
-              <span className="text-sm font-bold">✕</span>
+              <span className="text-sm font-bold">{isGba ? 'A' : '✕'}</span>
             </button>
 
-            {/* SQUARE (■) - GAUCHE */}
+            {/* SQUARE (■) - GAUCHE — masqué sur émulateur GBA/PSP (pas de bouton X) */}
+            {!isGba && (
             <button
               onPointerDown={() => sendAction('SQUARE', 'down')}
               onPointerUp={() => sendAction('SQUARE', 'up')}
@@ -884,8 +893,9 @@ function ControllerContent() {
             >
               <span className="text-xs font-bold">■</span>
             </button>
+            )}
 
-            {/* CIRCLE (◯) - DROITE - BACK */}
+            {/* CIRCLE (◯) - DROITE - BACK (= bouton B sur GBA/PSP) */}
             <button
               onPointerDown={() => sendAction('BACK', 'down')}
               onPointerUp={() => sendAction('BACK', 'up')}
@@ -897,7 +907,7 @@ function ControllerContent() {
                   : 'bg-zinc-900/80 border-rose-500/30 text-rose-500/80 hover:bg-zinc-800/60'
               }`}
             >
-              <span className="text-sm font-bold">◯</span>
+              <span className="text-sm font-bold">{isGba ? 'B' : '◯'}</span>
             </button>
           </div>
 

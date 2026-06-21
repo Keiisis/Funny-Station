@@ -39,21 +39,33 @@
       visibility: hidden !important;
     }
 
-    /* Ensure only the canvas is visible and fills the screen */
-    canvas, #canvas, .canvas, div#game, div#game-container, div#player {
-      display: block !important;
+    /* Conteneurs : plein écran noir + centrage du canvas (letterbox). */
+    div#game, div#game-container, div#player {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
       width: 100% !important;
       height: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
       position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
+      inset: 0 !important;
+      background: #000 !important;
       z-index: 1 !important;
-      
-      /* Crisp retro rendering */
+    }
+
+    /*
+     * Canvas : ratio natif PSP (480x272) PRÉSERVÉ — agrandi au max sans déformation.
+     * L'ancien width/height:100% étirait l'image (flou). height:100% + width:auto = net.
+     */
+    canvas, #canvas, .canvas {
+      display: block !important;
+      width: auto !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      margin: auto !important;
+      object-fit: contain !important;
       image-rendering: -moz-crisp-edges !important;
       image-rendering: -webkit-crisp-edges !important;
       image-rendering: pixelated !important;
@@ -225,6 +237,9 @@
       window.EJS_gameUrl = romUrl;
       window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
       window.EJS_startOnLoaded = true;
+      // Cœur multi-threadé activé automatiquement quand l'environnement est cross-origin
+      // isolé (en-têtes COOP/COEP) → indispensable pour la fluidité du PSP.
+      window.EJS_threads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated);
       window.EJS_defaultOptions = {
         'video_smooth': 'false',
         'video_scale_integer': 'true'

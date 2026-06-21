@@ -49,21 +49,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ pat
   const objectPath = `games/${segments.map(encodeURIComponent).join('/')}`;
   const publicUrl = `${supabaseUrl}/storage/v1/object/public/game-assets/${objectPath}`;
 
-  const upstream = await fetch(publicUrl);
-  if (!upstream.ok) {
-    return NextResponse.json({ error: 'Asset introuvable.' }, { status: upstream.status });
+  try {
+    const upstream = await fetch(publicUrl);
+    if (!upstream.ok || !upstream.body) {
+      return NextResponse.json({ error: 'Asset introuvable.' }, { status: 404 });
+    }
+
+    const ext = path.extname(segments[segments.length - 1]).toLowerCase();
+    const contentType = CONTENT_TYPES[ext] ?? upstream.headers.get('content-type') ?? 'application/octet-stream';
+
+    return new NextResponse(upstream.body, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        // Compatible COEP require-corp (même origine).
+        'Cross-Origin-Resource-Policy': 'same-origin',
+        'Cache-Control': 'public, max-age=300',
+      },
+    });
+  } catch (e) {
+    console.error('[api/games] Échec de récupération de l\'asset:', e);
+    return NextResponse.json({ error: 'Asset indisponible.' }, { status: 404 });
   }
-
-  const ext = path.extname(segments[segments.length - 1]).toLowerCase();
-  const contentType = CONTENT_TYPES[ext] ?? upstream.headers.get('content-type') ?? 'application/octet-stream';
-
-  return new NextResponse(upstream.body, {
-    status: 200,
-    headers: {
-      'Content-Type': contentType,
-      // Compatible COEP require-corp (même origine).
-      'Cross-Origin-Resource-Policy': 'same-origin',
-      'Cache-Control': 'public, max-age=300',
-    },
-  });
 }

@@ -256,7 +256,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
 
     // Activer l'injection clavier pour GBA, PSP ou JS standard, mais pas pour Unity (entryPoint finit par .html)
     const isUnityGame = language === 'js' && entryPoint.endsWith('.html');
-    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || (language === 'js' && !isUnityGame);
+    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || language === 'psx' || (language === 'js' && !isUnityGame);
     gamepad.enableKeyboardInjection(shouldInjectKeyboard);
 
     return () => {
@@ -301,6 +301,8 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           await setupGbaEnvironment(vfs);
         } else if (language === 'psp') {
           await setupPspEnvironment(vfs);
+        } else if (language === 'psx') {
+          await setupPsxEnvironment(vfs);
         } else if (language === 'android') {
           await setupAndroidEnvironment(vfs);
         } else {
@@ -814,6 +816,33 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     }
   };
 
+  const setupPsxEnvironment = async (vfs: VirtualFileSystem) => {
+    setLoadingProgress(70);
+    if (iframeRef.current) {
+      const romPath = `${gameUrl}/${entryPoint}`;
+      iframeRef.current.src = `/games/psx-runner.html?rom=${encodeURIComponent(romPath)}`;
+
+      const injectBridge = () => {
+        try {
+          if (iframeRef.current?.contentWindow) {
+            (iframeRef.current.contentWindow as any).funnyStation = {
+              save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
+              load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
+              unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
+              exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+              networkMode: networkMode,
+              playerNumber: localPlayerNumber
+            };
+          }
+        } catch (e) {
+          console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe PS1:", e);
+        }
+      };
+
+      iframeRef.current.onload = injectBridge;
+    }
+  };
+
   const setupAndroidEnvironment = async (vfs: VirtualFileSystem) => {
     setLoadingProgress(70);
     if (entryPoint.endsWith('.apk') || entryPoint === 'game.apk') {
@@ -957,6 +986,67 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     };
   }, [language]);
 
+  // Traduction des touches pour l'émulateur PS1 (psx). Mêmes boutons que la PSP
+  // (manette PlayStation complète) → on réutilise exactement le mapping PSP.
+  useEffect(() => {
+    if (language !== 'psx') return;
+
+    let currentMapping = loadKeyMapping();
+    const handleMappingChange = (e: Event) => { currentMapping = (e as CustomEvent).detail; };
+    window.addEventListener('funny_station_mapping_changed', handleMappingChange);
+
+    const actionToPsxKey: Record<ConsoleAction, string> = {
+      UP: 'ArrowUp',
+      DOWN: 'ArrowDown',
+      LEFT: 'ArrowLeft',
+      RIGHT: 'ArrowRight',
+      A: 'x',      // Cross (✕)
+      B: 'z',      // Circle (◯)
+      X: 's',      // Square (■)
+      Y: 'a',      // Triangle (▲)
+      L: 'q',      // L1
+      R: 'e',      // R1
+      START: 'Enter',
+      SELECT: 'Shift'
+    };
+
+    const handleKeyboardTranslation = (e: KeyboardEvent) => {
+      const action = Object.keys(currentMapping).find(
+        (act) => currentMapping[act as ConsoleAction] === e.key
+      ) as ConsoleAction | undefined;
+
+      if (action) {
+        const targetPsxKey = actionToPsxKey[action];
+        if (targetPsxKey && iframeRef.current?.contentWindow) {
+          e.preventDefault();
+          try {
+            const eventType = e.type === 'keydown' ? 'keydown' : 'keyup';
+            const translatedEvent = new KeyboardEvent(eventType, {
+              key: targetPsxKey,
+              code: targetPsxKey,
+              bubbles: true,
+              cancelable: true
+            });
+            const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
+            const target = doc.activeElement || doc;
+            target.dispatchEvent(translatedEvent);
+          } catch (err) {
+            console.error("[Kernel] Échec de la traduction des entrées PS1:", err);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyboardTranslation, { capture: true });
+    window.addEventListener('keyup', handleKeyboardTranslation, { capture: true });
+
+    return () => {
+      window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
+      window.removeEventListener('keydown', handleKeyboardTranslation, { capture: true });
+      window.removeEventListener('keyup', handleKeyboardTranslation, { capture: true });
+    };
+  }, [language]);
+
   return (
     <div ref={containerRef} className="relative w-full h-full bg-black flex items-center justify-center rounded-lg overflow-hidden border border-zinc-800">
       {!isReady && (
@@ -998,6 +1088,15 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           className="w-full h-full border-none bg-black"
           sandbox="allow-scripts allow-same-origin"
           title="PSP Emulator Process"
+        />
+      )}
+
+      {language === 'psx' && (
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none bg-black"
+          sandbox="allow-scripts allow-same-origin"
+          title="PS1 Emulator Process"
         />
       )}
 

@@ -53,7 +53,8 @@ function PlayContent() {
   // Generate QR Code for guest mobile controller
   useEffect(() => {
     if (!roomCode || typeof window === 'undefined') return;
-    const controllerUrl = `${window.location.origin}/controller?lobbyId=${roomCode}&clientPlayerId=${guestId}`;
+    const runtimeParam = game?.runtime || '';
+    const controllerUrl = `${window.location.origin}/controller?lobbyId=${roomCode}&clientPlayerId=${guestId}&runtime=${runtimeParam}`;
     QRCode.toDataURL(controllerUrl, {
       width: 256,
       margin: 1,
@@ -61,7 +62,7 @@ function PlayContent() {
     })
       .then(url => setGuestQrCodeUrl(url))
       .catch(err => console.error('Erreur génération QR Code invité:', err));
-  }, [roomCode, guestId]);
+  }, [roomCode, guestId, game]);
 
   // Subscribe to Supabase channel for guest controller inputs
   useEffect(() => {

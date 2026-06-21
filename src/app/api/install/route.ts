@@ -52,6 +52,15 @@ function detectRuntimeAndEntry(fileNames: string[]): { runtime: string; entryPoi
     return { runtime: 'psp', entryPoint: fileNames.find((f) => f.endsWith('.cso'))! };
   if (fileNames.some((f) => f.endsWith('.iso')))
     return { runtime: 'psp', entryPoint: fileNames.find((f) => f.endsWith('.iso'))! };
+  // PlayStation 1 (PS1) : .cue (référence le .bin), .pbp, .chd, ou .bin seul.
+  if (fileNames.some((f) => f.endsWith('.cue')))
+    return { runtime: 'psx', entryPoint: fileNames.find((f) => f.endsWith('.cue'))! };
+  if (fileNames.some((f) => f.endsWith('.pbp')))
+    return { runtime: 'psx', entryPoint: fileNames.find((f) => f.endsWith('.pbp'))! };
+  if (fileNames.some((f) => f.endsWith('.chd')))
+    return { runtime: 'psx', entryPoint: fileNames.find((f) => f.endsWith('.chd'))! };
+  if (fileNames.some((f) => f.endsWith('.bin')))
+    return { runtime: 'psx', entryPoint: fileNames.find((f) => f.endsWith('.bin'))! };
   // Par défaut : JS / HTML5
   const entry =
     fileNames.find((f) => f === 'index.html') ||

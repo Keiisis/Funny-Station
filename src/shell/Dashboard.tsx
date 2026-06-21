@@ -219,7 +219,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       setQrCodeUrl('');
       return;
     }
-    const controllerUrl = `${window.location.origin}/controller?lobbyId=${lobbyId}`;
+    // On passe le runtime du jeu focalisé pour que la manette adapte son layout (ex: GBA).
+    const runtimeParam = games[focusedIndex]?.runtime || '';
+    const controllerUrl = `${window.location.origin}/controller?lobbyId=${lobbyId}&runtime=${runtimeParam}`;
     QRCode.toDataURL(controllerUrl, {
       width: 256,
       margin: 1,
@@ -230,7 +232,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     })
       .then(url => setQrCodeUrl(url))
       .catch(err => console.error('Erreur génération QR Code local:', err));
-  }, [lobbyId]);
+  }, [lobbyId, games, focusedIndex]);
 
   // Gamepads Presence Channel
   useEffect(() => {
@@ -408,6 +410,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       .catch((e) => console.error('[Dashboard] Trophées du jeu:', e));
     return () => { cancelled = true; };
   }, [activeGameId]);
+
+  // PRÉCHAUFFAGE émulateurs : dès qu'un jeu GBA/PSP est focalisé, on précharge le
+  // moteur EmulatorJS + la ROM en arrière-plan → démarrage quasi-instantané au clic « Jouer ».
+  const activeGameRuntime = activeGame?.runtime;
+  const activeGameRomUrl = activeGame ? `${activeGame.assets_bucket_path}/${activeGame.entry_point}` : '';
+  useEffect(() => {
+    if (activeGameRuntime !== 'gba' && activeGameRuntime !== 'psp') return;
+    const links: HTMLLinkElement[] = [];
+    const prefetch = (href: string, as?: string) => {
+      const l = document.createElement('link');
+      l.rel = 'prefetch';
+      l.href = href;
+      if (as) l.as = as;
+      if (as === 'fetch') l.crossOrigin = 'anonymous';
+      document.head.appendChild(l);
+      links.push(l);
+    };
+    prefetch('https://cdn.emulatorjs.org/stable/data/loader.js', 'script');
+    if (activeGameRomUrl) prefetch(activeGameRomUrl, 'fetch');
+    return () => { links.forEach((l) => l.remove()); };
+  }, [activeGameRuntime, activeGameRomUrl]);
 
   const handleStartGame = () => {
     if (!activeGame) return;

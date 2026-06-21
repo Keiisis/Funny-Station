@@ -24,6 +24,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className={cn("h-full antialiased no-scrollbar", "font-sans", geist.variable)} suppressHydrationWarning>
+      <head>
+        {/* Préconnexion au CDN des émulateurs : supprime la latence DNS/TLS au 1ᵉʳ lancement. */}
+        <link rel="preconnect" href="https://cdn.emulatorjs.org" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://cdn.emulatorjs.org" />
+      </head>
       <body className={`${inter.className} min-h-full bg-zinc-950 text-slate-100 overflow-hidden relative`} suppressHydrationWarning>
         {/* Gestionnaire de thème aléatoire */}
         <ThemeManager />

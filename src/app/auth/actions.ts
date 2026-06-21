@@ -72,12 +72,6 @@ export async function signUpAction(input: {
     },
   });
 
-  console.log('[signUp] email:', synthEmail(input.username));
-  console.log('[signUp] error:', error ? `${error.status} ${error.message}` : 'none');
-  console.log('[signUp] user id:', data?.user?.id ?? 'null');
-  console.log('[signUp] user identities:', JSON.stringify(data?.user?.identities));
-  console.log('[signUp] email_confirmed:', data?.user?.email_confirmed_at);
-
   if (error) {
     // Email synthétique déjà pris = pseudo déjà utilisé.
     if (error.message.toLowerCase().includes('already')) {
@@ -90,8 +84,8 @@ export async function signUpAction(input: {
   // (comportement de sécurité pour ne pas révéler l'existence du compte).
   // On détecte cela et on tente un login direct.
   if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
-    console.log('[signUp] Fake signup detected (user exists). Attempting signIn fallback...');
-    // L'utilisateur existe déjà dans auth.users, tenter un login direct
+    // Supabase renvoie un user sans identities quand l'email existe déjà (sécurité).
+    // On tente une connexion directe : si le PIN est bon, c'est le compte de l'utilisateur.
     const { error: loginError } = await supabase.auth.signInWithPassword({
       email: synthEmail(input.username),
       password: pinToPassword(input.pin),
@@ -99,7 +93,6 @@ export async function signUpAction(input: {
     if (!loginError) {
       return { ok: true };
     }
-    console.log('[signUp] SignIn fallback failed:', loginError.message);
     return { ok: false, error: 'Ce pseudo existe déjà. Vérifie ton code PIN ou crée un autre profil.' };
   }
 
@@ -113,15 +106,10 @@ export async function signInAction(input: {
 }): Promise<AuthResult> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email: synthEmail(input.username),
     password: pinToPassword(input.pin),
   });
-
-  console.log('[signIn] email:', synthEmail(input.username));
-  console.log('[signIn] error:', error ? `${error.status} ${error.message}` : 'none');
-  console.log('[signIn] user id:', data?.user?.id ?? 'null');
-  console.log('[signIn] confirmed:', data?.user?.email_confirmed_at ?? 'null');
 
   if (error) {
     return { ok: false, error: 'Pseudo ou code PIN incorrect.' };

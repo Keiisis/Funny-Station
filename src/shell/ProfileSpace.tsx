@@ -114,6 +114,7 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
             newGameRuntime === 'lua' ? 'game.lua' :
             newGameRuntime === 'gba' ? 'game.gba' :
             newGameRuntime === 'psp' ? 'game.cso' :
+            newGameRuntime === 'psx' ? 'game.cue' :
             newGameRuntime === 'android' ? 'game.apk' :
             'game.jar',
           assets_bucket_path: `games/${slug}`,
@@ -369,6 +370,7 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                         <option value="java">Java (CheerpJ)</option>
                         <option value="gba">Game Boy Advance (GBA)</option>
                         <option value="psp">PlayStation Portable (PSP)</option>
+                        <option value="psx">PlayStation 1 (PS1)</option>
                         <option value="android">Android (APK)</option>
                       </select>
                     </div>
