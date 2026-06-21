@@ -51,7 +51,9 @@ unity_*.txt
 
 # Game ROMs
 public/games/*.gba
+public/games/*.pbp
 public/games/**/*.gba
 public/games/**/*.bin
+public/games/**/*.data
 public/games/**/*.cue
 
