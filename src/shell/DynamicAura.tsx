@@ -25,6 +25,15 @@ const COMPONENT_PALETTES: Record<string, string[]> = {
   'top-down-horror': ['#1e1b4b', '#581c87', '#0f172a'],   // Dark Indigo, Purple, Slate
   'gba-test': ['#10b981', '#06b6d4', '#065f46'],          // Emerald, Cyan, Dark Emerald
   'jackie-chan': ['#f59e0b', '#ec4899', '#d97706'],       // Amber, Pink, Dark Amber
+  '007-everything-or-nothing': ['#ef4444', '#1e293b', '#991b1b'],
+  'super-mario-advance-4': ['#ef4444', '#3b82f6', '#facc15'],
+  'dbz-buus-fury-gt-transformation': ['#f97316', '#3b82f6', '#ea580c'],
+  'dragon-ball-advanced-adventure': ['#f97316', '#facc15', '#b45309'],
+  'gta-advance': ['#8b5cf6', '#10b981', '#4c1d95'],
+  'naruto-ninja-council-2': ['#f97316', '#3b82f6', '#c2410c'],
+  'nfs-most-wanted': ['#10b981', '#06b6d4', '#064e3b'],
+  'one-piece': ['#facc15', '#3b82f6', '#b45309'],
+  'street-fighter-alpha-3': ['#ef4444', '#a855f7', '#7e22ce'],
   'default': ['#1e3a8a', '#581c87', '#0f172a']            // Deep Blue, Purple, Dark Slate
 };
 
