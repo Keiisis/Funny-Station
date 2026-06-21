@@ -14,6 +14,14 @@ const nextConfig: NextConfig = {
           { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
         ],
       },
+      // Runners émulateur (HTML léger) : toujours revalider pour que les correctifs
+      // de clarté/manette s'appliquent immédiatement (pas de vieille version en cache).
+      {
+        source: '/games/:name(gba-runner|psp-runner|psx-runner).html',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
+        ],
+      },
       // Builds Unity/émulateurs pré-compressés (.gz) : le navigateur décompresse à la volée
       // → transfert réduit (~3x) et démarrage bien plus rapide, sans re-build.
       {
