@@ -11,7 +11,11 @@ const nextConfig: NextConfig = {
         source: '/(.*)',
         headers: [
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+          // `credentialless` (au lieu de require-corp) : garde l'isolation cross-origin
+          // — donc SharedArrayBuffer + cœurs émulateur multi-thread restent actifs —
+          // MAIS autorise le chargement de ressources externes (Cloudflare R2) sans
+          // qu'elles aient besoin d'un en-tête CORP. Indispensable pour les gros jeux R2.
+          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
         ],
       },
       // Runners émulateur (HTML léger) : toujours revalider pour que les correctifs

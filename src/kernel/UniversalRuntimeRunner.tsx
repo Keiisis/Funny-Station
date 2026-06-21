@@ -39,14 +39,18 @@ export interface TrophyUnlockPayload {
 }
 
 /**
- * Si l'asset est hébergé sur un domaine externe (ex: Cloudflare R2), on le sert via
- * le proxy same-origin /api/ext → reste compatible avec l'isolation COEP (sinon
- * « Failed to fetch »). Les chemins relatifs (same-origin) passent inchangés.
+ * Résolution de l'URL d'un asset de jeu.
+ *
+ * On charge les assets DIRECTEMENT (y compris Cloudflare R2 en cross-origin) :
+ *  - Vercel ne peut pas proxyer de gros fichiers (limite ~4,5 Mo des serverless
+ *    functions → erreurs 502 sur les ROMs PSP/PS1 de plusieurs centaines de Mo).
+ *  - L'en-tête COEP `credentialless` (cf. next.config) autorise déjà les ressources
+ *    cross-origin sans CORP, donc le chargement direct R2 fonctionne tout en gardant
+ *    l'isolation cross-origin (threads émulateur).
+ *
+ * Prérequis côté R2 : le bucket doit exposer le CORS (Access-Control-Allow-Origin).
  */
 function resolveAssetUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) {
-    return `/api/ext?url=${encodeURIComponent(url)}`;
-  }
   return url;
 }
 
