@@ -854,196 +854,48 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     setLoadingProgress(100);
   };
 
-  // Gestion de la traduction des touches personnalisées en entrées attendues par l'émulateur GBA
+  // ── PONT D'ENTRÉE UNIFIÉ POUR LES ÉMULATEURS (GBA / PSP / PS1) ──────────────
+  // On utilise l'API d'entrée NATIVE d'EmulatorJS (simulateInput) via postMessage.
+  // C'est bien plus fiable que des KeyboardEvents synthétiques, souvent ignorés par
+  // l'émulateur car non « trusted ». L'iframe (xxx-runner.html) reçoit l'index RetroPad
+  // et pilote directement le cœur — exactement comme le gamepad tactile d'EmulatorJS.
   useEffect(() => {
-    if (language !== 'gba') return;
-
-    let currentMapping = loadKeyMapping();
-
-    const handleMappingChange = (e: any) => {
-      currentMapping = e.detail;
-    };
-    window.addEventListener('funny_station_mapping_changed', handleMappingChange);
-
-    // Mappage des actions standard de la console vers les touches attendues par le GBA d'EmulatorJS :
-    // UP->ArrowUp, DOWN->ArrowDown, LEFT->ArrowLeft, RIGHT->ArrowRight, A->x, B->z, L->a, R->s, START->Enter, SELECT->Shift
-    const actionToGbaKey: Record<ConsoleAction, string> = {
-      UP: 'ArrowUp',
-      DOWN: 'ArrowDown',
-      LEFT: 'ArrowLeft',
-      RIGHT: 'ArrowRight',
-      A: 'x',
-      B: 'z',
-      X: 'x',
-      Y: 'z',
-      L: 'a',
-      R: 's',
-      START: 'Enter',
-      SELECT: 'Shift'
-    };
-
-    const handleKeyboardTranslation = (e: KeyboardEvent) => {
-      // Trouver l'action correspondante à la touche physique
-      const action = Object.keys(currentMapping).find(
-        (act) => currentMapping[act as ConsoleAction] === e.key
-      ) as ConsoleAction | undefined;
-
-      if (action) {
-        const targetGbaKey = actionToGbaKey[action];
-        if (targetGbaKey && iframeRef.current?.contentWindow) {
-          e.preventDefault();
-          try {
-            const eventType = e.type === 'keydown' ? 'keydown' : 'keyup';
-            const translatedEvent = new KeyboardEvent(eventType, {
-              key: targetGbaKey,
-              code: targetGbaKey,
-              bubbles: true,
-              cancelable: true
-            });
-            const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
-            const target = doc.activeElement || doc;
-            target.dispatchEvent(translatedEvent);
-          } catch (err) {
-            console.error("[Kernel] Échec de la traduction des entrées GBA:", err);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyboardTranslation, { capture: true });
-    window.addEventListener('keyup', handleKeyboardTranslation, { capture: true });
-
-    return () => {
-      window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
-      window.removeEventListener('keydown', handleKeyboardTranslation, { capture: true });
-      window.removeEventListener('keyup', handleKeyboardTranslation, { capture: true });
-    };
-  }, [language]);
-
-  // Gestion de la traduction des touches personnalisées en entrées attendues par l'émulateur PSP
-  useEffect(() => {
-    if (language !== 'psp') return;
-
-    let currentMapping = loadKeyMapping();
-
-    const handleMappingChange = (e: any) => {
-      currentMapping = e.detail;
-    };
-    window.addEventListener('funny_station_mapping_changed', handleMappingChange);
-
-    // Mappage des actions standard vers les touches attendues par le core PSP (PPSSPP) :
-    // A->x (Cross), B->z (Circle), X->s (Square), Y->a (Triangle), L->q, R->e, START->Enter, SELECT->Shift
-    const actionToPspKey: Record<ConsoleAction, string> = {
-      UP: 'ArrowUp',
-      DOWN: 'ArrowDown',
-      LEFT: 'ArrowLeft',
-      RIGHT: 'ArrowRight',
-      A: 'x',
-      B: 'z',
-      X: 's',
-      Y: 'a',
-      L: 'q',
-      R: 'e',
-      START: 'Enter',
-      SELECT: 'Shift'
-    };
-
-    const handleKeyboardTranslation = (e: KeyboardEvent) => {
-      // Trouver l'action correspondante à la touche physique
-      const action = Object.keys(currentMapping).find(
-        (act) => currentMapping[act as ConsoleAction] === e.key
-      ) as ConsoleAction | undefined;
-
-      if (action) {
-        const targetPspKey = actionToPspKey[action];
-        if (targetPspKey && iframeRef.current?.contentWindow) {
-          e.preventDefault();
-          try {
-            const eventType = e.type === 'keydown' ? 'keydown' : 'keyup';
-            const translatedEvent = new KeyboardEvent(eventType, {
-              key: targetPspKey,
-              code: targetPspKey,
-              bubbles: true,
-              cancelable: true
-            });
-            const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
-            const target = doc.activeElement || doc;
-            target.dispatchEvent(translatedEvent);
-          } catch (err) {
-            console.error("[Kernel] Échec de la traduction des entrées PSP:", err);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyboardTranslation, { capture: true });
-    window.addEventListener('keyup', handleKeyboardTranslation, { capture: true });
-
-    return () => {
-      window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
-      window.removeEventListener('keydown', handleKeyboardTranslation, { capture: true });
-      window.removeEventListener('keyup', handleKeyboardTranslation, { capture: true });
-    };
-  }, [language]);
-
-  // Traduction des touches pour l'émulateur PS1 (psx). Mêmes boutons que la PSP
-  // (manette PlayStation complète) → on réutilise exactement le mapping PSP.
-  useEffect(() => {
-    if (language !== 'psx') return;
+    if (language !== 'gba' && language !== 'psp' && language !== 'psx') return;
 
     let currentMapping = loadKeyMapping();
     const handleMappingChange = (e: Event) => { currentMapping = (e as CustomEvent).detail; };
     window.addEventListener('funny_station_mapping_changed', handleMappingChange);
 
-    const actionToPsxKey: Record<ConsoleAction, string> = {
-      UP: 'ArrowUp',
-      DOWN: 'ArrowDown',
-      LEFT: 'ArrowLeft',
-      RIGHT: 'ArrowRight',
-      A: 'x',      // Cross (✕)
-      B: 'z',      // Circle (◯)
-      X: 's',      // Square (■)
-      Y: 'a',      // Triangle (▲)
-      L: 'q',      // L1
-      R: 'e',      // R1
-      START: 'Enter',
-      SELECT: 'Shift'
+    // ConsoleAction -> index RetroPad (standard libretro).
+    //  GBA (Nintendo)      : A = RetroPad A(8), B = RetroPad B(0).
+    //  PSP / PS1 (Sony)    : Croix=B(0), Rond=A(8), Carré=Y(1), Triangle=X(9).
+    const RETROPAD: Record<'gba' | 'psp' | 'psx', Record<ConsoleAction, number>> = {
+      gba: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 8, B: 0, X: 8, Y: 0, L: 10, R: 11, START: 3, SELECT: 2 },
+      psp: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 0, B: 8, X: 1, Y: 9, L: 10, R: 11, START: 3, SELECT: 2 },
+      psx: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 0, B: 8, X: 1, Y: 9, L: 10, R: 11, START: 3, SELECT: 2 },
+    };
+    const indexMap = RETROPAD[language as 'gba' | 'psp' | 'psx'];
+
+    const handleKey = (e: KeyboardEvent) => {
+      const action = (Object.keys(currentMapping) as ConsoleAction[]).find(
+        (act) => currentMapping[act] === e.key
+      );
+      if (action === undefined) return;
+      const index = indexMap[action];
+      if (index === undefined) return;
+      e.preventDefault();
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: 'FUNNY_EMU_INPUT', index, pressed: e.type === 'keydown' },
+        '*'
+      );
     };
 
-    const handleKeyboardTranslation = (e: KeyboardEvent) => {
-      const action = Object.keys(currentMapping).find(
-        (act) => currentMapping[act as ConsoleAction] === e.key
-      ) as ConsoleAction | undefined;
-
-      if (action) {
-        const targetPsxKey = actionToPsxKey[action];
-        if (targetPsxKey && iframeRef.current?.contentWindow) {
-          e.preventDefault();
-          try {
-            const eventType = e.type === 'keydown' ? 'keydown' : 'keyup';
-            const translatedEvent = new KeyboardEvent(eventType, {
-              key: targetPsxKey,
-              code: targetPsxKey,
-              bubbles: true,
-              cancelable: true
-            });
-            const doc = iframeRef.current.contentDocument || iframeRef.current.contentWindow.document;
-            const target = doc.activeElement || doc;
-            target.dispatchEvent(translatedEvent);
-          } catch (err) {
-            console.error("[Kernel] Échec de la traduction des entrées PS1:", err);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyboardTranslation, { capture: true });
-    window.addEventListener('keyup', handleKeyboardTranslation, { capture: true });
-
+    window.addEventListener('keydown', handleKey, { capture: true });
+    window.addEventListener('keyup', handleKey, { capture: true });
     return () => {
       window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
-      window.removeEventListener('keydown', handleKeyboardTranslation, { capture: true });
-      window.removeEventListener('keyup', handleKeyboardTranslation, { capture: true });
+      window.removeEventListener('keydown', handleKey, { capture: true });
+      window.removeEventListener('keyup', handleKey, { capture: true });
     };
   }, [language]);
 

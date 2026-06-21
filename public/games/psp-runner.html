@@ -362,5 +362,29 @@
       startPreloading();
     }
   </script>
+
+  <!-- Pont d'entrée Funny Station → EmulatorJS : API native simulateInput (fiable),
+       avec secours clavier. Reçoit { type:'FUNNY_EMU_INPUT', index, pressed } du parent. -->
+  <script>
+    (function () {
+      var FB = { 0:'z', 1:'a', 2:'shift', 3:'enter', 4:'arrowup', 5:'arrowdown', 6:'arrowleft', 7:'arrowright', 8:'x', 9:'s', 10:'q', 11:'e' };
+      function sim(index, pressed) {
+        try {
+          var emu = window.EJS_emulator;
+          if (emu && emu.gameManager && emu.gameManager.functions && typeof emu.gameManager.functions.simulateInput === 'function') {
+            emu.gameManager.functions.simulateInput(0, index, pressed ? 1 : 0);
+            return;
+          }
+        } catch (e) {}
+        var key = FB[index]; if (!key) return;
+        var evt = new KeyboardEvent(pressed ? 'keydown' : 'keyup', { key: key, code: key, bubbles: true, cancelable: true });
+        (document.activeElement || document).dispatchEvent(evt); document.dispatchEvent(evt); window.dispatchEvent(evt);
+      }
+      window.addEventListener('message', function (ev) {
+        var d = ev.data;
+        if (d && d.type === 'FUNNY_EMU_INPUT') sim(d.index, d.pressed);
+      });
+    })();
+  </script>
 </body>
 </html>
