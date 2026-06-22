@@ -12,26 +12,26 @@
 UPDATE public.games
 SET 
   entry_point = 'street-fighter-alpha-2-gold.pbp',
-  assets_bucket_path = 'https://funnystation-roms.a92b5312ddcbf7f7b7850cc2e13c7861.r2.dev/games/street-fighter-alpha-2-gold'
+  assets_bucket_path = 'https://funnystation.agavoubj.workers.dev/games/street-fighter-alpha-2-gold'
 WHERE slug = 'street-fighter-alpha-2-gold';
 
 -- 2. Assassin's Creed: Bloodlines (PSP)
 UPDATE public.games
 SET 
   entry_point = 'Assassin''s Creed - Bloodlines (USA) (En,Fr,De,Es,It).cso',
-  assets_bucket_path = 'https://funnystation-roms.a92b5312ddcbf7f7b7850cc2e13c7861.r2.dev/games/assassins-creed-bloodlines'
+  assets_bucket_path = 'https://funnystation.agavoubj.workers.dev/games/assassins-creed-bloodlines'
 WHERE slug = 'assassins-creed-bloodlines';
 
 -- 3. God of War: Ghost of Sparta (PSP)
 UPDATE public.games
 SET 
   entry_point = 'God of War - Ghost of Sparta (USA) (En,Fr,Es).cso',
-  assets_bucket_path = 'https://funnystation-roms.a92b5312ddcbf7f7b7850cc2e13c7861.r2.dev/games/god-of-war-ghost-of-sparta'
+  assets_bucket_path = 'https://funnystation.agavoubj.workers.dev/games/god-of-war-ghost-of-sparta'
 WHERE slug = 'god-of-war-ghost-of-sparta';
 
 -- 4. Grand Theft Auto: Vice City Stories (PSP)
 UPDATE public.games
 SET 
   entry_point = 'Grand Theft Auto - Vice City Stories (USA).cso',
-  assets_bucket_path = 'https://funnystation-roms.a92b5312ddcbf7f7b7850cc2e13c7861.r2.dev/games/gta-vice-city-stories'
+  assets_bucket_path = 'https://funnystation.agavoubj.workers.dev/games/gta-vice-city-stories'
 WHERE slug = 'gta-vice-city-stories';

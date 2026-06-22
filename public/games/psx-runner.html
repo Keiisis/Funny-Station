@@ -253,148 +253,77 @@
       const progressBar = document.getElementById('progress-bar');
       
       const isPbp = romUrl.toLowerCase().endsWith('.pbp');
-      const isCue = romUrl.toLowerCase().endsWith('.cue');
-      let fetchUrl = romUrl;
-      let binFileName = "";
+      const fileHint = isPbp ? '#game.pbp' : '#game.bin';
       
-      const startPreloading = async () => {
-        try {
-          if (isPbp) {
-            // PBP files are self-contained EBOOT — download directly, no CUE parsing needed
-            console.log("[PS1 Runner] PBP format detected, direct download:", romUrl);
-            fetchUrl = romUrl;
-          } else if (isCue) {
-            progressLabel.innerText = "Lecture du descripteur CUE...";
-            const cueResponse = await fetch(romUrl);
-            if (!cueResponse.ok) throw new Error("Impossible de lire le fichier .cue");
-            const cueText = await cueResponse.text();
-            
-            // Extract the .bin filename
-            const match = cueText.match(/FILE\s+"([^"]+)"\s+BINARY/i);
-            if (match && match[1]) {
-              binFileName = match[1];
-              // Resolve relative to cue directory
-              const lastSlash = romUrl.lastIndexOf('/');
-              const basePath = lastSlash !== -1 ? romUrl.substring(0, lastSlash + 1) : "";
-              fetchUrl = basePath + binFileName;
-              console.log("[PS1 Runner] Parsed .bin from .cue:", fetchUrl);
-            } else {
-              console.warn("[PS1 Runner] No BINARY file found in .cue, falling back to direct .cue loading");
-            }
-          }
-          
-          progressLabel.innerText = "Initialisation du téléchargement...";
-          const response = await fetch(fetchUrl);
-          if (!response.ok) throw new Error(`Erreur réseau: ${response.status} ${response.statusText}`);
-          
-          const contentLength = response.headers.get('content-length');
-          const total = parseInt(contentLength || '0', 10);
-          let loaded = 0;
-          
-          const reader = response.body.getReader();
-          const chunks = [];
-          
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            chunks.push(value);
-            loaded += value.byteLength;
-            
-            if (total > 0) {
-              const pct = Math.round((loaded / total) * 100);
-              progressLabel.innerText = `Téléchargement : ${pct}% (${(loaded / (1024*1024)).toFixed(1)} Mo / ${(total / (1024*1024)).toFixed(1)} Mo)`;
-              if (progressBar) progressBar.style.width = `${pct}%`;
-            } else {
-              progressLabel.innerText = `Téléchargement : ${(loaded / (1024*1024)).toFixed(1)} Mo`;
-            }
-          }
-          
-          progressLabel.innerText = "Création du cache de jeu...";
-          const blob = new Blob(chunks, { type: 'application/octet-stream' });
-          const blobUrl = URL.createObjectURL(blob);
-          
-          progressLabel.innerText = "Démarrage de l'émulateur PS1...";
-          if (progressBar) progressBar.style.width = '100%';
-          
-          // Configure EmulatorJS — PBP needs #game.pbp hint, BIN needs #game.bin
-          const fileHint = isPbp ? '#game.pbp' : '#game.bin';
-          window.EJS_player = '#game';
-          window.EJS_core = 'psx';
-          window.EJS_gameUrl = blobUrl + fileHint;
-          window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-          window.EJS_startOnLoaded = true;
-          window.EJS_threads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated);
-          window.EJS_defaultOptions = {
-            'video_smooth': 'false',
-            'video_scale_integer': 'true'
-          };
-          
-          window.EJS_Buttons = {
-            playPause: false,
-            restart: false,
-            mute: false,
-            volume: false,
-            fullscreen: false,
-            saveState: false,
-            loadState: false,
-            settings: false,
-            screenshot: false,
-            quickSave: false,
-            quickLoad: false,
-            cheats: false,
-            slowMotion: false,
-            fastForward: false,
-            gamepad: false,
-            loadLocalState: false,
-            saveLocalState: false
-          };
-          
-          window.EJS_defaultControls = {
-            0: { // Player 1
-              0: { value: 'x' },         // Cross (✕) / Confirm
-              1: { value: 's' },         // Square (■)
-              2: { value: 'Shift' },     // Select
-              3: { value: 'Enter' },     // Start
-              4: { value: 'ArrowUp' },   // D-Pad Up
-              5: { value: 'ArrowDown' }, // D-Pad Down
-              6: { value: 'ArrowLeft' }, // D-Pad Left
-              7: { value: 'ArrowRight' },// D-Pad Right
-              8: { value: 'z' },         // Circle (◯) / Cancel
-              9: { value: 'a' },         // Triangle (▲)
-              10: { value: 'q' },        // L Shoulder trigger
-              11: { value: 'e' }         // R Shoulder trigger
-            }
-          };
-          
-          window.EJS_gamepadButtonMap = {};
-          window.EJS_mouse = false;
-          
-          window.EJS_onGameStart = function() {
-            console.log("[PS1 Runner] Emulator started.");
-            const loader = document.getElementById('loading');
-            if (loader) {
-              loader.style.opacity = '0';
-              setTimeout(() => {
-                loader.style.display = 'none';
-              }, 500);
-            }
-            document.body.classList.add('ejs--hide-after-start');
-            window.parent.postMessage({ type: 'FUNNY_BUS_GAME_READY' }, '*');
-          };
-          
-          // Append the EmulatorJS loader script
-          const script = document.createElement('script');
-          script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
-          document.body.appendChild(script);
-          
-        } catch (err) {
-          progressLabel.innerText = `Erreur de chargement : ${err.message}`;
-          console.error(err);
+      // Configure EmulatorJS — stream directly from Worker
+      window.EJS_player = '#game';
+      window.EJS_core = 'psx';
+      window.EJS_gameUrl = romUrl + fileHint;
+      window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+      window.EJS_startOnLoaded = true;
+      window.EJS_threads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated);
+      window.EJS_defaultOptions = {
+        'video_smooth': 'false',
+        'video_scale_integer': 'true'
+      };
+      
+      window.EJS_Buttons = {
+        playPause: false,
+        restart: false,
+        mute: false,
+        volume: false,
+        fullscreen: false,
+        saveState: false,
+        loadState: false,
+        settings: false,
+        screenshot: false,
+        quickSave: false,
+        quickLoad: false,
+        cheats: false,
+        slowMotion: false,
+        fastForward: false,
+        gamepad: false,
+        loadLocalState: false,
+        saveLocalState: false
+      };
+      
+      window.EJS_defaultControls = {
+        0: { // Player 1
+          0: { value: 'x' },         // Cross (✕) / Confirm
+          1: { value: 's' },         // Square (■)
+          2: { value: 'Shift' },     // Select
+          3: { value: 'Enter' },     // Start
+          4: { value: 'ArrowUp' },   // D-Pad Up
+          5: { value: 'ArrowDown' }, // D-Pad Down
+          6: { value: 'ArrowLeft' }, // D-Pad Left
+          7: { value: 'ArrowRight' },// D-Pad Right
+          8: { value: 'z' },         // Circle (◯) / Cancel
+          9: { value: 'a' },         // Triangle (▲)
+          10: { value: 'q' },        // L Shoulder trigger
+          11: { value: 'e' }         // R Shoulder trigger
         }
       };
       
-      startPreloading();
+      window.EJS_gamepadButtonMap = {};
+      window.EJS_mouse = false;
+      
+      window.EJS_onGameStart = function() {
+        console.log("[PS1 Runner] Emulator started.");
+        const loader = document.getElementById('loading');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => {
+            loader.style.display = 'none';
+          }, 500);
+        }
+        document.body.classList.add('ejs--hide-after-start');
+        window.parent.postMessage({ type: 'FUNNY_BUS_GAME_READY' }, '*');
+      };
+      
+      // Append the EmulatorJS loader script
+      const script = document.createElement('script');
+      script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+      document.body.appendChild(script);
     }
   </script>
 
