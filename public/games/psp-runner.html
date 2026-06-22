@@ -330,11 +330,20 @@
       window.addEventListener('error', (e) => showErr((e && (e.message || (e.error && e.error.message))) || 'erreur inconnue'));
       window.addEventListener('unhandledrejection', (e) => showErr((e && e.reason && (e.reason.message || e.reason)) || 'promesse rejetée'));
       window.EJS_onLoadError = (err) => showErr(typeof err === 'string' ? err : (err && err.message) || 'échec de chargement du cœur');
-      setTimeout(() => {
+      const diagState = () => {
+        const s = ['core=' + window.EJS_core];
+        s.push('emu=' + (window.EJS_emulator ? 'OK' : 'absent'));
+        try { s.push('gm=' + (window.EJS_emulator && window.EJS_emulator.gameManager ? 'OK' : 'non')); } catch (e) {}
+        try { if (performance && performance.memory) s.push('mem=' + Math.round(performance.memory.usedJSHeapSize / 1048576) + 'Mo'); } catch (e) {}
+        return s.join(' · ');
+      };
+      const watchdog = (sec) => setTimeout(() => {
         if (!__started && progressLabel && progressLabel.innerText.indexOf('Erreur') === -1) {
-          showErr('le cœur PSP ne démarre pas (voir la console). Téléchargement OK mais init KO.');
+          showErr('init KO après ' + sec + 's [' + diagState() + ']. ' +
+            (window.EJS_emulator ? 'Cœur chargé mais le jeu ne boote pas (ROM trop lourde / mémoire ?).' : 'Le cœur PSP ne s\'est pas chargé (réseau CDN ?).'));
         }
-      }, 30000);
+      }, sec * 1000);
+      watchdog(20); watchdog(45);
 
       // Append the EmulatorJS loader script
       const script = document.createElement('script');

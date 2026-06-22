@@ -340,11 +340,21 @@
       window.addEventListener('unhandledrejection', (e) => showErr((e && e.reason && (e.reason.message || e.reason)) || 'promesse rejetée'));
       // EmulatorJS signale une erreur de cœur/BIOS via EJS_onLoadError s'il existe.
       window.EJS_onLoadError = (err) => showErr(typeof err === 'string' ? err : (err && err.message) || 'échec de chargement du cœur');
-      setTimeout(() => {
+      const diagState = () => {
+        const s = ['core=' + window.EJS_core];
+        s.push('emu=' + (window.EJS_emulator ? 'OK' : 'absent'));
+        s.push('bios=' + (window.EJS_biosUrl ? 'OK' : 'ABSENT'));
+        try { if (performance && performance.memory) s.push('mem=' + Math.round(performance.memory.usedJSHeapSize / 1048576) + 'Mo'); } catch (e) {}
+        return s.join(' · ');
+      };
+      const watchdog = (sec) => setTimeout(() => {
         if (!__started && progressLabel && progressLabel.innerText.indexOf('Erreur') === -1) {
-          showErr('le cœur PS1 ne démarre pas (BIOS PS1 requis ? voir la console). Téléchargement OK mais init KO.');
+          showErr('init KO après ' + sec + 's [' + diagState() + ']. ' +
+            (!window.EJS_biosUrl ? 'BIOS PS1 manquant (NEXT_PUBLIC_PSX_BIOS_URL).' :
+             (window.EJS_emulator ? 'Cœur chargé mais ne boote pas (BIOS invalide ? ROM ?).' : 'Le cœur PS1 ne s\'est pas chargé (réseau CDN ?).')));
         }
-      }, 30000);
+      }, sec * 1000);
+      watchdog(20); watchdog(45);
 
       // Append the EmulatorJS loader script
       const script = document.createElement('script');
