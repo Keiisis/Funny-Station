@@ -5,6 +5,24 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
+  /**
+   * Proxy SAME-ORIGIN des assets Cloudflare R2 via un rewrite edge.
+   * `/r2/<chemin>` → <R2_PUBLIC_BASE_URL>/<chemin>
+   *
+   * Avantages vs un proxy serverless (/api/...) :
+   *  - Géré au niveau EDGE/CDN de Vercel → PAS de limite 4,5 Mo (streaming des gros
+   *    fichiers PSP/PS1 de plusieurs centaines de Mo, fin des erreurs 502).
+   *  - Réponse en MÊME ORIGINE → aucun CORS R2 requis, aucun blocage COEP.
+   *
+   * Requiert la variable d'env R2_PUBLIC_BASE_URL (ex: https://xxx.r2.dev).
+   */
+  async rewrites() {
+    const r2 = process.env.R2_PUBLIC_BASE_URL;
+    if (!r2) return [];
+    return [
+      { source: '/r2/:path*', destination: `${r2.replace(/\/$/, '')}/:path*` },
+    ];
+  },
   async headers() {
     return [
       {

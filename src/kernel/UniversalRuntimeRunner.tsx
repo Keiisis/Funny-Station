@@ -41,16 +41,25 @@ export interface TrophyUnlockPayload {
 /**
  * Résolution de l'URL d'un asset de jeu.
  *
- * On charge les assets DIRECTEMENT (y compris Cloudflare R2 en cross-origin) :
- *  - Vercel ne peut pas proxyer de gros fichiers (limite ~4,5 Mo des serverless
- *    functions → erreurs 502 sur les ROMs PSP/PS1 de plusieurs centaines de Mo).
- *  - L'en-tête COEP `credentialless` (cf. next.config) autorise déjà les ressources
- *    cross-origin sans CORP, donc le chargement direct R2 fonctionne tout en gardant
- *    l'isolation cross-origin (threads émulateur).
+ * Les assets Cloudflare R2 (URL dont l'hôte = NEXT_PUBLIC_R2_PUBLIC_HOST) sont
+ * réécrits vers `/r2/<chemin>` → servis en MÊME ORIGINE par le rewrite edge de Vercel
+ * (cf. next.config). Résultat : aucun CORS R2 requis, pas de blocage COEP, et le edge
+ * streame les gros fichiers (fin des « Failed to fetch » / 502).
  *
- * Prérequis côté R2 : le bucket doit exposer le CORS (Access-Control-Allow-Origin).
+ * Les chemins same-origin et les autres domaines externes passent inchangés.
  */
 function resolveAssetUrl(url: string): string {
+  const r2Host = process.env.NEXT_PUBLIC_R2_PUBLIC_HOST;
+  if (r2Host && /^https?:\/\//i.test(url)) {
+    try {
+      const u = new URL(url);
+      if (u.host === r2Host) {
+        return `/r2${u.pathname}${u.search}`;
+      }
+    } catch {
+      /* URL invalide : on laisse tel quel */
+    }
+  }
   return url;
 }
 
