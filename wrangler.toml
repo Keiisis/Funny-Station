@@ -1,0 +1,7 @@
+name = "funnystation-roms-proxy"
+main = "cloudflare-worker-r2.js"
+compatibility_date = "2026-06-22"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "funnystation-roms"

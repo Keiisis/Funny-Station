@@ -261,7 +261,9 @@
       window.EJS_gameUrl = romUrl + fileHint;
       window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
       window.EJS_startOnLoaded = true;
-      window.EJS_threads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated);
+      // Threads désactivés : le cœur PS1 multi-threadé du CDN échoue souvent à s'initialiser
+      // (→ télécharge mais ne démarre pas). Le mono-thread est fiable. À ré-activer plus tard.
+      window.EJS_threads = false;
       window.EJS_defaultOptions = {
         'video_smooth': 'false',
         'video_scale_integer': 'true'
@@ -320,6 +322,21 @@
         window.parent.postMessage({ type: 'FUNNY_BUS_GAME_READY' }, '*');
       };
       
+      // ── Diagnostic : surface la vraie cause si le moteur ne démarre pas ──
+      let __started = false;
+      const __origStart = window.EJS_onGameStart;
+      window.EJS_onGameStart = function () { __started = true; if (__origStart) return __origStart.apply(this, arguments); };
+      const showErr = (msg) => { if (progressLabel) progressLabel.innerText = 'Erreur moteur : ' + msg; console.error('[PS1 Runner]', msg); };
+      window.addEventListener('error', (e) => showErr((e && (e.message || (e.error && e.error.message))) || 'erreur inconnue'));
+      window.addEventListener('unhandledrejection', (e) => showErr((e && e.reason && (e.reason.message || e.reason)) || 'promesse rejetée'));
+      // EmulatorJS signale une erreur de cœur/BIOS via EJS_onLoadError s'il existe.
+      window.EJS_onLoadError = (err) => showErr(typeof err === 'string' ? err : (err && err.message) || 'échec de chargement du cœur');
+      setTimeout(() => {
+        if (!__started && progressLabel && progressLabel.innerText.indexOf('Erreur') === -1) {
+          showErr('le cœur PS1 ne démarre pas (BIOS PS1 requis ? voir la console). Téléchargement OK mais init KO.');
+        }
+      }, 30000);
+
       // Append the EmulatorJS loader script
       const script = document.createElement('script');
       script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
