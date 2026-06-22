@@ -1,0 +1,30 @@
+-- ══════════════════════════════════════════════════════════════════════════
+-- RECENTRAGE DU CATALOGUE FunnyStation
+-- À exécuter dans : Supabase Dashboard > SQL Editor
+--
+-- Objectif : retirer les jeux trop lourds pour l'émulation en navigateur (gros
+-- ISOs PSP), qui « téléchargent mais ne démarrent pas » par manque de mémoire.
+-- On garde ce qui tourne parfaitement : GBA, JS/HTML5, Python, Lua, WASM, etc.
+--
+-- Les trophées, achats et notes liés se suppriment automatiquement (ON DELETE
+-- CASCADE). Les fichiers restent sur ton bucket R2 (à supprimer côté Cloudflare
+-- si tu veux libérer l'espace).
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- 1) Retire TOUS les jeux PSP (ISOs de plusieurs centaines de Mo → non fiables
+--    en navigateur, quel que soit l'appareil). C'est le principal « encombrant ».
+DELETE FROM public.games WHERE runtime = 'psp';
+
+-- 2) (OPTIONNEL) Retire aussi les jeux PS1 si tu ne veux pas gérer le BIOS.
+--    Les PS1 PEUVENT tourner (jeux légers + BIOS configuré), mais si tu préfères
+--    une console sans prise de tête, décommente la ligne ci-dessous :
+-- DELETE FROM public.games WHERE runtime = 'psx';
+
+-- 3) (OPTIONNEL) Retire un jeu précis par son slug, ex :
+-- DELETE FROM public.games WHERE slug = 'gta-vice-city-stories';
+
+-- ── Vérification : ce qui reste dans le catalogue ──
+SELECT title, slug, runtime, status,
+       ROUND(LENGTH(assets_bucket_path)) AS _path_len
+FROM public.games
+ORDER BY runtime, title;
