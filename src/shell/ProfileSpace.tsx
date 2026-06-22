@@ -370,7 +370,6 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                         <option value="java">Java (CheerpJ)</option>
                         <option value="gba">Game Boy Advance (GBA)</option>
                         <option value="psx">PlayStation 1 (PS1) — léger uniquement</option>
-                        <option value="android">Android (APK)</option>
                       </select>
                       <span className="text-[8px] text-zinc-500 mt-1 block">
                         Le PSP n&apos;est pas proposé : les gros ISOs ne démarrent pas de façon fiable en navigateur.

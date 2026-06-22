@@ -20,7 +20,15 @@ DELETE FROM public.games WHERE runtime = 'psp';
 --    une console sans prise de tête, décommente la ligne ci-dessous :
 -- DELETE FROM public.games WHERE runtime = 'psx';
 
--- 3) (OPTIONNEL) Retire un jeu précis par son slug, ex :
+-- 3) Retire la démo Java (game.jar placeholder = ne démarre pas). CheerpJ fonctionne
+--    avec un VRAI .jar uploadé, mais le jeu de démo livré est un faux fichier.
+DELETE FROM public.games WHERE slug = 'java-retro';
+
+-- 4) (OPTIONNEL) Retire les jeux Android « APK natif » : un navigateur ne peut pas
+--    exécuter un .apk. Décommente si tu en as ajouté :
+-- DELETE FROM public.games WHERE runtime = 'android';
+
+-- 5) (OPTIONNEL) Retire un jeu précis par son slug, ex :
 -- DELETE FROM public.games WHERE slug = 'gta-vice-city-stories';
 
 -- ── Vérification : ce qui reste dans le catalogue ──

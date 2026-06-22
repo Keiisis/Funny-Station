@@ -36,12 +36,6 @@ VALUES
    'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1374&auto=format&fit=crop',
    0, '{}'::jsonb, 'published'),
 
-  ('Java Retro Game', 'java-retro',
-   'Mini-jeu rétro compilé en JAR, exécuté via CheerpJ dans une JVM web.',
-   'java', 'game.jar', '/games/java-retro',
-   'https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?q=80&w=1470&auto=format&fit=crop',
-   500, '{}'::jsonb, 'published'),
-
   ('Top-Down Horror Survival', 'top-down-horror',
    'Survivez face aux démons dans ce jeu d''horreur en 3D en vue du dessus développé avec Unity.',
    'js', 'index.html', '/games/top-down-horror',
@@ -130,7 +124,6 @@ FROM (VALUES
     ('pypyodide-math', 'python_dev',     'Développeur Python',          'Exécuter un script Python isolé dans le Kernel.',  'silver',   50),
     ('pypyodide-math', 'haptic_master',  'Maître Haptique',             'Activer les moteurs de vibration de la DualSense.','gold',     100),
     ('lua-adventure',  'lua_adventurer', 'Aventurier Lua',              'Exécuter un script Lua avec Fengari.',             'bronze',   15),
-    ('java-retro',     'java_machine',   'Machine Java',                'Lancer l''émulation de la JVM CheerpJ.',           'gold',     120),
     ('top-down-horror','first_kill',     'Premier Sang',                'Éliminer votre premier démon.',                   'bronze',   15),
     ('top-down-horror','escape',         'Survivant de l''Ombre',        'S''échapper de la zone de quarantaine.',          'gold',     150),
     ('gba-test',       'first_gba',      'Nostalgie GBA',               'Lancer votre premier jeu Game Boy Advance.',       'bronze',   20),
