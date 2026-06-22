@@ -837,7 +837,11 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     setLoadingProgress(70);
     if (iframeRef.current) {
       const romPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
-      iframeRef.current.src = `/games/psx-runner.html?rom=${encodeURIComponent(romPath)}`;
+      // La PS1 (cœur Beetle/Mednafen) exige un BIOS PlayStation pour booter.
+      // URL du BIOS fournie via NEXT_PUBLIC_PSX_BIOS_URL (héberge-le sur ton R2/Worker).
+      const psxBios = process.env.NEXT_PUBLIC_PSX_BIOS_URL || '';
+      const biosParam = psxBios ? `&bios=${encodeURIComponent(psxBios)}` : '';
+      iframeRef.current.src = `/games/psx-runner.html?rom=${encodeURIComponent(romPath)}${biosParam}`;
 
       const injectBridge = () => {
         try {

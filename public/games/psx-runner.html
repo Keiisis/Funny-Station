@@ -261,6 +261,15 @@
       window.EJS_gameUrl = romUrl + fileHint;
       window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
       window.EJS_startOnLoaded = true;
+      // BIOS PlayStation (obligatoire pour booter un jeu PS1). Fourni via le param `bios`
+      // (URL d'un BIOS hébergé sur R2/Worker, ex: scph1001.bin). Sans lui, le cœur ne démarre pas.
+      const biosUrl = urlParams.get('bios');
+      if (biosUrl) {
+        window.EJS_biosUrl = biosUrl;
+      } else {
+        progressLabel.innerText = "BIOS PS1 manquant : configure NEXT_PUBLIC_PSX_BIOS_URL (voir doc).";
+        console.error("[PS1 Runner] EJS_biosUrl manquant — le cœur Beetle/Mednafen exige un BIOS PlayStation.");
+      }
       // Threads désactivés : le cœur PS1 multi-threadé du CDN échoue souvent à s'initialiser
       // (→ télécharge mais ne démarre pas). Le mono-thread est fiable. À ré-activer plus tard.
       window.EJS_threads = false;
