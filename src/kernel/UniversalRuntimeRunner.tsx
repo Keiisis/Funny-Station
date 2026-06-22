@@ -41,25 +41,17 @@ export interface TrophyUnlockPayload {
 /**
  * Résolution de l'URL d'un asset de jeu.
  *
- * Les assets Cloudflare R2 (URL dont l'hôte = NEXT_PUBLIC_R2_PUBLIC_HOST) sont
- * réécrits vers `/r2/<chemin>` → servis en MÊME ORIGINE par le rewrite edge de Vercel
- * (cf. next.config). Résultat : aucun CORS R2 requis, pas de blocage COEP, et le edge
- * streame les gros fichiers (fin des « Failed to fetch » / 502).
+ * Chargement DIRECT (navigateur → R2/CDN), y compris cross-origin :
+ *  - Proxyer les gros fichiers (centaines de Mo) par Vercel échoue (limites plateforme
+ *    → 502), donc on ne proxy pas.
+ *  - COEP `credentialless` (cf. next.config) autorise le cross-origin sans CORP.
+ *  - Prérequis : l'hôte R2 doit renvoyer le CORS (Access-Control-Allow-Origin). Le
+ *    domaine r2.dev ne le fait pas → utiliser le Cloudflare Worker fourni (ou un
+ *    domaine personnalisé R2) comme base d'URL des jeux.
  *
- * Les chemins same-origin et les autres domaines externes passent inchangés.
+ * Les chemins same-origin passent inchangés.
  */
 function resolveAssetUrl(url: string): string {
-  const r2Host = process.env.NEXT_PUBLIC_R2_PUBLIC_HOST;
-  if (r2Host && /^https?:\/\//i.test(url)) {
-    try {
-      const u = new URL(url);
-      if (u.host === r2Host) {
-        return `/r2${u.pathname}${u.search}`;
-      }
-    } catch {
-      /* URL invalide : on laisse tel quel */
-    }
-  }
   return url;
 }
 
