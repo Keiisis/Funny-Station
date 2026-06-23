@@ -953,21 +953,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   loop
                   muted
                   playsInline
-                  className="absolute inset-0 w-full h-full object-cover opacity-90"
+                  className="absolute inset-0 w-full h-full object-cover animate-ps5-video"
                 />
               ) : (
-                <div key={activeGame.id} className="absolute inset-0">
-                  {/* Blurred background backing to fill any empty space and prevent black bars */}
-                  <div 
-                    className="absolute inset-0 bg-cover bg-center opacity-35 blur-[25px] scale-105"
-                    style={{ backgroundImage: `url(${activeGame.background_url})` }}
-                  />
-                  {/* Sharp background image, adapted perfectly without cropping */}
-                  <div 
-                    className="absolute inset-0 bg-contain bg-no-repeat bg-center opacity-90"
-                    style={{ backgroundImage: `url(${activeGame.background_url})` }}
-                  />
-                </div>
+                <div 
+                  key={activeGame.id}
+                  className="absolute inset-0 bg-cover bg-center animate-ps5-bg"
+                  style={{ backgroundImage: `url(${activeGame.background_url})` }}
+                />
               )}
               {/* Dynamic Aura background effect */}
               <DynamicAura gameSlug={activeGame?.slug} />
