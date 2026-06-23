@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
       // Runners émulateur (HTML léger) : toujours revalider pour que les correctifs
       // de clarté/manette s'appliquent immédiatement (pas de vieille version en cache).
       {
-        source: '/games/:name(gba-runner|psp-runner|psx-runner).html',
+        source: '/games/:name(gba-runner|psp-runner).html',
         headers: [
           { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
         ],

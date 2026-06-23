@@ -106,12 +106,6 @@ VALUES
    'Le jeu de combat légendaire avec 31 personnages uniques. Choisissez votre style de combat (Isms) et dominez l''arène.',
    'gba', 'Street Fighter Alpha 3 (USA).gba', '/games',
    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
-   0, '{}'::jsonb, 'published'),
-
-  ('Street Fighter Alpha 2 Gold', 'street-fighter-alpha-2-gold',
-   'L''expérience ultime de combat 2D sur PlayStation 1. Retrouvez des personnages inédits, des modes de jeu approfondis et la jouabilité technique légendaire de la saga Alpha.',
-   'psx', 'Street Fighter Collection [Disc2of2] (Street Fighter Alpha 2 Gold) [SLUS-00584].cue', '/games/Street Fighter Collection [Disc2of2] (Street Fighter Alpha 2 Gold) [SLUS-00584] [bin]',
-   'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
    0, '{}'::jsonb, 'published')
 ON CONFLICT (slug) DO NOTHING;
 

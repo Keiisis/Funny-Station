@@ -114,7 +114,6 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
             newGameRuntime === 'lua' ? 'game.lua' :
             newGameRuntime === 'gba' ? 'game.gba' :
             newGameRuntime === 'psp' ? 'game.cso' :
-            newGameRuntime === 'psx' ? 'game.cue' :
             newGameRuntime === 'android' ? 'game.apk' :
             'game.jar',
           assets_bucket_path: `games/${slug}`,
@@ -369,10 +368,9 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                         <option value="lua">Lua (Fengari)</option>
                         <option value="java">Java (CheerpJ)</option>
                         <option value="gba">Game Boy Advance (GBA)</option>
-                        <option value="psx">PlayStation 1 (PS1) — léger uniquement</option>
                       </select>
                       <span className="text-[8px] text-zinc-500 mt-1 block">
-                        Le PSP n&apos;est pas proposé : les gros ISOs ne démarrent pas de façon fiable en navigateur.
+                        PSP et PS1 ne sont pas proposés : ces ISOs/BIOS ne démarrent pas de façon fiable en navigateur.
                       </span>
                     </div>
                   </div>

@@ -273,7 +273,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
 
     // Activer l'injection clavier pour GBA, PSP ou JS standard, mais pas pour Unity (entryPoint finit par .html)
     const isUnityGame = language === 'js' && entryPoint.endsWith('.html');
-    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || language === 'psx' || (language === 'js' && !isUnityGame);
+    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || (language === 'js' && !isUnityGame);
     gamepad.enableKeyboardInjection(shouldInjectKeyboard);
 
     return () => {
@@ -318,8 +318,6 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           await setupGbaEnvironment(vfs);
         } else if (language === 'psp') {
           await setupPspEnvironment(vfs);
-        } else if (language === 'psx') {
-          await setupPsxEnvironment(vfs);
         } else if (language === 'android') {
           await setupAndroidEnvironment(vfs);
         } else {
@@ -834,37 +832,6 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     }
   };
 
-  const setupPsxEnvironment = async (vfs: VirtualFileSystem) => {
-    setLoadingProgress(70);
-    if (iframeRef.current) {
-      const romPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
-      // La PS1 (cœur Beetle/Mednafen) exige un BIOS PlayStation pour booter.
-      // URL du BIOS fournie via NEXT_PUBLIC_PSX_BIOS_URL (héberge-le sur ton R2/Worker).
-      const psxBios = process.env.NEXT_PUBLIC_PSX_BIOS_URL || '';
-      const biosParam = psxBios ? `&bios=${encodeURIComponent(psxBios)}` : '';
-      iframeRef.current.src = `/games/psx-runner.html?rom=${encodeURIComponent(romPath)}${biosParam}`;
-
-      const injectBridge = () => {
-        try {
-          if (iframeRef.current?.contentWindow) {
-            (iframeRef.current.contentWindow as any).funnyStation = {
-              save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
-              load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
-              unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
-              exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
-              networkMode: networkMode,
-              playerNumber: localPlayerNumber
-            };
-          }
-        } catch (e) {
-          console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe PS1:", e);
-        }
-      };
-
-      iframeRef.current.onload = injectBridge;
-    }
-  };
-
   const setupAndroidEnvironment = async (vfs: VirtualFileSystem) => {
     setLoadingProgress(70);
     if (entryPoint.endsWith('.apk') || entryPoint === 'game.apk') {
@@ -876,48 +843,70 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     setLoadingProgress(100);
   };
 
-  // ── PONT D'ENTRÉE UNIFIÉ POUR LES ÉMULATEURS (GBA / PSP / PS1) ──────────────
+  // ── PONT D'ENTRÉE UNIFIÉ POUR LES ÉMULATEURS (GBA / PSP) ────────────────────
   // On utilise l'API d'entrée NATIVE d'EmulatorJS (simulateInput) via postMessage.
   // C'est bien plus fiable que des KeyboardEvents synthétiques, souvent ignorés par
   // l'émulateur car non « trusted ». L'iframe (xxx-runner.html) reçoit l'index RetroPad
   // et pilote directement le cœur — exactement comme le gamepad tactile d'EmulatorJS.
   useEffect(() => {
-    if (language !== 'gba' && language !== 'psp' && language !== 'psx') return;
+    if (language !== 'gba' && language !== 'psp') return;
 
     let currentMapping = loadKeyMapping();
     const handleMappingChange = (e: Event) => { currentMapping = (e as CustomEvent).detail; };
     window.addEventListener('funny_station_mapping_changed', handleMappingChange);
 
     // ConsoleAction -> index RetroPad (standard libretro).
-    //  GBA (Nintendo)      : A = RetroPad A(8), B = RetroPad B(0).
-    //  PSP / PS1 (Sony)    : Croix=B(0), Rond=A(8), Carré=Y(1), Triangle=X(9).
-    const RETROPAD: Record<'gba' | 'psp' | 'psx', Record<ConsoleAction, number>> = {
+    //  GBA (Nintendo) : A = RetroPad A(8), B = RetroPad B(0).
+    //  PSP   (Sony)   : Croix=B(0), Rond=A(8), Carré=Y(1), Triangle=X(9).
+    const RETROPAD: Record<'gba' | 'psp', Record<ConsoleAction, number>> = {
       gba: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 8, B: 0, X: 8, Y: 0, L: 10, R: 11, START: 3, SELECT: 2 },
       psp: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 0, B: 8, X: 1, Y: 9, L: 10, R: 11, START: 3, SELECT: 2 },
-      psx: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 0, B: 8, X: 1, Y: 9, L: 10, R: 11, START: 3, SELECT: 2 },
     };
-    const indexMap = RETROPAD[language as 'gba' | 'psp' | 'psx'];
+    const indexMap = RETROPAD[language as 'gba' | 'psp'];
 
+    // Pilote le cœur via l'index RetroPad (1 seul postMessage = latence minimale).
+    const press = (index: number | undefined, pressed: boolean) => {
+      if (index === undefined) return;
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: 'FUNNY_EMU_INPUT', index, pressed },
+        '*'
+      );
+    };
+
+    // 1) Clavier physique (joueur local au clavier) : key -> action -> index.
     const handleKey = (e: KeyboardEvent) => {
       const action = (Object.keys(currentMapping) as ConsoleAction[]).find(
         (act) => currentMapping[act] === e.key
       );
       if (action === undefined) return;
-      const index = indexMap[action];
-      if (index === undefined) return;
       e.preventDefault();
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: 'FUNNY_EMU_INPUT', index, pressed: e.type === 'keydown' },
-        '*'
-      );
+      press(indexMap[action], e.type === 'keydown');
+    };
+
+    // 2) Manette virtuelle (chemin DIRECT, sans aller-retour clavier synthétique).
+    //    Le Dashboard émet déjà `funny_gamepad_action` { direction, action }. On mappe
+    //    la direction → action console → index RetroPad et on pilote le cœur tout de
+    //    suite : un hop de moins = entrée plus précise et plus synchrone.
+    const DIR_TO_ACTION: Record<string, ConsoleAction> = {
+      UP: 'UP', DOWN: 'DOWN', LEFT: 'LEFT', RIGHT: 'RIGHT',
+      CONFIRM: 'A', BACK: 'B', SQUARE: 'X', TRIANGLE: 'Y',
+      OPTION: 'START', START: 'START', SELECT: 'SELECT', L: 'L', R: 'R',
+    };
+    const handleGamepad = (e: Event) => {
+      const { direction, action } = (e as CustomEvent).detail || {};
+      const consoleAction = DIR_TO_ACTION[direction];
+      if (!consoleAction) return;
+      press(indexMap[consoleAction], action !== 'up');
     };
 
     window.addEventListener('keydown', handleKey, { capture: true });
     window.addEventListener('keyup', handleKey, { capture: true });
+    window.addEventListener('funny_gamepad_action', handleGamepad);
     return () => {
       window.removeEventListener('funny_station_mapping_changed', handleMappingChange);
       window.removeEventListener('keydown', handleKey, { capture: true });
       window.removeEventListener('keyup', handleKey, { capture: true });
+      window.removeEventListener('funny_gamepad_action', handleGamepad);
     };
   }, [language]);
 
@@ -962,15 +951,6 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           className="w-full h-full border-none bg-black"
           sandbox="allow-scripts allow-same-origin"
           title="PSP Emulator Process"
-        />
-      )}
-
-      {language === 'psx' && (
-        <iframe
-          ref={iframeRef}
-          className="w-full h-full border-none bg-black"
-          sandbox="allow-scripts allow-same-origin"
-          title="PS1 Emulator Process"
         />
       )}
 

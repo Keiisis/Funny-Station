@@ -3,7 +3,7 @@
  *  Cloudflare Worker — sert un bucket R2 au NAVIGATEUR avec CORS + Range
  * ════════════════════════════════════════════════════════════════════════════
  *
- *  POURQUOI : les gros jeux (PSP/PS1, plusieurs centaines de Mo) ne peuvent PAS
+ *  POURQUOI : les gros assets de jeu (builds Unity, ROMs, etc.) ne peuvent PAS
  *  être proxifiés par Vercel (limites plateforme → erreurs 502). Le navigateur doit
  *  donc charger DIRECTEMENT depuis R2. Mais l'URL publique `*.r2.dev` n'expose pas
  *  le CORS → erreur « Failed to fetch ». Ce Worker ajoute le CORS (et le support des

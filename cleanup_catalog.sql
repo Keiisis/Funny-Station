@@ -15,10 +15,10 @@
 --    en navigateur, quel que soit l'appareil). C'est le principal « encombrant ».
 DELETE FROM public.games WHERE runtime = 'psp';
 
--- 2) (OPTIONNEL) Retire aussi les jeux PS1 si tu ne veux pas gérer le BIOS.
---    Les PS1 PEUVENT tourner (jeux légers + BIOS configuré), mais si tu préfères
---    une console sans prise de tête, décommente la ligne ci-dessous :
--- DELETE FROM public.games WHERE runtime = 'psx';
+-- 2) Retire TOUS les jeux PS1 : le cœur PlayStation exige un BIOS et les jeux
+--    commerciaux ne démarrent pas de façon fiable en navigateur. Le runtime 'psx'
+--    a été entièrement retiré du code → on nettoie le catalogue en conséquence.
+DELETE FROM public.games WHERE runtime = 'psx';
 
 -- 3) Retire la démo Java (game.jar placeholder = ne démarre pas). CheerpJ fonctionne
 --    avec un VRAI .jar uploadé, mais le jeu de démo livré est un faux fichier.
