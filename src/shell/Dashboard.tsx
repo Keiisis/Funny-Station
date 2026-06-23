@@ -191,6 +191,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   }, [listeningAction, keyMapping]);
   const connectedPlayersRef = useRef<ConnectedPlayer[]>([]);
   const rtcRef = useRef<ConsoleRtc | null>(null);
+  // Canal lobby + contexte de jeu courant : pour diffuser aux manettes le runtime
+  // du jeu en cours → adaptation dynamique du layout (anti-conflit de touches).
+  const lobbyChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const gameContextRef = useRef<{ runtime: string; slug: string; title: string }>({ runtime: '', slug: '', title: '' });
   useEffect(() => {
     connectedPlayersRef.current = connectedPlayers;
   }, [connectedPlayers]);
@@ -346,6 +350,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         presence: { key: `console-${profile.id}` }
       }
     });
+    lobbyChannelRef.current = channel;
+
+    // Diffuse aux manettes le runtime du jeu courant → adaptation dynamique du layout.
+    const broadcastGameContext = () => {
+      channel.send({ type: 'broadcast', event: 'game_context', payload: { ...gameContextRef.current } });
+    };
+    // Une manette qui (re)joint demande le contexte → on lui renvoie aussitôt.
+    channel.on('broadcast', { event: 'request_context' }, () => broadcastGameContext());
 
     // Traitement d'un input manette — partagé par le broadcast Supabase ET la liaison
     // P2P (WebRTC). Quel que soit le transport, l'input pilote le jeu de la même façon.
@@ -491,6 +503,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           // Annonce que la console est prête : les manettes déjà connectées (re)lancent
           // la négociation P2P pour ouvrir leur DataChannel basse latence.
           rtc.announce();
+          // Donne le contexte de jeu courant aux manettes déjà là.
+          broadcastGameContext();
         }
       });
 
@@ -498,9 +512,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       clearInterval(pingInterval);
       rtc.close();
       rtcRef.current = null;
+      lobbyChannelRef.current = null;
       channel.unsubscribe();
     };
   }, [controllerType, lobbyId, profile.id]);
+
+  // Met à jour le contexte de jeu (runtime du jeu LANCÉ, sinon du jeu focalisé) et le
+  // diffuse en direct aux manettes → leur layout s'adapte instantanément au système.
+  useEffect(() => {
+    const ctxGame = selectedGame || games[focusedIndex];
+    const ctx = ctxGame
+      ? { runtime: ctxGame.runtime, slug: ctxGame.slug, title: ctxGame.title }
+      : { runtime: '', slug: '', title: '' };
+    gameContextRef.current = ctx;
+    lobbyChannelRef.current?.send({ type: 'broadcast', event: 'game_context', payload: ctx });
+  }, [selectedGame, focusedIndex, games]);
 
   const activeGame = games[focusedIndex];
 
@@ -512,46 +538,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       setVideoSrc('');
       return;
     }
-
-    const rawUrl = activeGame.video_url;
-    let active = true;
-
-    // Check cache first
-    const cachedUrl = videoCacheRef.current.get(rawUrl);
-    if (cachedUrl) {
-      setVideoSrc(cachedUrl);
-      return;
-    }
-
-    // Otherwise fetch via media proxy
-    const loadVideo = async () => {
-      try {
-        const base64Key = btoa(unescape(encodeURIComponent(rawUrl)));
-        const res = await fetch(`/api/media?key=${base64Key}`);
-        if (!res.ok) throw new Error('Failed to fetch video');
-        const blob = await res.blob();
-        const mediaBlob = new Blob([blob], { type: 'video/mp4' });
-        const blobUrl = URL.createObjectURL(mediaBlob);
-        
-        if (active) {
-          videoCacheRef.current.set(rawUrl, blobUrl);
-          setVideoSrc(blobUrl);
-        } else {
-          URL.revokeObjectURL(blobUrl);
-        }
-      } catch (e) {
-        console.warn('Failed to load active game video via obfuscated route, falling back to direct url:', e);
-        if (active) {
-          setVideoSrc(rawUrl);
-        }
-      }
-    };
-
-    loadVideo();
-
-    return () => {
-      active = false;
-    };
+    // On pointe DIRECTEMENT la balise <video> sur le proxy anti-IDM (octet-stream).
+    // Le navigateur streame alors en natif AVEC Range → démarrage quasi-instant,
+    // lecture progressive et seek fluide (fini le téléchargement complet en blob,
+    // qui annulait le streaming et faisait patienter). Anti-IDM préservé.
+    const base64Key = btoa(unescape(encodeURIComponent(activeGame.video_url)));
+    setVideoSrc(`/api/media?key=${base64Key}`);
   }, [activeGame?.id, activeGame?.video_url]);
 
   // Gestion de l'état de jeu en cours pour suspendre la musique de fond
@@ -1084,6 +1076,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   loop
                   muted
                   playsInline
+                  preload="auto"
                   className="absolute inset-0 w-full h-full object-cover animate-ps5-video"
                 />
               ) : (

@@ -470,9 +470,13 @@ function FullscreenGate({ selectedTheme, onSelectTheme, onEnter }: FullscreenGat
 function ControllerContent() {
   const searchParams = useSearchParams();
   const lobbyId = searchParams.get('lobbyId') || 'demo-lobby';
-  // Runtime du jeu en cours → adapte le layout de la manette.
-  // GBA = 2 boutons (A/B) uniquement. PSP = 4 boutons PlayStation (✕◯■▲) → layout complet conservé.
-  const runtime = searchParams.get('runtime') || '';
+  // Runtime du jeu en cours → adapte DYNAMIQUEMENT le layout de la manette.
+  // La console diffuse `game_context` (runtime du jeu lancé) sur le canal lobby ;
+  // la manette s'adapte INSTANTANÉMENT, sans re-scanner le QR. La valeur d'URL n'est
+  // qu'un repli au tout premier rendu. GBA/NES = 2 boutons (A/B) ; SNES = A/B/X/Y ;
+  // autres (PSP/JS…) = layout PlayStation complet ✕◯■▲.
+  const [runtime, setRuntime] = useState(searchParams.get('runtime') || '');
+  const [gameTitle, setGameTitle] = useState('');
   const isGbaOrNes = runtime === 'gba' || runtime === 'nes';
   const isSnes = runtime === 'snes';
   // Chaque téléphone génère un ID unique stable (pas de userId dans l'URL pour le multi)
@@ -663,6 +667,16 @@ function ControllerContent() {
       }
     });
 
+    // ── DÉTECTION DYNAMIQUE DU JEU : la console diffuse le runtime du jeu courant.
+    //    La manette adapte INSTANTANÉMENT son layout (boutons actifs + labels) au
+    //    bon système → plus aucun conflit de touches entre GBA / NES / SNES / autres.
+    channel.on('broadcast', { event: 'game_context' }, ({ payload }: any) => {
+      if (payload && typeof payload.runtime === 'string') {
+        setRuntime(payload.runtime);
+        if (payload.title) setGameTitle(payload.title);
+      }
+    });
+
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
@@ -684,6 +698,9 @@ function ControllerContent() {
           // Mark as connected as soon as we successfully subscribe
           // (presence sync will refine this state later)
           setConnected(true);
+          // Demande le contexte de jeu courant (la console répond par game_context)
+          // → la manette s'adapte au bon système même si elle rejoint en pleine partie.
+          channel.send({ type: 'broadcast', event: 'request_context', payload: { userId } });
           // Lance la négociation P2P dès que le canal est prêt.
           rtc.start();
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
@@ -1004,8 +1021,17 @@ function ControllerContent() {
               Funny Station
             </span>
           )}
+          {/* Console détectée dynamiquement (le layout s'y adapte en temps réel). */}
+          {runtime && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/40">
+              <Gamepad size={9} className="text-blue-400" />
+              <span className="text-[8px] font-black uppercase tracking-wider text-blue-300">
+                {({ gba: 'GBA', nes: 'NES', snes: 'SNES', psp: 'PSP', js: 'Jeu', wasm: 'WASM', python: 'Python', lua: 'Lua', java: 'Java' } as Record<string, string>)[runtime] || runtime.toUpperCase()}
+              </span>
+            </div>
+          )}
         </div>
-        
+
         <div className="flex items-center gap-2">
           {rtcOpen && (
             <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40">
