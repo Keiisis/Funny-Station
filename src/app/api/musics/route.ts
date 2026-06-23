@@ -1,23 +1,112 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+
+// Liste statique générée automatiquement pour éviter que Vercel n'inclue
+// les fichiers MP3 de 720 Mo dans le bundle de la fonction serverless.
+const MUSIC_PLAYLIST = [
+  "/musics/01.%20Aya%20Nakamura%2C%20La%20Rvfleuze%20-%20Sexy%20Nana.mp3",
+  "/musics/01.%20Booba%20-%20Nemesis.mp3",
+  "/musics/01.%20Guy2bezbar%20-%20L'ar%C3%A8ne.mp3",
+  "/musics/01.%20Himra%20-%20KABA.mp3",
+  "/musics/01.%20JRK%2019%2C%20Gazo%20-%20CLAP%203X.mp3",
+  "/musics/01.%20Kaaris%20-%20Le%20Sevranais.mp3",
+  "/musics/01.%20La%20Mano%201.9%2C%20Gazo%2C%20La%20Rvfleuze%20-%20ATL.mp3",
+  "/musics/01.%20Niska%20-%20No%20day%20off%20(Freestyle).mp3",
+  "/musics/01.%20Tiakola%20-%20Savage.mp3",
+  "/musics/02.%20Guy2bezbar%20-%20SANAKACHOF%C3%89.mp3",
+  "/musics/02.%20Kaaris%20-%20La%20Ch%C3%A8vre.mp3",
+  "/musics/02.%20R2%2C%20Mauvais%20Djo%20-%20SO%20MAWA%20(feat.%20Mauvais%20djo).mp3",
+  "/musics/03.%20Himra%20-%20PLUS%20DE%20LOVE.mp3",
+  "/musics/03.%20Josman%2C%20Tayc%20-%20My%20love%20(feat.%20Tayc).mp3",
+  "/musics/03.%20Kaaris%20-%20Huracan.mp3",
+  "/musics/03.%20R2%20-%20BO%C3%8ETE%20AUTO.mp3",
+  "/musics/04.%20Himra%20-%20MA%20HAINE.mp3",
+  "/musics/04.%20Josman%20-%20Toxxxic.mp3",
+  "/musics/04.%20R2%2C%20Leto%20-%20REDFLAG%20(feat.%20Leto).mp3",
+  "/musics/05.%20Himra%2C%20Gazo%20-%20STRIP.mp3",
+  "/musics/05.%20Kaaris%20-%20On%20est%20mauvais.mp3",
+  "/musics/07.%20Guy2bezbar%20-%20Cullinan.mp3",
+  "/musics/07.%20Kaaris%20-%20Rajel.mp3",
+  "/musics/08.%20Guy2bezbar%20-%20PETIT%20DE%20PARIS.mp3",
+  "/musics/08.%20Himra%20-%20DESTRESSE%20JAZZ.mp3",
+  "/musics/08.%20Kaaris%20-%20Tiffany.mp3",
+  "/musics/1%201%20-%20Leto%20-%20Ch%C3%A9rie%20coco%20(320).mp3",
+  "/musics/1%201%20-%20TRK.%20-%20Numero%20Uno%20(320).mp3",
+  "/musics/1%201%20-%20Wantche%20-%20GO%20(320).mp3",
+  "/musics/1%201%20-%20Zayi%20%20Didi%20B%20-%20Chelebouka%20(320).mp3",
+  "/musics/1%202%20-%20Kalash%20%20Ninho%20-%20Rien%20%C3%A0%20c%C3%A9l%C3%A9brer%20(320).mp3",
+  "/musics/1%202%20-%20Zayi%20%20Didi%20B%20-%20M%C3%A9chant%20(320).mp3",
+  "/musics/1%204%20-%20Zayi%20%20Didi%20B%20%20Black%20K%20%20Yacou%20B%20OG%20-%20Waribana%20(320).mp3",
+  "/musics/10%20-%20Damso%20-%20%CE%9A.%20Kin%20la%20belle.mp3",
+  "/musics/12.%20Guy2bezbar%2C%20Timar%20-%20FAMILY.mp3",
+  "/musics/12.%20Himra%2C%20Leto%20-%20YOUNG%20RICH%20PAPI.mp3",
+  "/musics/13.%20Guy2bezbar%20-%20GIGANTESQUE.mp3",
+  "/musics/13.%20Himra%20-%20DJOROBITE.mp3",
+  "/musics/13.%20Kaaris%20-%20Byakugan.mp3",
+  "/musics/14.%20Guy2bezbar%2C%20KLN%20-%20Bvlgari%20(feat.%20KLN).mp3",
+  "/musics/15.%20Himra%20-%20DYCOCO.mp3",
+  "/musics/16.%20Himra%2C%20Enfant%20Noir%2C%20Philipayne%20-%20N'TAXAIRE.mp3",
+  "/musics/17.%20Himra%20-%20WILFRIED%20ZAHA.mp3",
+  "/musics/17_Guy2bezbar%2C_Aya_Nakamura_10_sur_10_feat_Aya_Nakamura.mp3",
+  "/musics/18.%20Guy2bezbar%20-%20G%20WAGON.mp3",
+  "/musics/1_1%20-%20I%20know%20-%20Jo%C3%A9%20Dwet%20Fil%C3%A9%20(320).mp3",
+  "/musics/1_1%20-%20Intro%20-%20Asake%20(320).mp3",
+  "/musics/1_1%20-%20Is%20This%20Love%20-%20Bob%20Marley%20%20The%20Wailers%20(320).mp3",
+  "/musics/1_1%20-%20J%E2%80%99avais%20juste%20envie%20d%E2%80%99%C3%A9crire.%20-%20Damso%20(320).mp3",
+  "/musics/1_1%20-%20Kehou%20Drill%20%231%20-%20Himra%20(320).mp3",
+  "/musics/1_1%20-%20Prisoner%20-%20Lucky%20Dube%20(320).mp3",
+  "/musics/1_1%20-%20SUV%20-%20d%C3%B8pelym%20(320).mp3",
+  "/musics/1_1%20-%20S%C3%A3o%20Paulo%20-%20The%20Weeknd%20%20Anitta%20(320).mp3",
+  "/musics/1_10%20-%20FANTA%20DIALLO%20-%20Tayc%20(320).mp3",
+  "/musics/1_10%20-%20Oba%20-%20Asake%20(320).mp3",
+  "/musics/1_11%20-%20BADMAN%20GANGSTA%20-%20Asake%20%20Tiakola%20(320).mp3",
+  "/musics/1_11%20-%20Jah%20Live%20-%20Bob%20Marley%20%20The%20Wailers%20(320).mp3",
+  "/musics/1_12%20-%20Asambe%20-%20Asake%20%20Kabza%20De%20Small%20(320).mp3",
+  "/musics/1_13%20-%20Skilful%20-%20Asake%20(320).mp3",
+  "/musics/1_14%20-%20NDOLO%20-%20Tayc%20(320).mp3",
+  "/musics/1_15%20-%20KOKI%20%20PLANTAIN%20-%20Tayc%20(320).mp3",
+  "/musics/1_1_MURDER_%234_GLK_La_Fouine_WIXO_LA2S_Heuss_L'enfoir%C3%A9_D2_320.mp3",
+  "/musics/1_1_Rentre_dans_le_Cercle_Dosseh_Rentre_Dans_Le_Cercle_Dosseh_320.mp3",
+  "/musics/1_2%20-%20JOY%20-%20Tayc%20(320).mp3",
+  "/musics/1_2%20-%20WORSHIP%20-%20Asake%20%20DJ%20Snake%20(320).mp3",
+  "/musics/1_2_No_Woman%2C_No_Cry_Live_At_The_Lyceum%2C_London1975_Bob_Marley_The.mp3",
+  "/musics/1_3%20-%20Gratitude%20-%20Asake%20(320).mp3",
+  "/musics/1_4%20-%20Rora%20-%20Asake%20(320).mp3",
+  "/musics/1_5%20-%20Amen%20-%20Asake%20(320).mp3",
+  "/musics/1_6%20-%20Wa%20-%20Asake%20(320).mp3",
+  "/musics/1_7%20-%20MCBH%20-%20Asake%20(320).mp3",
+  "/musics/1_8%20-%20Beautiful%20-%20Damso%20(320).mp3",
+  "/musics/1_8%20-%20WHY%20LOVE%20-%20Asake%20(320).mp3",
+  "/musics/1_9%20-%20Forgiveness%20-%20Asake%20(320).mp3",
+  "/musics/20.%20Guy2bezbar%20-%20ALLO.mp3",
+  "/musics/22.%20Guy2bezbar%20-%20Bora%20Bora.mp3",
+  "/musics/23.%20Guy2bezbar%20-%20PAPA%20DES%20FLINGUEURS.mp3",
+  "/musics/24_Guy2bezbar%2C_Jo%C3%A9_Dwet_Fil%C3%A9_Tu_sais_bien_feat_Jo%C3%A9_Dw%C3%A8t_Fil%C3%A9.mp3",
+  "/musics/25.%20Guy2bezbar%20-%20Tentation.mp3",
+  "/musics/27.%20Guy2bezbar%2C%20La%20Mano%201.9%20-%20Oyaya%20(feat.%20La%20Mano%201.9).mp3",
+  "/musics/HOLD%20MY%20HEART.mp3",
+  "/musics/Kodes%20-%20WAWA.mp3",
+  "/musics/Landy%20-%20Assa%20Baing%202.mp3",
+  "/musics/Landy%20-%20Beaux%20quartiers.mp3",
+  "/musics/Landy%20-%20Biker.mp3",
+  "/musics/Landy%20-%20Cachot.mp3",
+  "/musics/Landy%20-%20Colis%C3%A9e.mp3",
+  "/musics/Landy%20-%20Fast%20life.mp3",
+  "/musics/Landy%20-%20Furya.mp3",
+  "/musics/Landy%20-%20Intro%20(Attrapez%20Les%20Tous).mp3",
+  "/musics/Landy%20-%20Ko%20Samui.mp3",
+  "/musics/Landy%20-%20Mendoza.mp3",
+  "/musics/Landy%20-%20Oh%20mama.mp3",
+  "/musics/Landy%20-%20R.I.P.mp3",
+  "/musics/Landy%20-%20Rolling%20Stones.mp3",
+  "/musics/Landy%20-%20Ronnie%20Kray.mp3",
+  "/musics/Landy%20-%20Sinc%C3%A8re.mp3",
+  "/musics/Landy%20-%20V%C3%A9rit%C3%A9.mp3",
+  "/musics/Niska%20-%20M.L.C.mp3",
+  "/musics/ROYALITY.mp3",
+  "/musics/S%C3%83O%20PAULO%20(feat.Anitta).mp3",
+  "/musics/The%20Weeknd%20-%20Timeless%20(Remix).mp3"
+];
 
 export async function GET() {
-  try {
-    const musicsDir = path.join(process.cwd(), 'public', 'musics');
-    if (!fs.existsSync(musicsDir)) {
-      return NextResponse.json([]);
-    }
-
-    const files = fs.readdirSync(musicsDir);
-    // Filtrer pour ne garder que les fichiers audio
-    const musicFiles = files
-      .filter((file) => /\.(mp3|ogg|wav|m4a|aac|webm)$/i.test(file))
-      .map((file) => `/musics/${encodeURIComponent(file)}`);
-
-    return NextResponse.json(musicFiles);
-  } catch (error) {
-    console.error('Error reading musics directory:', error);
-    return NextResponse.json([], { status: 500 });
-  }
+  return NextResponse.json(MUSIC_PLAYLIST);
 }
