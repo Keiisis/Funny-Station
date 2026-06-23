@@ -216,7 +216,8 @@ function ControllerContent() {
   // Runtime du jeu en cours → adapte le layout de la manette.
   // GBA = 2 boutons (A/B) uniquement. PSP = 4 boutons PlayStation (✕◯■▲) → layout complet conservé.
   const runtime = searchParams.get('runtime') || '';
-  const isGba = runtime === 'gba';
+  const isGbaOrNes = runtime === 'gba' || runtime === 'nes';
+  const isSnes = runtime === 'snes';
   // Chaque téléphone génère un ID unique stable (pas de userId dans l'URL pour le multi)
   const userIdRef = useRef(
     searchParams.get('userId') || `mobile-${Math.random().toString(36).substring(2, 9)}`
@@ -885,23 +886,25 @@ function ControllerContent() {
               </div>
             </div>
 
-            {/* TRIANGLE (▲) - HAUT — toujours présent ; inactif sur GBA (pas de bouton Y) */}
+            {/* TRIANGLE (▲) - HAUT — toujours présent ; inactif sur GBA/NES (pas de bouton Y/X) */}
             <button
-              disabled={isGba}
-              onPointerDown={() => { if (!isGba) sendAction('TRIANGLE', 'down'); }}
-              onPointerUp={() => { if (!isGba) sendAction('TRIANGLE', 'up'); }}
-              onPointerLeave={() => { if (!isGba) sendAction('TRIANGLE', 'up'); }}
-              onPointerCancel={() => { if (!isGba) sendAction('TRIANGLE', 'up'); }}
-              className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGba ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
+              disabled={isGbaOrNes}
+              onPointerDown={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'down'); }}
+              onPointerUp={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
+              onPointerLeave={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
+              onPointerCancel={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
+              className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'TRIANGLE'
                   ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
                   : 'bg-zinc-900/80 border-emerald-500/30 text-emerald-500/80 hover:bg-zinc-800/60'
               }`}
             >
-              <span className="text-sm font-bold">▲</span>
+              <span className="text-sm font-bold">
+                {isSnes ? 'X' : '▲'}
+              </span>
             </button>
 
-            {/* CROSS (✕) - BAS - CONFIRM (= bouton A sur GBA/PSP) */}
+            {/* CROSS (✕) - BAS - CONFIRM (= bouton A sur GBA/NES/PSP, bouton B sur SNES) */}
             <button
               onPointerDown={() => sendAction('CONFIRM', 'down')}
               onPointerUp={() => sendAction('CONFIRM', 'up')}
@@ -913,26 +916,30 @@ function ControllerContent() {
                   : 'bg-zinc-900/80 border-cyan-500/30 text-cyan-500/80 hover:bg-zinc-800/60'
               }`}
             >
-              <span className="text-sm font-bold">{isGba ? 'A' : '✕'}</span>
+              <span className="text-sm font-bold">
+                {isGbaOrNes ? 'A' : isSnes ? 'B' : '✕'}
+              </span>
             </button>
 
-            {/* SQUARE (■) - GAUCHE — toujours présent ; inactif sur GBA (pas de bouton X) */}
+            {/* SQUARE (■) - GAUCHE — toujours présent ; inactif sur GBA/NES (pas de bouton X/Y) */}
             <button
-              disabled={isGba}
-              onPointerDown={() => { if (!isGba) sendAction('SQUARE', 'down'); }}
-              onPointerUp={() => { if (!isGba) sendAction('SQUARE', 'up'); }}
-              onPointerLeave={() => { if (!isGba) sendAction('SQUARE', 'up'); }}
-              onPointerCancel={() => { if (!isGba) sendAction('SQUARE', 'up'); }}
-              className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGba ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
+              disabled={isGbaOrNes}
+              onPointerDown={() => { if (!isGbaOrNes) sendAction('SQUARE', 'down'); }}
+              onPointerUp={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
+              onPointerLeave={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
+              onPointerCancel={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
+              className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'SQUARE'
                   ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.6)]'
                   : 'bg-zinc-900/80 border-purple-500/30 text-purple-500/80 hover:bg-zinc-800/60'
               }`}
             >
-              <span className="text-xs font-bold">■</span>
+              <span className="text-xs font-bold">
+                {isSnes ? 'Y' : '■'}
+              </span>
             </button>
 
-            {/* CIRCLE (◯) - DROITE - BACK (= bouton B sur GBA/PSP) */}
+            {/* CIRCLE (◯) - DROITE - BACK (= bouton B sur GBA/NES/PSP, bouton A sur SNES) */}
             <button
               onPointerDown={() => sendAction('BACK', 'down')}
               onPointerUp={() => sendAction('BACK', 'up')}
@@ -944,7 +951,9 @@ function ControllerContent() {
                   : 'bg-zinc-900/80 border-rose-500/30 text-rose-500/80 hover:bg-zinc-800/60'
               }`}
             >
-              <span className="text-sm font-bold">{isGba ? 'B' : '◯'}</span>
+              <span className="text-sm font-bold">
+                {isGbaOrNes ? 'B' : isSnes ? 'A' : '◯'}
+              </span>
             </button>
           </div>
 

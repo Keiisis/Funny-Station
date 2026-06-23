@@ -350,10 +350,6 @@ export const StoreView: React.FC<StoreViewProps> = ({
               </p>
               
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-[8px] font-bold tracking-widest bg-zinc-900/80 border border-zinc-800 px-2 py-0.5 rounded text-zinc-400 uppercase">
-                  {heroGame.runtime === 'js' ? 'HTML5' : heroGame.runtime.toUpperCase()}
-                </span>
-                
                 <span className="text-[10px] font-bold text-amber-400 flex items-center gap-0.5">
                   <Coins size={10} />
                   {heroGame.price ? `${heroGame.price} FC` : 'Gratuit'}
@@ -391,10 +387,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                     
                     {/* Badge details */}
                     <div className="absolute inset-0 p-3.5 flex flex-col justify-between z-20">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[6.5px] uppercase font-bold tracking-widest bg-zinc-950/80 border border-zinc-850 px-1.5 py-0.5 rounded text-zinc-400">
-                          {game.runtime === 'js' ? 'HTML5' : game.runtime.toUpperCase()}
-                        </span>
+                      <div className="flex justify-end items-start">
                         {owned ? (
                           <span className="text-[6.5px] uppercase font-black tracking-widest bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded text-emerald-400">
                             Possédé
@@ -441,10 +434,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                     
                     {/* Badge details */}
                     <div className="absolute inset-0 p-3.5 flex flex-col justify-between z-20">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[6.5px] uppercase font-bold tracking-widest bg-zinc-950/80 border border-zinc-850 px-1.5 py-0.5 rounded text-zinc-400">
-                          {game.runtime === 'js' ? 'HTML5' : game.runtime.toUpperCase()}
-                        </span>
+                      <div className="flex justify-end items-start">
                         {owned ? (
                           <span className="text-[6.5px] uppercase font-black tracking-widest bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 rounded text-emerald-400">
                             Possédé
@@ -636,8 +626,6 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   <>
                     <h3 className="text-3xl font-black uppercase tracking-wider text-zinc-100">{selectedGame.title}</h3>
                     <div className="flex items-center gap-3 text-zinc-500 text-[10px] font-bold">
-                      <span className="text-zinc-400 uppercase">Runtime {selectedGame.runtime}</span>
-                      <span>•</span>
                       <span className="flex items-center gap-0.5"><Star size={10} className="text-yellow-500" /> {selectedGame.rating || '5.0'}</span>
                     </div>
                   </>

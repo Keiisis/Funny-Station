@@ -115,6 +115,8 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
             newGameRuntime === 'gba' ? 'game.gba' :
             newGameRuntime === 'psp' ? 'game.cso' :
             newGameRuntime === 'android' ? 'game.apk' :
+            newGameRuntime === 'nes' ? 'game.nes' :
+            newGameRuntime === 'snes' ? 'game.sfc' :
             'game.jar',
           assets_bucket_path: `games/${slug}`,
           background_url: newGameBgUrl.trim() || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
@@ -368,6 +370,8 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                         <option value="lua">Lua (Fengari)</option>
                         <option value="java">Java (CheerpJ)</option>
                         <option value="gba">Game Boy Advance (GBA)</option>
+                        <option value="nes">Nintendo (NES)</option>
+                        <option value="snes">Super Nintendo (SNES)</option>
                       </select>
                       <span className="text-[8px] text-zinc-500 mt-1 block">
                         PSP et PS1 ne sont pas proposés : ces ISOs/BIOS ne démarrent pas de façon fiable en navigateur.

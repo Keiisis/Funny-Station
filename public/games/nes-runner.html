@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Funny NES Runner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000 !important;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    #game {
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background-color: #000 !important;
+    }
+
+    .ejs--hide-after-start #menu, .ejs--hide-after-start .menu,
+    .ejs--hide-after-start #menu-btn, .ejs--hide-after-start .menu-btn,
+    .ejs--hide-after-start .ejs-control-bar,
+    .ejs--hide-after-start .ejs-menu,
+    .ejs--hide-after-start div[class*="bar"] {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
+
+    div#game, div#game-container, div#player {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      position: absolute !important;
+      inset: 0 !important;
+      background: #000 !important;
+      z-index: 1 !important;
+    }
+
+    canvas, #canvas, .canvas {
+      display: block !important;
+      width: auto !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      margin: auto !important;
+      object-fit: contain !important;
+      image-rendering: -moz-crisp-edges !important;
+      image-rendering: -webkit-crisp-edges !important;
+      image-rendering: pixelated !important;
+      image-rendering: crisp-edges !important;
+    }
+
+    #loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: opacity 0.5s ease-out;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: #ef4444;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div style="font-size: 11px; color: #a1a1aa; letter-spacing: 0.1em; text-transform: uppercase;">Démarrage du jeu NES...</div>
+  </div>
+
+  <div id="game"></div>
+
+  <script>
+    // 0. Force override of video settings in localStorage to prevent cached blurry settings
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('ejs-') || key === 'ejs-settings')) {
+          try {
+            const val = localStorage.getItem(key);
+            if (val) {
+              const parsed = JSON.parse(val);
+              if (parsed && parsed.settings) {
+                parsed.settings['video_smooth'] = 'false';
+                parsed.settings['video_scale_integer'] = 'true';
+                localStorage.setItem(key, JSON.stringify(parsed));
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+
+    // 1. Monkeypatch WebGL texture & sampler filtering to force nearest-neighbor (sharp pixels)
+    (function() {
+      function patchWebGL(ctxPrototype) {
+        if (!ctxPrototype) return;
+        const origTexImage2D = ctxPrototype.texImage2D;
+        if (origTexImage2D) {
+          ctxPrototype.texImage2D = function() {
+            const r = origTexImage2D.apply(this, arguments);
+            try {
+              this.texParameteri(this.TEXTURE_2D, this.TEXTURE_MIN_FILTER, this.NEAREST);
+              this.texParameteri(this.TEXTURE_2D, this.TEXTURE_MAG_FILTER, this.NEAREST);
+            } catch (e) {}
+            return r;
+          };
+        }
+
+        const originalTexParameteri = ctxPrototype.texParameteri;
+        ctxPrototype.texParameteri = function(target, pname, param) {
+          if (pname === this.TEXTURE_MIN_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+            else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+          } else if (pname === this.TEXTURE_MAG_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+          }
+          return originalTexParameteri.call(this, target, pname, param);
+        };
+
+        const originalTexParameterf = ctxPrototype.texParameterf;
+        ctxPrototype.texParameterf = function(target, pname, param) {
+          if (pname === this.TEXTURE_MIN_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+            else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+          } else if (pname === this.TEXTURE_MAG_FILTER) {
+            if (param === this.LINEAR) param = this.NEAREST;
+          }
+          return originalTexParameterf.call(this, target, pname, param);
+        };
+
+        const originalSamplerParameteri = ctxPrototype.samplerParameteri;
+        if (originalSamplerParameteri) {
+          ctxPrototype.samplerParameteri = function(sampler, pname, param) {
+            if (pname === this.TEXTURE_MIN_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+              else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            } else if (pname === this.TEXTURE_MAG_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+            }
+            return originalSamplerParameteri.call(this, sampler, pname, param);
+          };
+        }
+
+        const originalSamplerParameterf = ctxPrototype.samplerParameterf;
+        if (originalSamplerParameterf) {
+          ctxPrototype.samplerParameterf = function(sampler, pname, param) {
+            if (pname === this.TEXTURE_MIN_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+              else if (param === this.LINEAR_MIPMAP_NEAREST) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.NEAREST_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+              else if (param === this.LINEAR_MIPMAP_LINEAR) param = this.NEAREST_MIPMAP_NEAREST;
+            } else if (pname === this.TEXTURE_MAG_FILTER) {
+              if (param === this.LINEAR) param = this.NEAREST;
+            }
+            return originalSamplerParameterf.call(this, sampler, pname, param);
+          };
+        }
+      }
+
+      if (typeof WebGLRenderingContext !== 'undefined') {
+        patchWebGL(WebGLRenderingContext.prototype);
+      }
+      if (typeof WebGL2RenderingContext !== 'undefined') {
+        patchWebGL(WebGL2RenderingContext.prototype);
+      }
+    })();
+
+    // 2. Periodic Canvas Style & Context Image Smoothing Enforcer
+    setInterval(() => {
+      const canvases = document.querySelectorAll('canvas');
+      canvases.forEach(canvas => {
+        if (canvas.style.imageRendering !== 'pixelated') {
+          canvas.style.setProperty('image-rendering', 'pixelated', 'important');
+        }
+        try {
+          const ctx = canvas.getContext('2d');
+          if (ctx && ctx.imageSmoothingEnabled !== false) {
+            ctx.imageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.msImageSmoothingEnabled = false;
+          }
+        } catch (e) {}
+      });
+    }, 250);
+
+    // Parse the ROM URL from query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const romUrl = urlParams.get('rom');
+
+    if (!romUrl) {
+      document.getElementById('loading').innerText = "Erreur : URL de ROM manquante.";
+      console.error("[NES Runner] ROM URL parameter is missing.");
+    } else {
+      window.EJS_player = '#game';
+      window.EJS_core = 'nes';
+      window.EJS_gameUrl = romUrl;
+      window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+      window.EJS_startOnLoaded = true;
+      window.EJS_threads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated);
+      window.EJS_defaultOptions = {
+        'video_smooth': 'false',
+        'video_scale_integer': 'true'
+      };
+
+      // Hide control bar buttons
+      window.EJS_Buttons = {
+        playPause: false,
+        restart: false,
+        mute: false,
+        volume: false,
+        fullscreen: false,
+        saveState: false,
+        loadState: false,
+        settings: false,
+        screenshot: false,
+        quickSave: false,
+        quickLoad: false,
+        cheats: false,
+        slowMotion: false,
+        fastForward: false,
+        gamepad: false,
+        loadLocalState: false,
+        saveLocalState: false
+      };
+
+      window.EJS_mouse = false;
+
+      // Hide loading screen once emulator starts
+      window.EJS_onGameStart = function() {
+        console.log("[NES Runner] Emulator started.");
+        const loader = document.getElementById('loading');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => {
+            loader.style.display = 'none';
+          }, 500);
+        }
+        document.body.classList.add('ejs--hide-after-start');
+        window.parent.postMessage({ type: 'FUNNY_BUS_GAME_READY' }, '*');
+      };
+    }
+  </script>
+
+  <!-- Input Receiver supporting player index for 2-player local co-op -->
+  <script>
+    (function () {
+      function sim(player, index, pressed) {
+        try {
+          var emu = window.EJS_emulator;
+          if (emu && emu.gameManager && emu.gameManager.functions && typeof emu.gameManager.functions.simulateInput === 'function') {
+            emu.gameManager.functions.simulateInput(player, index, pressed ? 1 : 0);
+          }
+        } catch (e) {
+          console.warn("[NES Runner] Failed to simulate input:", e);
+        }
+      }
+      window.addEventListener('message', function (ev) {
+        var d = ev.data;
+        if (d && d.type === 'FUNNY_EMU_INPUT') {
+          var player = d.player !== undefined ? d.player : 0;
+          sim(player, d.index, d.pressed);
+        }
+      });
+    })();
+  </script>
+
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+
+</body>
+</html>

@@ -201,7 +201,7 @@ export class GamepadController {
             else if (action === 'Y') dir = 'TRIANGLE';
 
             if (dir) {
-              this.dispatchAction(dir);
+              this.dispatchAction(dir, gp.index);
             }
           }
 
@@ -330,9 +330,9 @@ export class GamepadController {
     });
   }
 
-  private dispatchAction(direction: GamepadDirection) {
+  private dispatchAction(direction: GamepadDirection, playerNumber: number) {
     if (typeof window === 'undefined') return;
-    const event = new CustomEvent('funny_gamepad_action', { detail: { direction } });
+    const event = new CustomEvent('funny_gamepad_action', { detail: { direction, playerNumber } });
     window.dispatchEvent(event);
   }
 

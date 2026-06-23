@@ -47,10 +47,7 @@ export const GameCard: React.FC<GameCardProps> = ({ game, isFocused, onSelect })
       {/* Rendu visuel */}
       <div className="w-full h-full flex flex-col justify-between p-4 relative z-10">
         {/* Top elements */}
-        <div className="flex justify-between items-start">
-          <span className={`text-[8px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full border ${langBadgeColor}`}>
-            {game.runtime === 'js' ? 'HTML5' : game.runtime.toUpperCase()}
-          </span>
+        <div className="flex justify-end items-start w-full">
           {isFocused && (
             <div className="w-6 h-6 rounded-full bg-white text-zinc-950 flex items-center justify-center animate-bounce shadow-md">
               <Play size={10} fill="currentColor" />

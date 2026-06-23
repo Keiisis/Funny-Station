@@ -1013,14 +1013,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent z-10" />
                       
                       {/* Details on the card */}
-                      <div className="absolute inset-0 p-3 flex flex-col justify-between z-20">
-                        {/* Top runtime badge */}
-                        <div className="flex justify-between items-start">
-                          <span className="text-[7px] uppercase font-bold tracking-widest bg-zinc-950/80 border border-zinc-850 px-1.5 py-0.5 rounded-full text-zinc-350">
-                            {game.runtime === 'js' ? 'HTML5' : game.runtime.toUpperCase()}
-                          </span>
-                        </div>
-                        
+                      <div className="absolute inset-0 p-3 flex flex-col justify-end z-20">
                         {/* Bottom title */}
                         <div className="flex flex-col gap-0.5">
                           <h4 className="text-[9px] font-black text-zinc-150 uppercase tracking-wide truncate">

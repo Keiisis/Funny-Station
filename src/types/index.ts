@@ -1,4 +1,4 @@
-export type GameLanguage = 'js' | 'wasm' | 'python' | 'lua' | 'java' | 'gba' | 'psp' | 'android';
+export type GameLanguage = 'js' | 'wasm' | 'python' | 'lua' | 'java' | 'gba' | 'psp' | 'android' | 'nes' | 'snes';
 export type TrophyTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 export type AccountType = 'gamer' | 'creator';
 export type GameStatus = 'draft' | 'published';

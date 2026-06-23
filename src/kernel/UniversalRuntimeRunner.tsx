@@ -271,9 +271,9 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     const gamepad = GamepadController.getInstance();
     gamepad.pause();
 
-    // Activer l'injection clavier pour GBA, PSP ou JS standard, mais pas pour Unity (entryPoint finit par .html)
+    // Activer l'injection clavier pour GBA, PSP, NES, SNES ou JS standard, mais pas pour Unity (entryPoint finit par .html)
     const isUnityGame = language === 'js' && entryPoint.endsWith('.html');
-    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || (language === 'js' && !isUnityGame);
+    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || language === 'nes' || language === 'snes' || (language === 'js' && !isUnityGame);
     gamepad.enableKeyboardInjection(shouldInjectKeyboard);
 
     return () => {
@@ -318,6 +318,10 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           await setupGbaEnvironment(vfs);
         } else if (language === 'psp') {
           await setupPspEnvironment(vfs);
+        } else if (language === 'nes') {
+          await setupNesEnvironment(vfs);
+        } else if (language === 'snes') {
+          await setupSnesEnvironment(vfs);
         } else if (language === 'android') {
           await setupAndroidEnvironment(vfs);
         } else {
@@ -805,6 +809,60 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     }
   };
 
+  const setupNesEnvironment = async (vfs: VirtualFileSystem) => {
+    setLoadingProgress(70);
+    if (iframeRef.current) {
+      const romPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
+      iframeRef.current.src = `/games/nes-runner.html?rom=${encodeURIComponent(romPath)}`;
+      
+      const injectBridge = () => {
+        try {
+          if (iframeRef.current?.contentWindow) {
+            (iframeRef.current.contentWindow as any).funnyStation = {
+              save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
+              load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
+              unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
+              exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+              networkMode: networkMode,
+              playerNumber: localPlayerNumber
+            };
+          }
+        } catch (e) {
+          console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe NES:", e);
+        }
+      };
+
+      iframeRef.current.onload = injectBridge;
+    }
+  };
+
+  const setupSnesEnvironment = async (vfs: VirtualFileSystem) => {
+    setLoadingProgress(70);
+    if (iframeRef.current) {
+      const romPath = resolveAssetUrl(`${gameUrl}/${entryPoint}`);
+      iframeRef.current.src = `/games/snes-runner.html?rom=${encodeURIComponent(romPath)}`;
+      
+      const injectBridge = () => {
+        try {
+          if (iframeRef.current?.contentWindow) {
+            (iframeRef.current.contentWindow as any).funnyStation = {
+              save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
+              load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
+              unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
+              exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
+              networkMode: networkMode,
+              playerNumber: localPlayerNumber
+            };
+          }
+        } catch (e) {
+          console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe SNES:", e);
+        }
+      };
+
+      iframeRef.current.onload = injectBridge;
+    }
+  };
+
   const setupPspEnvironment = async (vfs: VirtualFileSystem) => {
     setLoadingProgress(70);
     if (iframeRef.current) {
@@ -843,60 +901,61 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     setLoadingProgress(100);
   };
 
-  // ── PONT D'ENTRÉE UNIFIÉ POUR LES ÉMULATEURS (GBA / PSP) ────────────────────
+  // ── PONT D'ENTRÉE UNIFIÉ POUR LES ÉMULATEURS (GBA / PSP / NES / SNES) ────────
   // On utilise l'API d'entrée NATIVE d'EmulatorJS (simulateInput) via postMessage.
   // C'est bien plus fiable que des KeyboardEvents synthétiques, souvent ignorés par
   // l'émulateur car non « trusted ». L'iframe (xxx-runner.html) reçoit l'index RetroPad
-  // et pilote directement le cœur — exactement comme le gamepad tactile d'EmulatorJS.
+  // et pilote directement le cœur — avec le numéro de joueur (player) supporté.
   useEffect(() => {
-    if (language !== 'gba' && language !== 'psp') return;
+    if (language !== 'gba' && language !== 'psp' && language !== 'nes' && language !== 'snes') return;
 
     let currentMapping = loadKeyMapping();
     const handleMappingChange = (e: Event) => { currentMapping = (e as CustomEvent).detail; };
     window.addEventListener('funny_station_mapping_changed', handleMappingChange);
 
     // ConsoleAction -> index RetroPad (standard libretro).
-    //  GBA (Nintendo) : A = RetroPad A(8), B = RetroPad B(0).
-    //  PSP   (Sony)   : Croix=B(0), Rond=A(8), Carré=Y(1), Triangle=X(9).
-    const RETROPAD: Record<'gba' | 'psp', Record<ConsoleAction, number>> = {
+    //  GBA (Nintendo)  : A=8, B=0, L=10, R=11.
+    //  PSP (Sony)      : Croix=B(0), Rond=A(8), Carré=Y(1), Triangle=X(9).
+    //  NES (Nintendo)  : A=8, B=0.
+    //  SNES (Nintendo) : B=0, Y=1, Select=2, Start=3, Up=4, Down=5, Left=6, Right=7, A=8, X=9, L=10, R=11.
+    const RETROPAD: Record<'gba' | 'psp' | 'nes' | 'snes', Record<ConsoleAction, number>> = {
       gba: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 8, B: 0, X: 8, Y: 0, L: 10, R: 11, START: 3, SELECT: 2 },
       psp: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 0, B: 8, X: 1, Y: 9, L: 10, R: 11, START: 3, SELECT: 2 },
+      nes: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 8, B: 0, X: 8, Y: 0, L: 10, R: 11, START: 3, SELECT: 2 },
+      snes: { UP: 4, DOWN: 5, LEFT: 6, RIGHT: 7, A: 8, B: 0, X: 9, Y: 1, L: 10, R: 11, START: 3, SELECT: 2 },
     };
-    const indexMap = RETROPAD[language as 'gba' | 'psp'];
+    const indexMap = RETROPAD[language as 'gba' | 'psp' | 'nes' | 'snes'];
 
-    // Pilote le cœur via l'index RetroPad (1 seul postMessage = latence minimale).
-    const press = (index: number | undefined, pressed: boolean) => {
+    // Pilote le cœur via l'index RetroPad et l'index joueur
+    const press = (index: number | undefined, pressed: boolean, player: number = 0) => {
       if (index === undefined) return;
       iframeRef.current?.contentWindow?.postMessage(
-        { type: 'FUNNY_EMU_INPUT', index, pressed },
+        { type: 'FUNNY_EMU_INPUT', index, pressed, player },
         '*'
       );
     };
 
-    // 1) Clavier physique (joueur local au clavier) : key -> action -> index.
+    // 1) Clavier physique (J1)
     const handleKey = (e: KeyboardEvent) => {
       const action = (Object.keys(currentMapping) as ConsoleAction[]).find(
         (act) => currentMapping[act] === e.key
       );
       if (action === undefined) return;
       e.preventDefault();
-      press(indexMap[action], e.type === 'keydown');
+      press(indexMap[action], e.type === 'keydown', 0); // Touches claviers affectées par défaut à J1 (0)
     };
 
-    // 2) Manette virtuelle (chemin DIRECT, sans aller-retour clavier synthétique).
-    //    Le Dashboard émet déjà `funny_gamepad_action` { direction, action }. On mappe
-    //    la direction → action console → index RetroPad et on pilote le cœur tout de
-    //    suite : un hop de moins = entrée plus précise et plus synchrone.
+    // 2) Manette virtuelle (supportant le playerNumber)
     const DIR_TO_ACTION: Record<string, ConsoleAction> = {
       UP: 'UP', DOWN: 'DOWN', LEFT: 'LEFT', RIGHT: 'RIGHT',
       CONFIRM: 'A', BACK: 'B', SQUARE: 'X', TRIANGLE: 'Y',
       OPTION: 'START', START: 'START', SELECT: 'SELECT', L: 'L', R: 'R',
     };
     const handleGamepad = (e: Event) => {
-      const { direction, action } = (e as CustomEvent).detail || {};
+      const { direction, action, playerNumber } = (e as CustomEvent).detail || {};
       const consoleAction = DIR_TO_ACTION[direction];
       if (!consoleAction) return;
-      press(indexMap[consoleAction], action !== 'up');
+      press(indexMap[consoleAction], action !== 'up', playerNumber ?? 0);
     };
 
     window.addEventListener('keydown', handleKey, { capture: true });
@@ -941,6 +1000,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           ref={iframeRef}
           className="w-full h-full border-none bg-black"
           sandbox="allow-scripts allow-same-origin"
+          allow="gamepad"
           title="GBA Emulator Process"
         />
       )}
@@ -950,7 +1010,28 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
           ref={iframeRef}
           className="w-full h-full border-none bg-black"
           sandbox="allow-scripts allow-same-origin"
+          allow="gamepad"
           title="PSP Emulator Process"
+        />
+      )}
+
+      {language === 'nes' && (
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none bg-black"
+          sandbox="allow-scripts allow-same-origin"
+          allow="gamepad"
+          title="NES Emulator Process"
+        />
+      )}
+
+      {language === 'snes' && (
+        <iframe
+          ref={iframeRef}
+          className="w-full h-full border-none bg-black"
+          sandbox="allow-scripts allow-same-origin"
+          allow="gamepad"
+          title="SNES Emulator Process"
         />
       )}
 
