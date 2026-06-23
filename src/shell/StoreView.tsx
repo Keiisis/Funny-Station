@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { ProfileData, Game } from '@/types';
 import { supabase } from '@/utils/supabase/client';
 import { AudioEngine } from '@/drivers/AudioEngine';
@@ -380,7 +381,11 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         : 'border-zinc-800/80 opacity-70 hover:opacity-100 hover:border-zinc-700'
                     }`}
                   >
-                    <img src={game.background_url} alt={game.title} className="w-full h-full object-cover" />
+                    {game.background_url ? (
+                      <Image src={game.background_url} alt={game.title} fill sizes="160px" className="object-cover" priority={isFocused} />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
+                    )}
                     
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
@@ -427,7 +432,11 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         : 'border-zinc-800/80 opacity-70 hover:opacity-100 hover:border-zinc-700'
                     }`}
                   >
-                    <img src={game.background_url} alt={game.title} className="w-full h-full object-cover" />
+                    {game.background_url ? (
+                      <Image src={game.background_url} alt={game.title} fill sizes="160px" className="object-cover" priority={isFocused} />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
+                    )}
                     
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />

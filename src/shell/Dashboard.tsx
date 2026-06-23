@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { Game, Trophy, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
 import { useGamepadNavigation } from '@/hooks/useGamepadNavigation';
 import { TopBar } from './TopBar';
@@ -53,6 +54,20 @@ interface ConnectedPlayer {
   playerNumber: number;
   connectedAt: string;
 }
+
+// Badge console affiché sur chaque jaquette de la bibliothèque.
+const RUNTIME_BADGE: Record<string, { label: string; cls: string }> = {
+  gba: { label: 'GBA', cls: 'bg-emerald-500/90 text-white' },
+  nes: { label: 'NES', cls: 'bg-red-500/90 text-white' },
+  snes: { label: 'SNES', cls: 'bg-violet-500/90 text-white' },
+  psp: { label: 'PSP', cls: 'bg-fuchsia-500/90 text-white' },
+  js: { label: 'JEU', cls: 'bg-sky-500/90 text-white' },
+  wasm: { label: 'WASM', cls: 'bg-orange-500/90 text-white' },
+  python: { label: 'PY', cls: 'bg-blue-500/90 text-white' },
+  lua: { label: 'LUA', cls: 'bg-indigo-500/90 text-white' },
+  java: { label: 'JAVA', cls: 'bg-rose-500/90 text-white' },
+  android: { label: 'APK', cls: 'bg-lime-500/90 text-zinc-900' },
+};
 
 interface DashboardProps {
   profile: ProfileData;
@@ -950,11 +965,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   className="absolute inset-0 w-full h-full object-cover animate-ps5-video"
                 />
               ) : (
-                <div 
-                  key={activeGame.id}
-                  className="absolute inset-0 bg-cover bg-center animate-ps5-bg"
-                  style={{ backgroundImage: `url(${activeGame.background_url})` }}
-                />
+                <div key={activeGame.id} className="absolute inset-0 animate-ps5-bg">
+                  {activeGame.background_url && (
+                    <Image
+                      src={activeGame.background_url}
+                      alt=""
+                      fill
+                      priority
+                      sizes="100vw"
+                      className="object-cover"
+                    />
+                  )}
+                </div>
               )}
               {/* Dynamic Aura background effect */}
               <DynamicAura gameSlug={activeGame?.slug} />
@@ -983,6 +1005,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 ref={carouselRef}
                 className="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar pt-2 scroll-smooth"
               >
+                {/* Skeletons pendant le chargement du catalogue (évite l'écran vide). */}
+                {games.length === 0 && Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={`skeleton-${i}`}
+                    className="flex-shrink-0 w-[130px] h-[195px] rounded-xl bg-zinc-900/60 border border-zinc-800/60 animate-pulse"
+                    style={{ animationDelay: `${i * 80}ms` }}
+                  />
+                ))}
                 {games.map((game, idx) => {
                   const isFocused = idx === focusedIndex;
                   const gameOwned = isGameOwned(game);
@@ -1000,11 +1030,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                           : 'border-zinc-800/80 opacity-60 hover:opacity-90 z-20'
                       }`}
                     >
-                      <img src={game.background_url} alt={game.title} className="w-full h-full object-cover" />
-                      
+                      {/* Jaquette optimisée : les cartes hors écran ne chargent PAS leur image
+                          (lazy-load next/image) → carrousel fluide même avec 50+ jeux. */}
+                      {game.background_url ? (
+                        <Image
+                          src={game.background_url}
+                          alt={game.title}
+                          fill
+                          sizes="130px"
+                          className="object-cover"
+                          priority={isFocused}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-950 via-violet-950/60 to-zinc-950" />
+                      )}
+
                       {/* Gradient overlay inside the card */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent z-10" />
-                      
+
+                      {/* Badge console */}
+                      {(() => {
+                        const b = RUNTIME_BADGE[game.runtime] || { label: game.runtime.toUpperCase(), cls: 'bg-zinc-700/90 text-white' };
+                        return (
+                          <span className={`absolute top-1.5 left-1.5 z-20 px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-wider shadow ${b.cls}`}>
+                            {b.label}
+                          </span>
+                        );
+                      })()}
+
                       {/* Details on the card */}
                       <div className="absolute inset-0 p-3 flex flex-col justify-end z-20">
                         {/* Bottom title */}
