@@ -83,7 +83,7 @@
     interpolate: true,  // interpolation auto du rendu client
 
     // ── interne ──
-    _stateCbs: [], _inputCbs: [], _renderCbs: [],
+    _stateCbs: [], _inputCbs: [], _renderCbs: [], _roleCbs: [],
     _lastSend: 0,
     _buffer: [],        // [{t, state}] côté client
     _loopOn: false,
@@ -108,6 +108,30 @@
     },
     /** Reçoit les inputs des joueurs distants. cb({ direction, action, playerNumber, userId }). */
     onInput: function (cb) { if (typeof cb === 'function') this._inputCbs.push(cb); return this; },
+
+    // ════════ MIGRATION D'HÔTE ════════
+    /**
+     * S'abonne aux changements de rôle (migration d'hôte). Le callback reçoit
+     * { mode, isHost, isClient, playerNumber, seed } où `seed` = dernier état reçu
+     * (utile au nouvel hôte pour reprendre la partie EXACTEMENT où elle en était).
+     */
+    onRoleChange: function (cb) { if (typeof cb === 'function') this._roleCbs.push(cb); return this; },
+
+    /** Applique un nouveau rôle à chaud (appelé via le message FUNNY_ROLE_CHANGE du runner). */
+    _applyMode: function (mode, playerNumber) {
+      if (mode !== 'host' && mode !== 'client' && mode !== 'local') return;
+      var changed = mode !== this.mode;
+      this.mode = mode;
+      this.isHost = mode === 'host';
+      this.isClient = mode === 'client';
+      this.isOnline = this.isHost || this.isClient;
+      if (playerNumber != null) this.playerNumber = playerNumber;
+      this._lastSend = 0; // autorise une diffusion immédiate si on devient hôte
+      if (changed) {
+        var info = { mode: mode, isHost: this.isHost, isClient: this.isClient, playerNumber: this.playerNumber, seed: this._latest };
+        for (var i = 0; i < this._roleCbs.length; i++) { try { this._roleCbs[i](info); } catch (e) {} }
+      }
+    },
 
     // ════════ CÔTÉ CLIENT ════════
     /** Envoie un input local à l'hôte. ex: sendInput({ direction:'LEFT', action:'down' }). */
@@ -178,6 +202,7 @@
       var d = ev.data; if (!d || !d.type) return;
       if (d.type === MSG.IMPORT && d.state) FunnyNet._onStateMsg(d.state);
       else if (d.type === MSG.RECV_INPUT) FunnyNet._onInputMsg(d);
+      else if (d.type === 'FUNNY_ROLE_CHANGE') FunnyNet._applyMode(d.mode, d.playerNumber);
     });
     window.FunnyNet = FunnyNet;
   }

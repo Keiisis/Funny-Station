@@ -378,11 +378,35 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
 
     window.addEventListener('message', handleSystemMessage);
 
-    // === ONLINE MULTIPLAYER BRIDGE ===
+    return () => {
+      active = false;
+      window.removeEventListener('message', handleSystemMessage);
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+      if (wasmRafRef.current) {
+        cancelAnimationFrame(wasmRafRef.current);
+      }
+    };
+  }, [gameId, language]);
+
+  // === PONT MULTIJOUEUR EN LIGNE (effet DÉDIÉ, re-câblé si le rôle change) ===
+  // Séparé de la boucle de chargement : lors d'une MIGRATION D'HÔTE, networkMode passe
+  // de 'client' à 'host' SANS recharger le jeu. Cet effet se réexécute alors, reconfigure
+  // le pont et prévient le SDK FunnyNet du nouveau rôle (FUNNY_ROLE_CHANGE).
+  useEffect(() => {
+    if (!gameStateSync || networkMode === 'local') return;
+
+    // Annonce au jeu (SDK FunnyNet) son rôle courant — pierre angulaire de la migration.
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: 'FUNNY_ROLE_CHANGE', mode: networkMode, playerNumber: localPlayerNumber },
+      '*'
+    );
+
     let cleanupSync: (() => void) | null = null;
 
-    if (gameStateSync && networkMode === 'host') {
-      // HOST: Listen for GAME_STATE_EXPORT from game iframe and broadcast to clients
+    if (networkMode === 'host') {
+      // HÔTE : diffuse l'état exporté par le jeu + relaie les inputs distants au jeu.
       const handleGameExport = (event: MessageEvent) => {
         if (event.data?.type === 'GAME_STATE_EXPORT' && event.data.state) {
           gameStateSync.broadcastState(event.data.state);
@@ -390,36 +414,25 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
       };
       window.addEventListener('message', handleGameExport);
 
-      // HOST: Forward remote player inputs to the game iframe
       const unsubInput = gameStateSync.onInputReceived((input) => {
-        if (iframeRef.current?.contentWindow) {
-          iframeRef.current.contentWindow.postMessage({
-            type: 'REMOTE_PLAYER_INPUT',
-            direction: input.direction,
-            playerNumber: input.playerNumber,
-            action: input.action || 'down'
-          }, '*');
-        }
+        iframeRef.current?.contentWindow?.postMessage({
+          type: 'REMOTE_PLAYER_INPUT',
+          direction: input.direction,
+          playerNumber: input.playerNumber,
+          action: input.action || 'down'
+        }, '*');
       });
 
       cleanupSync = () => {
         window.removeEventListener('message', handleGameExport);
         unsubInput();
       };
-    }
-
-    if (gameStateSync && networkMode === 'client') {
-      // CLIENT: Receive game state from host and forward to game iframe
+    } else if (networkMode === 'client') {
+      // CLIENT : reçoit l'état de l'hôte (→ jeu) et renvoie ses inputs locaux.
       const unsubState = gameStateSync.onStateReceived((state) => {
-        if (iframeRef.current?.contentWindow) {
-          iframeRef.current.contentWindow.postMessage({
-            type: 'GAME_STATE_IMPORT',
-            state
-          }, '*');
-        }
+        iframeRef.current?.contentWindow?.postMessage({ type: 'GAME_STATE_IMPORT', state }, '*');
       });
 
-      // CLIENT: Forward local game inputs to the host via sync
       const handleClientInput = (event: MessageEvent) => {
         if (event.data?.type === 'GAME_INPUT') {
           gameStateSync.sendInput(
@@ -438,18 +451,8 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
       };
     }
 
-    return () => {
-      active = false;
-      window.removeEventListener('message', handleSystemMessage);
-      if (cleanupSync) cleanupSync();
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
-      if (wasmRafRef.current) {
-        cancelAnimationFrame(wasmRafRef.current);
-      }
-    };
-  }, [gameId, language]);
+    return () => { if (cleanupSync) cleanupSync(); };
+  }, [gameStateSync, networkMode, localPlayerNumber]);
 
   // --- LOGIQUE SAUVEGARDE & CHARGEMENT ---
 
@@ -972,6 +975,83 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
       window.removeEventListener('funny_gamepad_action', handleGamepad);
     };
   }, [language]);
+
+  // ── TROPHÉES & SAUVEGARDE D'ÉTAT POUR LES JEUX ÉMULÉS (GBA / NES / SNES) ──────
+  // Une ROM commerciale ne peut pas signaler de trophée ni piloter le cloud → le
+  // noyau s'en charge. Sauvegarde d'état EmulatorJS (getState/loadState) stockée
+  // PAR COMPTE dans game_saves (slot 'emu_state') → reprise exacte, multi-appareils.
+  useEffect(() => {
+    const isEmu = language === 'gba' || language === 'nes' || language === 'snes';
+    if (!isEmu) return;
+    let readyHandled = false;
+
+    const onMsg = async (e: MessageEvent) => {
+      const d = e.data;
+      if (!d || !d.type) return;
+
+      if (d.type === 'FUNNY_BUS_GAME_READY') {
+        if (readyHandled) return;
+        readyHandled = true;
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return; // invité : ni trophée persistant ni sauvegarde cloud.
+
+          // (1) Trophée d'entrée « tu as lancé le jeu » — seulement s'il n'est pas déjà obtenu.
+          try {
+            const { fetchTrophiesForGame } = await import('@/lib/db');
+            const trophies = await fetchTrophiesForGame(gameId); // trié par coin_reward asc
+            const entry = trophies[0];
+            if (entry) {
+              const { data: existing } = await supabase
+                .from('user_trophies')
+                .select('trophy_id')
+                .eq('user_id', user.id)
+                .eq('trophy_id', entry.id)
+                .maybeSingle();
+              if (!existing) await handleUnlockTrophy(entry.trophy_key);
+            }
+          } catch (err) { console.warn('[EMU] Trophée d\'entrée:', err); }
+
+          // (2) Restauration de l'état sauvegardé de CE joueur.
+          try {
+            const { data } = await supabase
+              .from('game_saves')
+              .select('save_data')
+              .eq('user_id', user.id)
+              .eq('game_id', gameId)
+              .eq('slot_name', 'emu_state')
+              .maybeSingle();
+            const b64 = (data?.save_data as { state_b64?: string } | null)?.state_b64;
+            if (b64) {
+              // Petit délai : laisse le cœur se stabiliser avant loadState.
+              setTimeout(() => {
+                iframeRef.current?.contentWindow?.postMessage({ type: 'FUNNY_EMU_LOADSTATE', b64 }, '*');
+              }, 600);
+            }
+          } catch (err) { console.warn('[EMU] Restauration d\'état:', err); }
+        } catch (err) { console.warn('[EMU] GAME_READY:', err); }
+      } else if (d.type === 'FUNNY_EMU_STATE' && typeof d.b64 === 'string') {
+        // (2) Sauvegarde de l'état → cloud, par utilisateur (upsert sur la contrainte unique).
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          await supabase.from('game_saves').upsert(
+            {
+              user_id: user.id,
+              game_id: gameId,
+              slot_name: 'emu_state',
+              save_data: { format: 'emu-state', core: language, state_b64: d.b64 },
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,game_id,slot_name' }
+          );
+        } catch (err) { console.warn('[EMU] Sauvegarde d\'état:', err); }
+      }
+    };
+
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [language, gameId]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full bg-black flex items-center justify-center rounded-lg overflow-hidden border border-zinc-800">

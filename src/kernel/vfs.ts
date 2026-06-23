@@ -127,7 +127,27 @@ export class VirtualFileSystem {
     });
   }
 
-  // Synchronisation Cloud avec Supabase Storage ou Table (game_saves)
+  // ── Sérialisation binaire-safe pour JSONB ───────────────────────────────────
+  // Un fichier VFS peut être une chaîne OU un Uint8Array (binaire). JSON.stringify
+  // détruit les Uint8Array (→ objets d'index), d'où des sauvegardes illisibles.
+  // On encode donc chaque fichier en { t:'str'|'bin', v } où le binaire passe en base64.
+  private static u8ToB64(u8: Uint8Array): string {
+    let s = '';
+    const CHUNK = 0x8000; // évite le dépassement de pile sur les gros tableaux
+    for (let i = 0; i < u8.length; i += CHUNK) {
+      s += String.fromCharCode.apply(null, Array.from(u8.subarray(i, i + CHUNK)));
+    }
+    return btoa(s);
+  }
+
+  private static b64ToU8(b64: string): Uint8Array {
+    const bin = atob(b64);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return u8;
+  }
+
+  // Synchronisation Cloud avec Supabase (table game_saves, une ligne par user+game+slot).
   public async syncToCloud(gameId: string): Promise<boolean> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -137,17 +157,30 @@ export class VirtualFileSystem {
       }
 
       const files = await this.getAllFiles();
-      const saveContent = JSON.stringify(files);
-      const encoder = new TextEncoder();
-      const bytes = encoder.encode(saveContent);
+      const serialized: Record<string, { t: 'str' | 'bin'; v: string }> = {};
+      for (const [path, content] of Object.entries(files)) {
+        if (content instanceof Uint8Array) {
+          serialized[path] = { t: 'bin', v: VirtualFileSystem.u8ToB64(content) };
+        } else if (typeof content === 'string') {
+          serialized[path] = { t: 'str', v: content };
+        } else {
+          // Objet quelconque → JSON (cas rare ; on garde la donnée).
+          serialized[path] = { t: 'str', v: JSON.stringify(content) };
+        }
+      }
 
-      const { error } = await supabase.from('game_saves').upsert({
-        user_id: user.id,
-        game_id: gameId,
-        slot_name: 'cloud_sync',
-        save_data: bytes,
-        checksum: crypto.randomUUID()
-      });
+      // onConflict OBLIGATOIRE : la PK est `id`, l'unicité est (user_id, game_id, slot_name).
+      // Sans ça, l'upsert tente un INSERT et viole la contrainte dès la 2e sauvegarde.
+      const { error } = await supabase.from('game_saves').upsert(
+        {
+          user_id: user.id,
+          game_id: gameId,
+          slot_name: 'cloud_sync',
+          save_data: { format: 'vfs-v2', files: serialized },
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,game_id,slot_name' }
+      );
 
       if (error) throw error;
       console.log("[VFS] Sauvegarde synchronisée avec succès sur Supabase.");
@@ -169,20 +202,24 @@ export class VirtualFileSystem {
         .eq('user_id', user.id)
         .eq('game_id', gameId)
         .eq('slot_name', 'cloud_sync')
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         console.log("[VFS] Aucune sauvegarde trouvée dans le cloud.");
         return false;
       }
 
-      const decoder = new TextDecoder();
-      const filesJson = decoder.decode(data.save_data as any);
-      const files = JSON.parse(filesJson);
+      const sd = data.save_data as { format?: string; files?: Record<string, { t: string; v: string }> } | null;
+      // Compat : tout format inconnu (ancien binaire corrompu) est ignoré proprement.
+      if (!sd || sd.format !== 'vfs-v2' || !sd.files) {
+        console.log("[VFS] Sauvegarde cloud absente ou format obsolète — ignorée.");
+        return false;
+      }
 
       await this.clear();
-      for (const [path, content] of Object.entries(files)) {
-        await this.writeFile(path, content as any);
+      for (const [path, entry] of Object.entries(sd.files)) {
+        if (entry?.t === 'bin') await this.writeFile(path, VirtualFileSystem.b64ToU8(entry.v));
+        else await this.writeFile(path, entry?.v ?? '');
       }
 
       console.log("[VFS] Restauration cloud complétée.");

@@ -81,9 +81,31 @@ if (FunnyNet.isClient) {
 En **solo** (`isOnline === false`), `broadcastState`/`sendInput` sont des no-ops : le même
 code tourne sans réseau. Pas de branche conditionnelle lourde.
 
+## Migration d'hôte (l'hôte peut tomber sans tuer la partie)
+
+Si l'hôte **perd la connexion** (crash, fermeture d'onglet → chute de présence), un
+remplaçant est élu **automatiquement** et la partie continue :
+
+1. `GameRoom` détecte l'absence de l'hôte dans la présence Supabase.
+2. Élection **déterministe** : le joueur présent au plus petit `playerNumber` gagne
+   (départage par `userId`). Tous les clients calculent le même → pas de coordination.
+3. Le nouvel hôte : `GameStateSync.setHost(true)`, son runner repasse `networkMode='host'`
+   et envoie `FUNNY_ROLE_CHANGE` au SDK.
+4. Côté SDK : `FunnyNet.onRoleChange({ seed })` se déclenche ; le jeu **reprend depuis
+   le dernier état reçu** (`seed`) et redevient autorité (cf. `orb-arena`).
+
+```js
+FunnyNet.onRoleChange((info) => {
+  if (info.isHost) seedWorldFrom(info.seed); // reprend là où l'ancien hôte s'était arrêté
+});
+```
+
+Note : une sortie **explicite** de l'hôte (bouton Quitter) diffuse `room_closed` =
+fin de session pour tous (intentionnel). La migration ne concerne que les **chutes**.
+
 ## Limites connues
-- Modèle host-authoritative : si l'hôte se déconnecte, la partie s'arrête (pas de migration
-  d'hôte pour l'instant).
 - Pas de prédiction d'input côté client (mouvement = latence aller-retour). L'interpolation
   masque la gigue ; pour un jeu très rapide on pourrait ajouter de la prédiction plus tard.
 - 4 joueurs max (aligné sur la manette et le lobby).
+- La graine de migration = dernier état reçu : un ou deux ticks peuvent être rejoués,
+  invisible en pratique grâce à l'interpolation.

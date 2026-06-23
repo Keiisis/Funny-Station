@@ -305,6 +305,36 @@
     })();
   </script>
 
+  <!-- Pont de SAUVEGARDE D'ETAT Funny Station : exporte/charge l'etat EmulatorJS
+       (getState/loadState) pour une reprise par compte et multi-appareils. -->
+  <script>
+    (function () {
+      function u8b64(u8){var s='';var C=0x8000;for(var i=0;i<u8.length;i+=C){s+=String.fromCharCode.apply(null,u8.subarray(i,i+C));}return btoa(s);}
+      function b64u8(b){var bin=atob(b);var u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}
+      function gm(){ return (window.EJS_emulator && window.EJS_emulator.gameManager) || null; }
+      function exportState(){
+        try{
+          var g = gm(); if(!g || !g.getState) return;
+          var r = g.getState();
+          Promise.resolve(r).then(function(st){
+            if(st && st.length){ window.parent.postMessage({ type:'FUNNY_EMU_STATE', b64: u8b64(st) }, '*'); }
+          }).catch(function(){});
+        }catch(e){}
+      }
+      window.addEventListener('message', function (ev){
+        var d = ev.data; if(!d) return;
+        if(d.type === 'FUNNY_EMU_LOADSTATE' && d.b64){
+          try{ var g = gm(); if(g && g.loadState){ g.loadState(b64u8(d.b64)); } }catch(e){ console.warn('[EMU] loadState KO', e); }
+        } else if(d.type === 'FUNNY_EMU_REQ_STATE'){ exportState(); }
+      });
+      // Sauvegarde periodique + a la sortie / au masquage de l'onglet.
+      setInterval(exportState, 12000);
+      document.addEventListener('visibilitychange', function(){ if(document.hidden) exportState(); });
+      window.addEventListener('pagehide', exportState);
+      window.addEventListener('beforeunload', exportState);
+    })();
+  </script>
+
   <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 
 </body>

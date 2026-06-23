@@ -13,10 +13,11 @@ function generateRoomCode(): string {
   return code;
 }
 
-export type RoomEvent = 
+export type RoomEvent =
   | { type: 'player_joined'; player: OnlinePlayer }
   | { type: 'player_left'; player: OnlinePlayer }
   | { type: 'game_start'; gameId: string }
+  | { type: 'host_migrated'; newHostId: string; amNewHost: boolean }
   | { type: 'room_closed' };
 
 export class GameRoom {
@@ -29,6 +30,7 @@ export class GameRoom {
   private isHost: boolean;
   private listeners: ((event: RoomEvent) => void)[] = [];
   private playersChangedListeners: ((players: OnlinePlayer[]) => void)[] = [];
+  private migrated = false; // true dès qu'une migration d'hôte a eu lieu
 
   constructor(config: {
     roomCode: string;
@@ -157,7 +159,13 @@ export class GameRoom {
           // Trier par ordre d'arrivée et assigner les numéros si on est l'hôte
           this.players = newPlayers;
 
-          if (this.isHost) {
+          // MIGRATION D'HÔTE : si l'hôte courant a disparu de la présence, élire un
+          // remplaçant de façon déterministe (tous les clients calculent le même).
+          this.maybeMigrateHost(newPlayers);
+
+          // L'hôte (re)assigne les numéros — sauf APRÈS une migration, pour garder
+          // les numéros stables en pleine partie (pas de reshuffle perturbant).
+          if (this.isHost && !this.migrated) {
             this.assignPlayerNumbers();
           }
 
@@ -179,6 +187,46 @@ export class GameRoom {
           }
         });
     });
+  }
+
+  /**
+   * Élit un nouvel hôte si l'hôte courant a quitté la présence. Déterministe :
+   * le joueur présent au plus petit playerNumber gagne (départage par userId), si
+   * bien que TOUS les clients aboutissent au même hôte sans coordination centrale.
+   * Le nouvel hôte reprend la partie depuis le dernier état reçu (cf. SDK FunnyNet).
+   */
+  private maybeMigrateHost(present: OnlinePlayer[]) {
+    if (!this.gameId) return;              // pas de partie active → rien à migrer
+    if (present.length === 0) return;
+
+    const hostPresent = !!this.hostId && present.some(p => p.userId === this.hostId);
+    if (hostPresent) return;               // l'hôte est toujours là
+
+    const elected = [...present].sort((a, b) =>
+      (a.playerNumber - b.playerNumber) || a.userId.localeCompare(b.userId)
+    )[0];
+    if (!elected || elected.userId === this.hostId) return;
+
+    const newHostId = elected.userId;
+    const amNewHost = newHostId === this.localPlayer.userId;
+    this.hostId = newHostId;
+    this.migrated = true;
+
+    if (amNewHost) {
+      this.isHost = true;
+      this.localPlayer.isHost = true;
+      // Re-publie sa présence en tant qu'hôte pour que les autres le constatent.
+      this.channel?.track({
+        userId: this.localPlayer.userId,
+        username: this.localPlayer.username,
+        isHost: true,
+        playerNumber: this.localPlayer.playerNumber,
+        role: 'player',
+        online_at: new Date().toISOString()
+      });
+    }
+
+    this.emit({ type: 'host_migrated', newHostId, amNewHost });
   }
 
   private lastAssignment: Map<string, number> = new Map();

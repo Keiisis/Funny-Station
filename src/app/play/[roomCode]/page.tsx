@@ -7,7 +7,7 @@ import { fetchGameById } from '@/lib/db';
 import { GameRoom } from '@/multiplayer/GameRoom';
 import { GameStateSync } from '@/multiplayer/GameStateSync';
 import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
-import type { OnlinePlayer, Game } from '@/types';
+import type { OnlinePlayer, Game, NetworkMode } from '@/types';
 import { Users, Wifi, WifiOff, Copy, Check, ArrowLeft, Gamepad, Smartphone, X } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -26,6 +26,8 @@ function PlayContent() {
   const [players, setPlayers] = useState<OnlinePlayer[]>([]);
   const [localPlayerNumber, setLocalPlayerNumber] = useState(0);
   const localPlayerNumberRef = useRef(0);
+  // Rôle réseau de CE joueur : 'client' au départ, peut devenir 'host' par migration.
+  const [networkMode, setNetworkMode] = useState<NetworkMode>('client');
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [game, setGame] = useState<Game | null>(null);
@@ -127,6 +129,17 @@ function PlayContent() {
       }
       if (event.type === 'room_closed') {
         setStatus('closed');
+      }
+      if (event.type === 'host_migrated') {
+        // L'hôte a disparu → un joueur est élu. Si c'est MOI, je prends l'autorité :
+        // mon GameStateSync passe en mode hôte et le runner repasse networkMode='host'
+        // (le SDK FunnyNet reçoit FUNNY_ROLE_CHANGE et reprend la partie depuis le
+        // dernier état reçu). Sinon, je continue en client (l'hôte a juste changé).
+        console.log('[Play] Migration d\'hôte → nouvel hôte:', event.newHostId, event.amNewHost ? '(moi)' : '');
+        if (event.amNewHost) {
+          syncRef.current?.setHost(true);
+          setNetworkMode('host');
+        }
       }
     });
 
@@ -400,7 +413,7 @@ function PlayContent() {
             entryPoint={game.entry_point}
             language={game.runtime}
             manifest={game.manifest}
-            networkMode="client"
+            networkMode={networkMode}
             gameStateSync={syncRef.current}
             localPlayerNumber={localPlayerNumber}
           />

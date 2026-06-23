@@ -25,23 +25,35 @@ export class GameStateSync {
   private setupListeners() {
     if (!this.channel) return;
 
-    if (this.isHost) {
-      // L'hôte écoute les inputs des clients
-      this.channel.on('broadcast', { event: 'player_input' }, ({ payload }: any) => {
-        this.inputListeners.forEach(l => l({
-          direction: payload.direction,
-          playerNumber: payload.playerNumber,
-          userId: payload.userId,
-          action: payload.action || 'down'
-        }));
-      });
-    } else {
-      // Le client écoute l'état du jeu envoyé par l'hôte
-      this.channel.on('broadcast', { event: 'game_state' }, ({ payload }: any) => {
-        this.stateListeners.forEach(l => l(payload.state));
-      });
-    }
+    // Les DEUX écouteurs sont toujours enregistrés mais gardés par le rôle courant
+    // (`this.isHost`). Ainsi le rôle peut basculer à chaud (migration d'hôte) via
+    // setHost() sans devoir ré-enregistrer/retirer des callbacks Supabase.
+    this.channel.on('broadcast', { event: 'player_input' }, ({ payload }: any) => {
+      if (!this.isHost) return; // seul l'hôte traite les inputs distants
+      this.inputListeners.forEach(l => l({
+        direction: payload.direction,
+        playerNumber: payload.playerNumber,
+        userId: payload.userId,
+        action: payload.action || 'down'
+      }));
+    });
+
+    this.channel.on('broadcast', { event: 'game_state' }, ({ payload }: any) => {
+      if (this.isHost) return; // l'hôte ne consomme pas l'état (il en est la source)
+      this.stateListeners.forEach(l => l(payload.state));
+    });
   }
+
+  /**
+   * Bascule le rôle à chaud (MIGRATION D'HÔTE). Un client promu hôte se met à
+   * traiter les inputs et à diffuser l'état ; l'inverse pour une rétrogradation.
+   */
+  setHost(isHost: boolean) {
+    this.isHost = isHost;
+    this.lastBroadcastTime = 0; // diffusion immédiate possible dès la promotion
+  }
+
+  getIsHost(): boolean { return this.isHost; }
 
   /**
    * [HOST] Diffuse l'état du jeu aux clients (throttled à 30fps)
