@@ -993,10 +993,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                         setFocusedIndex(idx);
                         AudioEngine.getInstance().playSFX('select');
                       }}
-                      className={`relative flex-shrink-0 cursor-pointer rounded-xl w-[108px] h-[192px] overflow-hidden transition-all duration-300 transform outline-none border-2 ${
+                      className={`relative flex-shrink-0 cursor-pointer rounded-xl w-[130px] h-[195px] overflow-hidden transition-all duration-300 transform outline-none border-2 ${
                         isFocused
-                          ? 'scale-105 border-white shadow-[0_0_20px_rgba(0,114,206,0.6)]'
-                          : 'border-zinc-800/80 opacity-60 hover:opacity-90'
+                          ? 'scale-110 border-white shadow-[0_0_25px_rgba(255,255,255,0.45),0_0_12px_rgba(0,114,206,0.3)] z-30'
+                          : 'border-zinc-800/80 opacity-60 hover:opacity-90 z-20'
                       }`}
                     >
                       <img src={game.background_url} alt={game.title} className="w-full h-full object-cover" />
