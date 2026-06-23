@@ -7,6 +7,12 @@ export class AudioEngine {
   private isAmbientSynthesized = false;
   private volume = 1.0;
 
+  // Playlist console d'arrière-plan
+  private playlist: string[] = [];
+  private playlistLoaded = false;
+  private currentTrackIndex = -1;
+  private isPlayingConsolePlaylist = false;
+
   private constructor() {
     // Initialisé à la demande pour respecter la politique d'autoplay
   }
@@ -132,74 +138,144 @@ export class AudioEngine {
     }
   }
 
+  // Charger la playlist depuis le serveur de manière asynchrone
+  private async loadPlaylist() {
+    if (this.playlistLoaded) return;
+    try {
+      const res = await fetch('/api/musics');
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list) && list.length > 0) {
+          this.playlist = this.shuffleArray(list);
+          this.playlistLoaded = true;
+        }
+      }
+    } catch (e) {
+      console.warn("Impossible de charger la playlist de musique d'ambiance:", e);
+    }
+  }
+
+  private shuffleArray(array: string[]): string[] {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // Jouer la piste suivante dans la playlist
+  private playNextTrack() {
+    if (this.playlist.length === 0) return;
+    this.currentTrackIndex = (this.currentTrackIndex + 1) % this.playlist.length;
+    const nextUrl = this.playlist[this.currentTrackIndex];
+
+    this.stopAmbientMusic();
+
+    this.isAmbientSynthesized = false;
+    this.isPlayingConsolePlaylist = true;
+
+    this.ambientElement = new Audio(nextUrl);
+    this.ambientElement.loop = false;
+    // Volume adéquat et équilibré : 0.18 * volume système (doux mais présent)
+    this.ambientElement.volume = 0.18 * this.volume;
+
+    this.ambientElement.addEventListener('ended', () => {
+      if (this.isPlayingConsolePlaylist) {
+        this.playNextTrack();
+      }
+    });
+
+    this.ambientElement.play().catch((err) => {
+      console.warn("Échec de la lecture de la piste d'ambiance en arrière-plan:", err);
+    });
+  }
+
+  // Synthétiseur d'ambiance alternatif (fallback)
+  private playSynthesizedHum() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    this.currentAmbientGain = this.ctx.createGain();
+    this.currentAmbientGain.gain.setValueAtTime(0, now);
+    this.currentAmbientGain.gain.linearRampToValueAtTime(0.08 * this.volume, now + 2.0); // fade in
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 250;
+
+    this.currentAmbientGain.connect(filter);
+    filter.connect(this.ctx.destination);
+
+    const osc1 = this.ctx.createOscillator();
+    osc1.type = 'sawtooth';
+    osc1.frequency.value = 65.41; // C2
+
+    const osc2 = this.ctx.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.value = 65.75; // C2 légèrement désaccordé
+
+    osc1.connect(this.currentAmbientGain);
+    osc2.connect(this.currentAmbientGain);
+
+    osc1.start(now);
+    osc2.start(now);
+
+    this.currentAmbientSource = osc1;
+    (this.currentAmbientSource as any).stopCustom = () => {
+      try {
+        osc1.stop();
+        osc2.stop();
+      } catch (e) {}
+    };
+  }
+
   // Musique de fond (ambient) dynamique
   public playAmbientMusic(url?: string) {
     this.initCtx();
     this.stopAmbientMusic();
 
     if (url) {
-      // Charger la musique depuis l'URL
+      // Charger la musique spécifique du jeu focalisé
       this.isAmbientSynthesized = false;
+      this.isPlayingConsolePlaylist = false;
       this.ambientElement = new Audio(url);
       this.ambientElement.loop = true;
       this.ambientElement.volume = 0.25 * this.volume;
       this.ambientElement.play().catch((err) => {
-        console.warn("L'autoplay de la musique d'ambiance a été bloqué par le navigateur:", err);
+        console.warn("L'autoplay de la musique d'ambiance du jeu a été bloqué par le navigateur:", err);
       });
     } else {
-      // Si aucune URL, on synthétise un bruit d'ambiance ultra-doux (PS5 Pad)
-      if (!this.ctx) return;
-      this.isAmbientSynthesized = true;
-      
-      const now = this.ctx.currentTime;
-      this.currentAmbientGain = this.ctx.createGain();
-      this.currentAmbientGain.gain.setValueAtTime(0, now);
-      this.currentAmbientGain.gain.linearRampToValueAtTime(0.08 * this.volume, now + 2.0); // fade in
-      
-      // Filtre passe-bas très bas pour rendre le son étouffé et ambient
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 250;
+      // Playlist console générale en arrière-plan
+      this.isPlayingConsolePlaylist = true;
 
-      this.currentAmbientGain.connect(filter);
-      filter.connect(this.ctx.destination);
+      if (this.playlistLoaded && this.playlist.length > 0) {
+        this.playNextTrack();
+      } else {
+        // Jouer le hum de secours temporairement
+        this.isAmbientSynthesized = true;
+        this.playSynthesizedHum();
 
-      // Création de 2 oscillateurs lents désaccordés pour un effet de pad
-      const osc1 = this.ctx.createOscillator();
-      osc1.type = 'sawtooth';
-      osc1.frequency.value = 65.41; // C2
-
-      const osc2 = this.ctx.createOscillator();
-      osc2.type = 'triangle';
-      osc2.frequency.value = 65.75; // C2 légèrement désaccordé (+9 cents)
-
-      osc1.connect(this.currentAmbientGain);
-      osc2.connect(this.currentAmbientGain);
-
-      osc1.start(now);
-      osc2.start(now);
-
-      // On garde une référence pour pouvoir les stopper
-      this.currentAmbientSource = osc1; // Hack pour conserver une référence à stopper
-      // On wrap le stop dans une fonction personnalisée
-      const self = this;
-      (this.currentAmbientSource as any).stopCustom = () => {
-        try {
-          osc1.stop();
-          osc2.stop();
-        } catch (e) {}
-      };
+        // Charger et démarrer la playlist dès qu'elle est prête
+        this.loadPlaylist().then(() => {
+          if (this.isPlayingConsolePlaylist && this.playlist.length > 0) {
+            this.stopAmbientMusic();
+            this.playNextTrack();
+          }
+        });
+      }
     }
   }
 
   public stopAmbientMusic() {
-    // Arrêter l'élément audio s'il existe
+    this.isPlayingConsolePlaylist = false;
+
+    // Arrêter l'élément audio
     if (this.ambientElement) {
       this.ambientElement.pause();
       this.ambientElement = null;
     }
 
-    // Arrêter le synthétiseur d'ambiance
+    // Arrêter le synthétiseur de secours
     if (this.isAmbientSynthesized && this.currentAmbientSource) {
       const now = this.ctx ? this.ctx.currentTime : 0;
       if (this.ctx && this.currentAmbientGain) {
@@ -211,18 +287,22 @@ export class AudioEngine {
         if (source.stopCustom) {
           source.stopCustom();
         } else {
-          try { source.stop(); } catch(e) {}
+          try { source.stop(); } catch (e) {}
         }
       }, 500);
       this.currentAmbientSource = null;
       this.currentAmbientGain = null;
+      this.isAmbientSynthesized = false;
     }
   }
 
   public setVolume(level: number) {
     this.volume = Math.max(0, Math.min(1, level));
     if (this.ambientElement) {
-      this.ambientElement.volume = this.volume * 0.25;
+      // Ajuster selon le mode
+      this.ambientElement.volume = this.isPlayingConsolePlaylist 
+        ? this.volume * 0.18 
+        : this.volume * 0.25;
     }
     if (this.currentAmbientGain && this.ctx) {
       const now = this.ctx.currentTime;
