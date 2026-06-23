@@ -17,7 +17,7 @@ VALUES
     'gba', 
     '0339 - Sonic Advance (E)(Lightforce).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1470&auto=format&fit=crop',
+    '/images/Sonic Advance.png',
     0, 
     '{}'::jsonb, 
     'published'
@@ -29,7 +29,7 @@ VALUES
     'gba', 
     '0951 - Mortal Kombat Advance (E)(GBANow).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Mortal Kombat Advance.png',
     0, 
     '{}'::jsonb, 
     'published'
@@ -41,7 +41,7 @@ VALUES
     'nes', 
     '1200-in-1 (J) [p1].nes', 
     '/games',
-    'https://images.unsplash.com/photo-1580234810907-b40315b76418?q=80&w=1470&auto=format&fit=crop',
+    '/images/1200-in-1 NES Multicart.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -53,7 +53,7 @@ VALUES
     'gba', 
     '2 Games in 1 - Dragon Ball Z - The Legacy of Goku I & II (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1374&auto=format&fit=crop',
+    '/images/Dragon Ball Z The Legacy of Goku I & II.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -65,7 +65,7 @@ VALUES
     'gba', 
     'Avatar - the Last Airbender # GBA.GBA', 
     '/games',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1494&auto=format&fit=crop',
+    '/images/Avatar The Last Airbender.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -77,7 +77,7 @@ VALUES
     'gba', 
     'Batman Begins (USA, Europe) (En,Fr,De,Es,It,Nl).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1470&auto=format&fit=crop',
+    '/images/Batman Begins.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -89,7 +89,7 @@ VALUES
     'gba', 
     'Contra Advance - The Alien Wars EX (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1470&auto=format&fit=crop',
+    '/images/Contra Advance The Alien Wars EX.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -101,7 +101,7 @@ VALUES
     'snes', 
     'Contra III - The Alien Wars (USA).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1551103782-8ab07afd45c1?q=80&w=1470&auto=format&fit=crop',
+    '/images/Contra III The Alien Wars.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -113,7 +113,7 @@ VALUES
     'gba', 
     'Doom (USA, Europe).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1374&auto=format&fit=crop',
+    '/images/Doom.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -125,7 +125,7 @@ VALUES
     'gba', 
     'Doom II (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1470&auto=format&fit=crop',
+    '/images/Doom II.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -137,7 +137,7 @@ VALUES
     'nes', 
     'Double Dragon (USA).nes', 
     '/games',
-    'https://images.unsplash.com/photo-1580234810907-b40315b76418?q=80&w=1470&auto=format&fit=crop',
+    '/images/Double Dragon.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -149,7 +149,7 @@ VALUES
     'gba', 
     'Double Dragon Advance (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Double Dragon Advance.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -161,7 +161,7 @@ VALUES
     'snes', 
     'Dragon Ball Z - Super Butoden 2 (V1.1) (J).fig', 
     '/games',
-    'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1374&auto=format&fit=crop',
+    '/images/Dragon Ball Z Super Butoden 2.svg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -173,7 +173,7 @@ VALUES
     'gba', 
     'Dragon Ball Z - Supersonic Warriors (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1494&auto=format&fit=crop',
+    '/images/Dragon Ball Z Supersonic Warriors.png',
     0, 
     '{}'::jsonb, 
     'published'
@@ -185,7 +185,7 @@ VALUES
     'gba', 
     'FIFA 2007 # GBA.GBA', 
     '/games',
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1470&auto=format&fit=crop',
+    '/images/FIFA 07.png',
     0, 
     '{}'::jsonb, 
     'published'
@@ -197,7 +197,7 @@ VALUES
     'gba', 
     'Fire Emblem - The Binding Blade (T).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1470&auto=format&fit=crop',
+    '/images/Fire Emblem The Binding Blade.png',
     0, 
     '{}'::jsonb, 
     'published'
@@ -209,7 +209,7 @@ VALUES
     'gba', 
     'Ghost Rider (USA, Europe) (En,Fr,De,Es,It,Nl).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1470&auto=format&fit=crop',
+    '/images/Ghost Rider.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -221,7 +221,7 @@ VALUES
     'gba', 
     'King of Fighters EX, The - NeoBlood (USA) (Rev 1).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/The King of Fighters EX NeoBlood.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -233,7 +233,7 @@ VALUES
     'gba', 
     'Kingdom Hearts - Chain of Memories (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1494&auto=format&fit=crop',
+    '/images/Kingdom Hearts Chain of Memories.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -245,7 +245,7 @@ VALUES
     'gba', 
     'Lara Croft Tomb Raider - Legend (USA) (En,Fr,De,Es,It).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1374&auto=format&fit=crop',
+    '/images/Lara Croft Tomb Raider Legend.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -257,7 +257,7 @@ VALUES
     'gba', 
     'Mario vs. Donkey Kong (USA, Australia).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1470&auto=format&fit=crop',
+    '/images/Mario vs. Donkey Kong.jfif',
     0, 
     '{}'::jsonb, 
     'published'
@@ -269,7 +269,7 @@ VALUES
     'gba', 
     'Marvel - Ultimate Alliance (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1627856013091-fed6e4e30025?q=80&w=1470&auto=format&fit=crop',
+    '/images/Marvel Ultimate Alliance.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -281,7 +281,7 @@ VALUES
     'snes', 
     'Marvel Super Heroes in War of the Gems (USA).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1627856013091-fed6e4e30025?q=80&w=1470&auto=format&fit=crop',
+    '/images/Marvel Super Heroes in War of the Gems.png',
     0, 
     '{}'::jsonb, 
     'published'
@@ -293,7 +293,7 @@ VALUES
     'gba', 
     'Mega Man Zero (USA, Europe).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1374&auto=format&fit=crop',
+    '/images/Mega Man Zero.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -305,7 +305,7 @@ VALUES
     'snes', 
     'Mortal Kombat (USA) (Rev 1).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Mortal Kombat.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -317,7 +317,7 @@ VALUES
     'gba', 
     'Mortal Kombat - Deadly Alliance (USA) (En,Fr,De,Es,It).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Mortal Kombat Deadly Alliance.jpeg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -329,7 +329,7 @@ VALUES
     'gba', 
     'Mortal Kombat - Tournament Edition (U) (M5) [hI].gba', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Mortal Kombat Tournament Edition.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -341,7 +341,7 @@ VALUES
     'snes', 
     'Mortal Kombat II (USA) (Rev 1).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Mortal Kombat II.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -353,7 +353,7 @@ VALUES
     'gba', 
     'Need for Speed - Underground 2 (USA, Europe) (En,Fr,De,It).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1470&auto=format&fit=crop',
+    '/images/Need for Speed Underground 2.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -365,7 +365,7 @@ VALUES
     'snes', 
     'Ninja Gaiden Trilogy (USA).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1470&auto=format&fit=crop',
+    '/images/Ninja Gaiden Trilogy.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -377,7 +377,7 @@ VALUES
     'gba', 
     'Prince of Persia - The Sands of Time (USA) (En,Fr,Es).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1511512578047-dfb367046420?q=80&w=1470&auto=format&fit=crop',
+    '/images/Prince of Persia The Sands of Time.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -389,7 +389,7 @@ VALUES
     'gba', 
     'Shaman King - Master of Spirits (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1494&auto=format&fit=crop',
+    '/images/Shaman King Master of Spirits.png',
     0, 
     '{}'::jsonb, 
     'published'
@@ -401,7 +401,7 @@ VALUES
     'gba', 
     'Sonic Battle (USA) (En,Ja,Fr,De,Es,It).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1470&auto=format&fit=crop',
+    '/images/Sonic Battle.jpeg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -413,7 +413,7 @@ VALUES
     'snes', 
     'Spider-Man - Animated (E).smc', 
     '/games',
-    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1470&auto=format&fit=crop',
+    '/images/Spider-Man The Animated Series.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -425,7 +425,7 @@ VALUES
     'gba', 
     'Spider-Man 3 (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1470&auto=format&fit=crop',
+    '/images/Spider-Man 3.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -437,7 +437,7 @@ VALUES
     'snes', 
     'Street Fighter 5 (Hack).smc', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Street Fighter V (Hack).jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -449,7 +449,7 @@ VALUES
     'snes', 
     'Street Fighter Alpha 2 (USA).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Street Fighter Alpha 2.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -461,7 +461,7 @@ VALUES
     'snes', 
     'Street Fighter II Turbo (V1.0) (E) [!].smc', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Street Fighter II Turbo.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -473,7 +473,7 @@ VALUES
     'gba', 
     'Super Mario Advance 3 - Yoshi''s Island (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=1470&auto=format&fit=crop',
+    '/images/Super Mario Advance 3 Yoshi''s Island.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -485,7 +485,7 @@ VALUES
     'gba', 
     'Super Street Fighter II Turbo - Revival (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Super Street Fighter II Turbo Revival.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -497,7 +497,7 @@ VALUES
     'gba', 
     'Teenage Mutant Ninja Turtles (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=1470&auto=format&fit=crop',
+    '/images/Teenage Mutant Ninja Turtles.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -509,7 +509,7 @@ VALUES
     'gba', 
     'Tekken Advance (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Tekken Advance.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -521,7 +521,7 @@ VALUES
     'snes', 
     'Toy Story (USA).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1470&auto=format&fit=crop',
+    '/images/Toy Story.webp',
     0, 
     '{}'::jsonb, 
     'published'
@@ -533,7 +533,7 @@ VALUES
     'snes', 
     'Ultimate Mortal Kombat 3 (USA).sfc', 
     '/games',
-    'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1470&auto=format&fit=crop',
+    '/images/Ultimate Mortal Kombat 3.jpg',
     0, 
     '{}'::jsonb, 
     'published'
@@ -545,14 +545,14 @@ VALUES
     'gba', 
     'Ultimate Spider-Man (USA).gba', 
     '/games',
-    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&w=1470&auto=format&fit=crop',
+    '/images/Ultimate Spider-Man.png',
     0, 
     '{}'::jsonb, 
     'published'
   )
 ON CONFLICT (slug) DO NOTHING;
 
--- 3. Insérer les deux trophées (Bronze pour le lancement, Or pour la complétion) pour chaque nouveau jeu
+-- 2. Insérer les deux trophées (Bronze pour le lancement, Or pour la complétion) pour chaque nouveau jeu
 INSERT INTO public.trophies (game_id, trophy_key, name, description, tier, coin_reward)
 SELECT g.id, t.trophy_key, t.name, t.description, t.tier::trophy_tier, t.coin_reward
 FROM (VALUES
