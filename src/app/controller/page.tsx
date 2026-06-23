@@ -433,7 +433,7 @@ function ControllerContent() {
   const prevRightAxes = useRef({ TRIANGLE: false, CONFIRM: false, SQUARE: false, BACK: false });
 
   const handleLeftJoystickMove = useCallback((x: number, y: number) => {
-    const threshold = 0.35;
+    const threshold = 0.22; // seuil bas = joystick plus réactif (moins de course morte)
     const nextStates = {
       UP: y < -threshold,
       DOWN: y > threshold,
@@ -461,7 +461,7 @@ function ControllerContent() {
   }, [sendAction]);
 
   const handleRightJoystickMove = useCallback((x: number, y: number) => {
-    const threshold = 0.35;
+    const threshold = 0.22; // seuil bas = joystick plus réactif (moins de course morte)
     const nextStates = {
       TRIANGLE: y < -threshold,
       CONFIRM: y > threshold,

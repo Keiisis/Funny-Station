@@ -155,13 +155,18 @@ try {
   }
 } catch (e) { /* Cross-origin */ }
 
-// === CLIENT MODE: Receive game state from host via parent ===
+// === CLIENT MODE: Receive game state from host (via FunnyNet, interpolé = fluide) ===
 if (networkMode === 'client') {
-  window.addEventListener('message', (e) => {
-    if (e.data && e.data.type === 'GAME_STATE_IMPORT') {
-      receivedState = e.data.state;
-    }
-  });
+  if (window.FunnyNet) {
+    // Le SDK lisse l'état entre les paquets réseau → rendu fluide même à 20-30 fps réseau.
+    window.FunnyNet.init({ interpDelay: 90 });
+    window.FunnyNet.onRenderState((s) => { receivedState = s; });
+  } else {
+    // Repli si le SDK n'est pas chargé : état brut.
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'GAME_STATE_IMPORT') receivedState = e.data.state;
+    });
+  }
 }
 
 // === HOST MODE: Listen for remote player inputs via parent ===
