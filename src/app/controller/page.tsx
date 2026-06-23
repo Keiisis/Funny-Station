@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
 import { createControllerRtc, ControllerRtc } from '@/utils/rtcLink';
+import { PSCross, PSCircle, PSSquare, PSTriangle } from '@/components/PSGlyphs';
 import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, User, Maximize, Zap } from 'lucide-react';
 
 // Couleurs correspondant aux assignations du Dashboard
@@ -1239,8 +1240,8 @@ function ControllerContent() {
                   : currentTheme.actionButtons.TRIANGLE.defaultClass
               }`}
             >
-              <span className="text-sm font-bold">
-                {isSnes ? 'X' : '▲'}
+              <span className="text-sm font-bold flex items-center justify-center">
+                {isSnes ? 'X' : <PSTriangle size={15} />}
               </span>
             </button>
 
@@ -1256,8 +1257,8 @@ function ControllerContent() {
                   : currentTheme.actionButtons.CONFIRM.defaultClass
               }`}
             >
-              <span className="text-sm font-bold">
-                {isGbaOrNes ? 'A' : isSnes ? 'B' : '✕'}
+              <span className="text-sm font-bold flex items-center justify-center">
+                {isGbaOrNes ? 'A' : isSnes ? 'B' : <PSCross size={15} />}
               </span>
             </button>
 
@@ -1274,8 +1275,8 @@ function ControllerContent() {
                   : currentTheme.actionButtons.SQUARE.defaultClass
               }`}
             >
-              <span className="text-xs font-bold">
-                {isSnes ? 'Y' : '■'}
+              <span className="text-xs font-bold flex items-center justify-center">
+                {isSnes ? 'Y' : <PSSquare size={13} />}
               </span>
             </button>
 
@@ -1291,8 +1292,8 @@ function ControllerContent() {
                   : currentTheme.actionButtons.BACK.defaultClass
               }`}
             >
-              <span className="text-sm font-bold">
-                {isGbaOrNes ? 'B' : isSnes ? 'A' : '◯'}
+              <span className="text-sm font-bold flex items-center justify-center">
+                {isGbaOrNes ? 'B' : isSnes ? 'A' : <PSCircle size={14} />}
               </span>
             </button>
           </div>
