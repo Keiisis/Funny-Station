@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { Game } from '@/types';
+import { CoverImage } from './CoverImage';
 import { Play, Gamepad2, Star } from 'lucide-react';
 
 interface GameCardProps {
@@ -38,19 +38,13 @@ export const GameCard: React.FC<GameCardProps> = ({ game, isFocused, onSelect })
           : 'w-32 h-[228px] opacity-85 hover:opacity-100 ring-1 ring-zinc-800'
       }`}
     >
-      {/* Jaquette plein cadre (optimisée : AVIF/WebP, lazy-load) */}
-      {game.background_url ? (
-        <Image
-          src={game.background_url}
-          alt={game.title}
-          fill
-          sizes="(max-width: 768px) 40vw, 160px"
-          className="object-cover"
-          priority={isFocused}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-tr from-blue-950 via-violet-950/60 to-zinc-950" />
-      )}
+      {/* Jaquette plein cadre (optimisée + repli universel si format exotique) */}
+      <CoverImage
+        src={game.background_url}
+        alt={game.title}
+        sizes="(max-width: 768px) 40vw, 160px"
+        priority={isFocused}
+      />
 
       {/* Dégradé bas pour la lisibilité du texte (n'assombrit que le tiers inférieur) */}
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />

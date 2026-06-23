@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+import { CoverImage } from './CoverImage';
 import { Game, Trophy, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
 import { useGamepadNavigation } from '@/hooks/useGamepadNavigation';
 import { TopBar } from './TopBar';
@@ -1088,16 +1088,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 />
               ) : (
                 <div key={activeGame.id} className="absolute inset-0 animate-ps5-bg">
-                  {activeGame.background_url && (
-                    <Image
-                      src={activeGame.background_url}
-                      alt=""
-                      fill
-                      priority
-                      sizes="100vw"
-                      className="object-cover"
-                    />
-                  )}
+                  <CoverImage src={activeGame.background_url} alt="" priority sizes="100vw" />
                 </div>
               )}
               {/* Dynamic Aura background effect */}
@@ -1136,11 +1127,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                         }}
                         className="relative flex-shrink-0 cursor-pointer rounded-xl w-[150px] h-[84px] overflow-hidden border border-zinc-800/80 hover:border-zinc-600 transition-all group"
                       >
-                        {game.background_url ? (
-                          <Image src={game.background_url} alt={game.title} fill sizes="150px" className="object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
-                        ) : (
-                          <div className="absolute inset-0 bg-gradient-to-tr from-blue-950 via-violet-950/60 to-zinc-950" />
-                        )}
+                        <CoverImage src={game.background_url} alt={game.title} sizes="150px" className="object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
                         <span className={`absolute top-1.5 left-1.5 z-20 px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-wider shadow ${b.cls}`}>{b.label}</span>
                         <div className="absolute bottom-1.5 left-2 right-2 z-20 flex items-center gap-1.5">
@@ -1189,20 +1176,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                           : 'border-zinc-800/80 opacity-60 hover:opacity-90 z-20'
                       }`}
                     >
-                      {/* Jaquette optimisée : les cartes hors écran ne chargent PAS leur image
-                          (lazy-load next/image) → carrousel fluide même avec 50+ jeux. */}
-                      {game.background_url ? (
-                        <Image
-                          src={game.background_url}
-                          alt={game.title}
-                          fill
-                          sizes="130px"
-                          className="object-cover"
-                          priority={isFocused}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-950 via-violet-950/60 to-zinc-950" />
-                      )}
+                      {/* Jaquette optimisée + repli universel ; lazy-load hors écran. */}
+                      <CoverImage src={game.background_url} alt={game.title} sizes="130px" priority={isFocused} />
 
                       {/* Gradient overlay inside the card */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent z-10" />

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import { CoverImage } from './CoverImage';
 import { ProfileData, Game } from '@/types';
 import { supabase } from '@/utils/supabase/client';
 import { AudioEngine } from '@/drivers/AudioEngine';
@@ -344,10 +344,12 @@ export const StoreView: React.FC<StoreViewProps> = ({
           >
             {/* Background image & gradient overlay */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
-              <img 
-                src={heroGame.background_url} 
-                alt={heroGame.title} 
-                className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000"
+              <CoverImage
+                src={heroGame.background_url}
+                alt={heroGame.title}
+                priority
+                sizes="100vw"
+                className="object-cover opacity-60 group-hover:scale-105 transition-transform duration-1000"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/30 to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
@@ -396,11 +398,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         : 'border-zinc-800/80 opacity-70 hover:opacity-100 hover:border-zinc-700'
                     }`}
                   >
-                    {game.background_url ? (
-                      <Image src={game.background_url} alt={game.title} fill sizes="160px" className="object-cover" priority={isFocused} />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
-                    )}
+                    <CoverImage src={game.background_url} alt={game.title} sizes="160px" priority={isFocused} fallbackClassName="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
                     
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
@@ -447,11 +445,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         : 'border-zinc-800/80 opacity-70 hover:opacity-100 hover:border-zinc-700'
                     }`}
                   >
-                    {game.background_url ? (
-                      <Image src={game.background_url} alt={game.title} fill sizes="160px" className="object-cover" priority={isFocused} />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
-                    )}
+                    <CoverImage src={game.background_url} alt={game.title} sizes="160px" priority={isFocused} fallbackClassName="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
                     
                     {/* Gradient Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
@@ -524,11 +518,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       onClick={() => handleSelectGame(game)}
                       className="relative flex-shrink-0 cursor-pointer rounded-2xl w-32 aspect-[9/14] overflow-hidden border border-zinc-800/80 opacity-85 hover:opacity-100 hover:border-zinc-600 transition-all"
                     >
-                      {game.background_url ? (
-                        <Image src={game.background_url} alt={game.title} fill sizes="128px" className="object-cover" />
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
-                      )}
+                      <CoverImage src={game.background_url} alt={game.title} sizes="128px" fallbackClassName="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
                       <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
                       <div className="absolute inset-0 p-2.5 flex flex-col justify-between z-20">
                         <span
