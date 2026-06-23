@@ -966,8 +966,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
               <DynamicAura gameSlug={activeGame?.slug} />
 
               {/* Shading gradients to keep text readable on the left and trophies panel readable on the bottom */}
-              <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/95 via-zinc-950/50 to-transparent pointer-events-none" />
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/45 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/95 via-zinc-950/50 to-transparent pointer-events-none z-20" />
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/45 pointer-events-none z-20" />
             </div>
           )}
 

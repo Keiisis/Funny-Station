@@ -146,7 +146,7 @@ export const DynamicAura: React.FC<DynamicAuraProps> = ({ gameSlug = 'default' }
       ref={canvasRef}
       className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.55] select-none filter blur-[95px]"
       style={{
-        zIndex: -15,
+        zIndex: 10,
         mixBlendMode: 'screen',
         transform: 'translate3d(0, 0, 0)',
         willChange: 'transform'
