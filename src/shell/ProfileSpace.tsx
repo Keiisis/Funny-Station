@@ -70,9 +70,9 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
 
       // Changement de PIN optionnel via l'auth Supabase (mot de passe = PIN).
       if (newPin) {
-        if (!/^\d{4}$/.test(newPin)) {
+        if (!/^\d{6}$/.test(newPin)) {
           setSuccessMsg('');
-          alert('Le nouveau code PIN doit comporter 4 chiffres.');
+          alert('Le nouveau code PIN doit comporter 6 chiffres.');
           return;
         }
         const { error } = await supabase.auth.updateUser({ password: newPin });
@@ -283,12 +283,12 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                   </label>
                   <input
                     type="text"
-                    pattern="[0-9]{4}"
-                    maxLength={4}
+                    pattern="[0-9]{6}"
+                    maxLength={6}
                     value={newPin}
                     onChange={(e) => setNewPin(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full px-4 py-2.5 rounded-xl bg-zinc-950 border border-zinc-850 text-white text-xs font-bold focus:border-blue-500/50 focus:outline-none font-mono tracking-widest"
-                    placeholder="Nouveau PIN à 4 chiffres (optionnel)"
+                    placeholder="Nouveau PIN à 6 chiffres (optionnel)"
                   />
                 </div>
 

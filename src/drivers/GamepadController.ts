@@ -1,5 +1,5 @@
 import { GamepadDirection } from '@/types';
-import { KeyMapping, loadKeyMapping, ConsoleAction } from '@/utils/inputMapping';
+import { KeyMapping, loadKeyMapping, ConsoleAction, makeKeyboardEvent } from '@/utils/inputMapping';
 
 // Types WebHID pour le compilateur TypeScript
 export interface HIDDevice {
@@ -298,32 +298,29 @@ export class GamepadController {
 
     // Cible l'élément actif du document parent
     const targets: EventTarget[] = [window.document.activeElement || window.document, window];
-    
-    // Propage dans tous les iframes enfants same-origin
+
+    // Propage dans tous les iframes enfants same-origin (jeu embarqué : Unity, émulateur, JS).
     const iframes = document.querySelectorAll('iframe');
     iframes.forEach(iframe => {
       try {
         const iframeWindow = iframe.contentWindow;
         if (iframeWindow) {
-          const iframeTarget = iframeWindow.document.activeElement || iframeWindow.document;
-          targets.push(iframeTarget);
+          // Unity WebGL écoute sur le document/canvas du jeu → on cible les deux + la window.
+          targets.push(iframeWindow.document);
           targets.push(iframeWindow);
+          const canvas = iframeWindow.document.querySelector('canvas');
+          if (canvas) targets.push(canvas);
         }
       } catch (e) {
         // Ignorer les erreurs d'origines différentes
       }
     });
 
+    const eventType = action === 'down' ? 'keydown' : 'keyup';
     targets.forEach(target => {
       try {
-        const eventType = action === 'down' ? 'keydown' : 'keyup';
-        const event = new KeyboardEvent(eventType, {
-          key: keyName,
-          bubbles: true,
-          cancelable: true,
-          code: keyName,
-        });
-        target.dispatchEvent(event);
+        // Événement COMPLET (key + code + keyCode) → reconnu par Unity et les moteurs legacy.
+        target.dispatchEvent(makeKeyboardEvent(eventType, keyName));
       } catch (e) {
         // Ignorer
       }

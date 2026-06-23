@@ -271,9 +271,13 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     const gamepad = GamepadController.getInstance();
     gamepad.pause();
 
-    // Activer l'injection clavier pour GBA, PSP, NES, SNES ou JS standard, mais pas pour Unity (entryPoint finit par .html)
-    const isUnityGame = language === 'js' && entryPoint.endsWith('.html');
-    const shouldInjectKeyboard = language === 'gba' || language === 'psp' || language === 'nes' || language === 'snes' || (language === 'js' && !isUnityGame);
+    // Injection clavier pour TOUS les jeux embarqués (émulateurs + JS + Unity WebGL).
+    // Unity était exclu auparavant ; il est désormais inclus car la manette (physique
+    // et virtuelle) lui envoie des KeyboardEvents COMPLETS (key + code + keyCode) que
+    // son moteur reconnaît. Cf. makeKeyboardEvent dans inputMapping.
+    const shouldInjectKeyboard =
+      language === 'gba' || language === 'psp' || language === 'nes' ||
+      language === 'snes' || language === 'js';
     gamepad.enableKeyboardInjection(shouldInjectKeyboard);
 
     return () => {

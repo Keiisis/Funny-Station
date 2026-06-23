@@ -59,7 +59,7 @@ export default function LoginPage() {
   }, []);
 
   const pressDigit = (d: string) => {
-    if (pin.length >= 4) return;
+    if (pin.length >= 6) return;
     sfx('navigate');
     setPin((p) => p + d);
     setError('');
@@ -78,8 +78,8 @@ export default function LoginPage() {
   };
 
   const handleLogin = async () => {
-    if (!username.trim() || pin.length !== 4) {
-      setError('Saisis ton pseudo et ton code PIN à 4 chiffres.');
+    if (!username.trim() || pin.length !== 6) {
+      setError('Saisis ton pseudo et ton code PIN à 6 chiffres.');
       return;
     }
     setLoading(true);
@@ -95,7 +95,7 @@ export default function LoginPage() {
 
   const handleSignup = async () => {
     if (!username.trim()) return setError('Choisis un pseudo.');
-    if (pin.length !== 4) return setError('Choisis un code PIN à 4 chiffres.');
+    if (pin.length !== 6) return setError('Choisis un code PIN à 6 chiffres.');
     setLoading(true);
     setError('');
     const res = await signUpAction({ username, pin, email: email || undefined, accountType, avatarUrl: avatar });
@@ -130,8 +130,8 @@ export default function LoginPage() {
   };
 
   const handleForgot = async () => {
-    if (!username.trim() || !email.trim() || pin.length !== 4) {
-      setError('Renseigne ton pseudo, ton email de récupération et un nouveau PIN à 4 chiffres.');
+    if (!username.trim() || !email.trim() || pin.length !== 6) {
+      setError('Renseigne ton pseudo, ton email de récupération et un nouveau PIN à 6 chiffres.');
       return;
     }
     setLoading(true);
@@ -349,7 +349,7 @@ export default function LoginPage() {
                 {mode === 'forgot' ? 'Nouveau code PIN' : 'Code PIN'}
               </label>
               <div className="flex items-center justify-center gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
+                {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className={`w-3.5 h-3.5 rounded-full border transition-all ${i < pin.length ? 'bg-blue-400 border-blue-400 scale-110 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'border-zinc-700 bg-zinc-950/40'}`} />
                 ))}
               </div>

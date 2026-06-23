@@ -27,16 +27,17 @@ function validateUsername(username: string): string | null {
 }
 
 function validatePin(pin: string): string | null {
-  if (!/^\d{4}$/.test(pin)) return 'Le code PIN doit comporter exactement 4 chiffres.';
+  if (!/^\d{6}$/.test(pin)) return 'Le code PIN doit comporter exactement 6 chiffres.';
   return null;
 }
 
 /**
- * Convertit un PIN 4 chiffres en mot de passe acceptable par Supabase (min 6 caractères).
- * On préfixe avec 'FS' pour atteindre 6 caractères tout en gardant la simplicité côté UX.
+ * Le PIN (6 chiffres) sert directement de mot de passe Supabase : il satisfait déjà
+ * le minimum de 6 caractères, donc aucun préfixe n'est nécessaire (fini le 'FS' qui
+ * pouvait prêter à confusion). Point de transformation unique si besoin futur.
  */
 function pinToPassword(pin: string): string {
-  return `FS${pin}`;
+  return pin;
 }
 
 // ── INSCRIPTION ─────────────────────────────────────────────────────────────

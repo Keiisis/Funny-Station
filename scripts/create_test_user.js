@@ -21,9 +21,9 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function run() {
   const username = "testagent2";
-  const pin = "1234";
+  const pin = "123456";
   const email = `${username.toLowerCase()}@funnystation.local`;
-  const password = `FS${pin}`;
+  const password = pin; // le PIN (6 chiffres) sert directement de mot de passe Supabase
 
   console.log(`Registering ${username} with PIN ${pin}...`);
 

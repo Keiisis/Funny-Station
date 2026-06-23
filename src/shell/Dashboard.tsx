@@ -18,7 +18,7 @@ import { DynamicAura } from './DynamicAura';
 import { WebGLBackground } from '@/drivers/WebGLBackground';
 import { ControlCenter } from './ControlCenter';
 import { ShutdownScreen } from './ShutdownScreen';
-import { loadKeyMapping, saveKeyMapping, KeyMapping, ConsoleAction, DEFAULT_KEY_MAPPING, ACTION_LABELS } from '@/utils/inputMapping';
+import { loadKeyMapping, saveKeyMapping, KeyMapping, ConsoleAction, DEFAULT_KEY_MAPPING, ACTION_LABELS, makeKeyboardEvent } from '@/utils/inputMapping';
 import { createConsoleRtc, ConsoleRtc } from '@/utils/rtcLink';
 import {
   fetchPublishedGames,
@@ -309,27 +309,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       }
       
       if (keyName) {
-        if (effectiveAction === 'down') {
-          const keydownEvt = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
-          window.dispatchEvent(keydownEvt);
-        } else {
-          const keyupEvt = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
-          window.dispatchEvent(keyupEvt);
-        }
-        
+        const evType = effectiveAction === 'down' ? 'keydown' : 'keyup';
+        // Événement COMPLET (key + code + keyCode) — sinon Unity WebGL l'ignore.
+        window.dispatchEvent(makeKeyboardEvent(evType, keyName));
+
         const iframes = document.querySelectorAll('iframe');
         iframes.forEach(iframe => {
           try {
             const iframeWindow = iframe.contentWindow;
             if (iframeWindow) {
-              const target = iframeWindow.document.activeElement || iframeWindow.document;
-              if (effectiveAction === 'down') {
-                const iframeKeydown = new KeyboardEvent('keydown', { key: keyName, bubbles: true, cancelable: true });
-                target.dispatchEvent(iframeKeydown);
-              } else {
-                const iframeKeyup = new KeyboardEvent('keyup', { key: keyName, bubbles: true, cancelable: true });
-                target.dispatchEvent(iframeKeyup);
-              }
+              // Unity écoute sur le document/canvas du jeu → on cible les deux + la window.
+              iframeWindow.document.dispatchEvent(makeKeyboardEvent(evType, keyName));
+              iframeWindow.dispatchEvent(makeKeyboardEvent(evType, keyName));
+              const canvas = iframeWindow.document.querySelector('canvas');
+              if (canvas) canvas.dispatchEvent(makeKeyboardEvent(evType, keyName));
             }
           } catch (e) {
             console.warn('[Dashboard] Impossible de relayer les inputs dans l\'iframe:', e);
