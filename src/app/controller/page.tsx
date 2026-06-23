@@ -57,201 +57,171 @@ const THEME_CONFIGS: Record<string, ThemeConfig> = {
     id: 'stealth-blue',
     name: 'Stealth Blue',
     preview: 'bg-gradient-to-r from-blue-650 to-indigo-900 border-blue-400',
-    containerBg: 'radial-gradient(circle at 20% 20%, rgba(0, 114, 206, 0.15) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgba(107, 33, 168, 0.15) 0%, transparent 45%), #020617',
-    panelClass: 'bg-zinc-950/40 border-zinc-800/40',
-    dpadPlateClass: 'bg-zinc-950/40 border border-zinc-800/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]',
-    centerCircleClass: 'bg-zinc-900 border-zinc-800',
-    btnDefaultClass: 'bg-zinc-900/80 border-zinc-700/50 hover:bg-zinc-800/60',
-    btnActiveClass: 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]',
-    btnTextDefaultClass: 'text-zinc-450',
-    btnTextActiveClass: 'text-blue-400',
-    lBtnDefaultClass: 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white',
-    lBtnActiveClass: 'bg-blue-500/20 border-blue-400 text-blue-300 shadow-[0_4px_10px_rgba(59,130,246,0.3)]',
-    rBtnDefaultClass: 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white',
-    rBtnActiveClass: 'bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_4px_10px_rgba(244,63,94,0.3)]',
+    containerBg: '#020617',
+    containerStyle: { backgroundImage: 'url(/images/themes/stealth-blue.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
+    panelClass: 'bg-zinc-950/45 border-zinc-800/40 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
+    dpadPlateClass: 'bg-zinc-950/60 border border-zinc-850 shadow-[inset_0_4px_12px_rgba(0,0,0,0.8),0_4px_8px_rgba(0,0,0,0.4)]',
+    centerCircleClass: 'bg-zinc-900 border-zinc-850 shadow-inner',
+    btnDefaultClass: 'bg-zinc-900 border-t border-l border-zinc-700/50 border-b-2 border-r-2 border-zinc-955 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.15)]',
+    btnActiveClass: 'bg-blue-955/80 border-t border-l border-blue-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(59,130,246,0.6)]',
+    btnTextDefaultClass: 'text-zinc-450 font-bold',
+    btnTextActiveClass: 'text-blue-400 font-extrabold',
+    lBtnDefaultClass: 'bg-zinc-900/80 border-x border-b-2 border-zinc-955 text-zinc-400 hover:text-white shadow-[0_3px_6px_rgba(0,0,0,0.5),inset_1px_1px_1px_rgba(255,255,255,0.1)]',
+    lBtnActiveClass: 'bg-blue-500/20 border-x border-b-0 text-blue-350 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(59,130,246,0.4)]',
+    rBtnDefaultClass: 'bg-zinc-900/80 border-x border-b-2 border-zinc-955 text-zinc-400 hover:text-white shadow-[0_3px_6px_rgba(0,0,0,0.5),inset_1px_1px_1px_rgba(255,255,255,0.1)]',
+    rBtnActiveClass: 'bg-rose-500/20 border-x border-b-0 text-rose-350 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(244,63,94,0.4)]',
     actionButtons: {
-      TRIANGLE: { defaultClass: 'bg-zinc-900/80 border-emerald-500/30 text-emerald-500/80 hover:bg-zinc-800/60', activeClass: 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]', label: '▲', textClass: '' },
-      CONFIRM: { defaultClass: 'bg-zinc-900/80 border-cyan-500/30 text-cyan-500/80 hover:bg-zinc-800/60', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.6)]', label: '✕', textClass: '' },
-      SQUARE: { defaultClass: 'bg-zinc-900/80 border-purple-500/30 text-purple-500/80 hover:bg-zinc-800/60', activeClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.6)]', label: '■', textClass: '' },
-      BACK: { defaultClass: 'bg-zinc-900/80 border-rose-500/30 text-rose-500/80 hover:bg-zinc-800/60', activeClass: 'bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.6)]', label: '◯', textClass: '' }
+      TRIANGLE: { defaultClass: 'bg-zinc-900 border-t border-l border-zinc-700/50 border-b-2 border-r-2 border-zinc-955 text-emerald-500/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.15)]', activeClass: 'bg-emerald-950/80 border-t border-l border-emerald-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-emerald-400 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(16,185,129,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-zinc-900 border-t border-l border-zinc-700/50 border-b-2 border-r-2 border-zinc-955 text-cyan-500/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.15)]', activeClass: 'bg-cyan-950/80 border-t border-l border-cyan-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-cyan-400 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(6,182,212,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-zinc-900 border-t border-l border-zinc-700/50 border-b-2 border-r-2 border-zinc-955 text-purple-500/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.15)]', activeClass: 'bg-purple-955/80 border-t border-l border-purple-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-purple-400 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(168,85,247,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-zinc-900 border-t border-l border-zinc-700/50 border-b-2 border-r-2 border-zinc-955 text-rose-500/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.15)]', activeClass: 'bg-rose-955/80 border-t border-l border-rose-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-rose-400 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(244,63,94,0.7)]', label: '◯', textClass: '' }
     },
-    joystickTrackClass: 'bg-zinc-950/60 border-zinc-800/80',
-    joystickKnobClass: 'from-zinc-700 to-zinc-900 border-zinc-650',
-    joystickDotDefaultClass: 'bg-zinc-800',
+    joystickTrackClass: 'bg-zinc-955/60 border-zinc-850 shadow-inner',
+    joystickKnobClass: 'from-zinc-700 to-zinc-900 border-zinc-650 shadow-md',
+    joystickDotDefaultClass: 'bg-zinc-850',
     joystickDotActiveClass: 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]'
   },
   'akatsuki': {
     id: 'akatsuki',
     name: 'Akatsuki',
     preview: 'bg-gradient-to-r from-red-650 to-black border-red-500',
-    containerBg: 'radial-gradient(circle at 50% 50%, rgba(220, 38, 38, 0.12) 0%, transparent 60%), #050505',
-    panelClass: 'bg-zinc-950/80 border-red-950/80',
-    dpadPlateClass: 'bg-black/85 border border-red-950/80 shadow-[inset_0_0_20px_rgba(220,38,38,0.25)]',
-    centerCircleClass: 'bg-zinc-950 border-red-900/40',
-    btnDefaultClass: 'bg-zinc-950 border-zinc-900 text-zinc-550 hover:bg-zinc-900/40',
-    btnActiveClass: 'bg-red-950/40 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.7)]',
+    containerBg: '#050505',
+    containerStyle: { backgroundImage: 'url(/images/themes/akatsuki.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
+    panelClass: 'bg-black/60 border-red-955/50 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.7)]',
+    dpadPlateClass: 'bg-black/70 border border-red-950 shadow-[inset_0_4px_12px_rgba(0,0,0,0.9),0_4px_8px_rgba(220,38,38,0.15)]',
+    centerCircleClass: 'bg-zinc-955 border-red-955 shadow-inner',
+    btnDefaultClass: 'bg-zinc-950 border-t border-l border-zinc-900 border-b-2 border-r-2 border-black text-zinc-550 shadow-[3px_3px_5px_rgba(0,0,0,0.7),inset_1px_1px_1px_rgba(255,255,255,0.02)]',
+    btnActiveClass: 'bg-red-955/20 border-t border-l border-red-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.9),0_0_12px_rgba(220,38,38,0.8)]',
     btnTextDefaultClass: 'text-zinc-600',
-    btnTextActiveClass: 'text-red-500',
-    lBtnDefaultClass: 'bg-zinc-950 border-red-950 text-zinc-500 hover:text-zinc-300',
-    lBtnActiveClass: 'bg-red-950/50 border-red-500 text-red-400 shadow-[0_4px_10px_rgba(220,38,38,0.4)]',
-    rBtnDefaultClass: 'bg-zinc-950 border-red-950 text-zinc-500 hover:text-zinc-300',
-    rBtnActiveClass: 'bg-red-950/50 border-red-500 text-red-400 shadow-[0_4px_10px_rgba(220,38,38,0.4)]',
+    btnTextActiveClass: 'text-red-500 font-extrabold',
+    lBtnDefaultClass: 'bg-zinc-955 border-x border-b-2 border-black text-zinc-550 shadow-[0_3px_6px_rgba(0,0,0,0.7)]',
+    lBtnActiveClass: 'bg-red-955/35 border-x border-b-0 text-red-400 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.9),0_0_10px_rgba(220,38,38,0.5)]',
+    rBtnDefaultClass: 'bg-zinc-955 border-x border-b-2 border-black text-zinc-555 shadow-[0_3px_6px_rgba(0,0,0,0.7)]',
+    rBtnActiveClass: 'bg-red-955/35 border-x border-b-0 text-red-400 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.9),0_0_10px_rgba(220,38,38,0.5)]',
     actionButtons: {
-      TRIANGLE: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '▲', textClass: '' },
-      CONFIRM: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '✕', textClass: '' },
-      SQUARE: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '■', textClass: '' },
-      BACK: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '◯', textClass: '' }
+      TRIANGLE: { defaultClass: 'bg-zinc-955 border-t border-l border-zinc-900 border-b-2 border-r-2 border-black text-red-900 shadow-[3px_3px_5px_rgba(0,0,0,0.7)]', activeClass: 'bg-red-955/25 border-t border-l border-red-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-red-500 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.9),0_0_12px_rgba(220,38,38,0.8)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-zinc-955 border-t border-l border-zinc-900 border-b-2 border-r-2 border-black text-red-900 shadow-[3px_3px_5px_rgba(0,0,0,0.7)]', activeClass: 'bg-red-955/25 border-t border-l border-red-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-red-500 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.9),0_0_12px_rgba(220,38,38,0.8)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-zinc-955 border-t border-l border-zinc-900 border-b-2 border-r-2 border-black text-red-900 shadow-[3px_3px_5px_rgba(0,0,0,0.7)]', activeClass: 'bg-red-955/25 border-t border-l border-red-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-red-500 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.9),0_0_12px_rgba(220,38,38,0.8)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-zinc-955 border-t border-l border-zinc-900 border-b-2 border-r-2 border-black text-red-900 shadow-[3px_3px_5px_rgba(0,0,0,0.7)]', activeClass: 'bg-red-955/25 border-t border-l border-red-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-red-500 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.9),0_0_12px_rgba(220,38,38,0.8)]', label: '◯', textClass: '' }
     },
-    joystickTrackClass: 'bg-black/90 border border-red-950/80',
-    joystickKnobClass: 'from-zinc-900 to-black border-red-955',
+    joystickTrackClass: 'bg-black/80 border border-red-955/30 shadow-inner',
+    joystickKnobClass: 'from-zinc-900 to-black border-red-955 shadow-md',
     joystickDotDefaultClass: 'bg-zinc-800',
-    joystickDotActiveClass: 'bg-red-550 shadow-[0_0_8px_rgba(220,38,38,0.8)]',
-    customDecor: (
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30 select-none">
-        <svg className="absolute w-48 h-32 text-red-750/35 fill-current -top-6 -left-10 transform scale-x-[-1]" viewBox="0 0 100 60">
-          <path d="M15 35c0-5.5 4.5-10 10-10 1-5.5 5.5-10 11-10 7.8 0 14 6.2 14 14 1.1 0 2.2.2 3.2.7C55.6 24.3 61 20 67 20c8.3 0 15 6.7 15 15 0 1.2-.1 2.3-.4 3.4 3 2.1 4.9 5.6 4.9 9.6 0 6.6-5.4 12-12 12H20c-7.7 0-14-6.3-14-14 0-5.3 3-9.9 7.4-12.2-.3-1.1-.4-2.3-.4-3.5z"/>
-        </svg>
-        <svg className="absolute w-64 h-40 text-red-750/30 fill-current -bottom-10 -right-16" viewBox="0 0 100 60">
-          <path d="M15 35c0-5.5 4.5-10 10-10 1-5.5 5.5-10 11-10 7.8 0 14 6.2 14 14 1.1 0 2.2.2 3.2.7C55.6 24.3 61 20 67 20c8.3 0 15 6.7 15 15 0 1.2-.1 2.3-.4 3.4 3 2.1 4.9 5.6 4.9 9.6 0 6.6-5.4 12-12 12H20c-7.7 0-14-6.3-14-14 0-5.3 3-9.9 7.4-12.2-.3-1.1-.4-2.3-.4-3.5z"/>
-        </svg>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center opacity-10">
-          <svg className="w-40 h-40 text-red-500 fill-none stroke-current stroke-[4]" viewBox="0 0 100 100">
-            <path d="M20 50 C20 20, 80 20, 80 50 C80 80, 20 80, 20 50" />
-            <path d="M15 45 L85 55" />
-          </svg>
-        </div>
-      </div>
-    )
+    joystickDotActiveClass: 'bg-red-550 shadow-[0_0_8px_rgba(220,38,38,0.8)]'
   },
   'cr7': {
     id: 'cr7',
     name: 'CR7 Legend',
     preview: 'bg-gradient-to-r from-emerald-800 to-yellow-600 border-yellow-500',
-    containerBg: 'radial-gradient(circle at 50% 50%, rgba(234, 179, 8, 0.08) 0%, transparent 65%), linear-gradient(135deg, #07170f 0%, #020704 100%)',
-    panelClass: 'bg-zinc-950/60 border-yellow-500/20',
-    dpadPlateClass: 'bg-zinc-950/70 border border-yellow-600/30 shadow-[inset_0_0_20px_rgba(234,179,8,0.15)]',
-    centerCircleClass: 'bg-zinc-900 border-yellow-500/40',
-    btnDefaultClass: 'bg-zinc-900/80 border-zinc-750 text-zinc-400 hover:bg-zinc-800/60',
-    btnActiveClass: 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.6)]',
-    btnTextDefaultClass: 'text-zinc-550',
-    btnTextActiveClass: 'text-yellow-400',
-    lBtnDefaultClass: 'bg-zinc-900/85 border-zinc-800 text-zinc-400 hover:text-white',
-    lBtnActiveClass: 'bg-yellow-500/20 border-yellow-400 text-yellow-400 shadow-[0_4px_10px_rgba(234,179,8,0.4)]',
-    rBtnDefaultClass: 'bg-zinc-900/85 border-zinc-800 text-zinc-400 hover:text-white',
-    rBtnActiveClass: 'bg-yellow-500/20 border-yellow-400 text-yellow-400 shadow-[0_4px_10px_rgba(234,179,8,0.4)]',
+    containerBg: '#020704',
+    containerStyle: { backgroundImage: 'url(/images/themes/cr7.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
+    panelClass: 'bg-emerald-950/40 border-yellow-500/20 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
+    dpadPlateClass: 'bg-zinc-950/60 border border-yellow-600/30 shadow-[inset_0_4px_12px_rgba(0,0,0,0.8),0_4px_8px_rgba(234,179,8,0.1)]',
+    centerCircleClass: 'bg-zinc-900 border-yellow-500/30 shadow-inner',
+    btnDefaultClass: 'bg-gradient-to-br from-yellow-500 to-yellow-600 border-t border-l border-yellow-300 border-b-2 border-r-2 border-yellow-800 text-zinc-900 shadow-[3px_3px_5px_rgba(0,0,0,0.5),inset_1px_1px_2px_rgba(255,255,255,0.4)]',
+    btnActiveClass: 'bg-gradient-to-br from-yellow-650 to-yellow-700 border-t border-l border-yellow-850 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(234,179,8,0.7)]',
+    btnTextDefaultClass: 'text-yellow-950 font-black',
+    btnTextActiveClass: 'text-white font-black',
+    lBtnDefaultClass: 'bg-gradient-to-r from-emerald-800 to-emerald-900 border-x border-b-2 border-zinc-950 text-yellow-500 shadow-[0_3px_6px_rgba(0,0,0,0.5),inset_1px_1px_1px_rgba(255,255,255,0.1)]',
+    lBtnActiveClass: 'bg-yellow-500/20 border-x border-b-0 text-yellow-400 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_10px_rgba(234,179,8,0.4)]',
+    rBtnDefaultClass: 'bg-gradient-to-r from-emerald-800 to-emerald-900 border-x border-b-2 border-zinc-950 text-yellow-500 shadow-[0_3px_6px_rgba(0,0,0,0.5),inset_1px_1px_1px_rgba(255,255,255,0.1)]',
+    rBtnActiveClass: 'bg-yellow-500/20 border-x border-b-0 text-yellow-400 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_10px_rgba(234,179,8,0.4)]',
     actionButtons: {
-      TRIANGLE: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '▲', textClass: '' },
-      CONFIRM: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '✕', textClass: '' },
-      SQUARE: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '■', textClass: '' },
-      BACK: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '◯', textClass: '' }
+      TRIANGLE: { defaultClass: 'bg-gradient-to-br from-yellow-500 to-yellow-600 border-t border-l border-yellow-300 border-b-2 border-r-2 border-yellow-800 text-yellow-950 shadow-[3px_3px_5px_rgba(0,0,0,0.5),inset_1px_1px_2px_rgba(255,255,255,0.3)]', activeClass: 'bg-gradient-to-br from-yellow-650 to-yellow-700 border-t border-l border-yellow-850 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(234,179,8,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-gradient-to-br from-yellow-500 to-yellow-600 border-t border-l border-yellow-300 border-b-2 border-r-2 border-yellow-800 text-yellow-950 shadow-[3px_3px_5px_rgba(0,0,0,0.5),inset_1px_1px_2px_rgba(255,255,255,0.3)]', activeClass: 'bg-gradient-to-br from-yellow-650 to-yellow-700 border-t border-l border-yellow-850 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(234,179,8,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-gradient-to-br from-yellow-500 to-yellow-600 border-t border-l border-yellow-300 border-b-2 border-r-2 border-yellow-800 text-yellow-950 shadow-[3px_3px_5px_rgba(0,0,0,0.5),inset_1px_1px_2px_rgba(255,255,255,0.3)]', activeClass: 'bg-gradient-to-br from-yellow-650 to-yellow-700 border-t border-l border-yellow-850 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(234,179,8,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-gradient-to-br from-yellow-500 to-yellow-600 border-t border-l border-yellow-300 border-b-2 border-r-2 border-yellow-800 text-yellow-955 shadow-[3px_3px_5px_rgba(0,0,0,0.5),inset_1px_1px_2px_rgba(255,255,255,0.3)]', activeClass: 'bg-gradient-to-br from-yellow-650 to-yellow-700 border-t border-l border-yellow-850 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(234,179,8,0.7)]', label: '◯', textClass: '' }
     },
-    joystickTrackClass: 'bg-zinc-950/80 border border-yellow-500/20',
-    joystickKnobClass: 'from-zinc-900 to-zinc-950 border-yellow-500/40',
+    joystickTrackClass: 'bg-zinc-950/80 border border-yellow-555/20 shadow-inner',
+    joystickKnobClass: 'from-zinc-800 to-zinc-955 border-yellow-555/30 shadow-md',
     joystickDotDefaultClass: 'bg-zinc-800',
-    joystickDotActiveClass: 'bg-yellow-550 shadow-[0_0_8px_rgba(234,179,8,0.8)]',
-    customDecor: (
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-15 select-none flex items-center justify-center">
-        <div className="flex flex-col items-center justify-center border-4 border-yellow-500/20 px-8 py-4 rounded-3xl transform rotate-3">
-          <span className="text-[110px] font-black italic tracking-tighter leading-none text-yellow-500/20">7</span>
-          <span className="text-xl font-black tracking-[0.4em] text-yellow-500/30 uppercase mt-[-10px]">RONALDO</span>
-        </div>
-      </div>
-    )
+    joystickDotActiveClass: 'bg-yellow-550 shadow-[0_0_8px_rgba(234,179,8,0.8)]'
   },
   'cyberpunk': {
     id: 'cyberpunk',
     name: 'Cyber Neon',
     preview: 'bg-gradient-to-r from-pink-500 to-cyan-500 border-pink-400',
-    containerBg: 'radial-gradient(circle at 10% 10%, rgba(236, 72, 153, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 90%, rgba(6, 182, 212, 0.15) 0%, transparent 40%), #09090b',
-    panelClass: 'bg-zinc-950/80 border-pink-500/30',
-    dpadPlateClass: 'bg-zinc-950/80 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.15)]',
-    centerCircleClass: 'bg-zinc-900 border border-pink-500/40',
-    btnDefaultClass: 'bg-zinc-950 border border-zinc-800 text-zinc-500 hover:bg-zinc-900/60',
-    btnActiveClass: 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.7)]',
-    btnTextDefaultClass: 'text-zinc-500',
-    btnTextActiveClass: 'text-cyan-400',
-    lBtnDefaultClass: 'bg-zinc-950 border border-zinc-800 text-zinc-500 hover:text-white',
-    lBtnActiveClass: 'bg-pink-500/20 border-pink-400 text-pink-300 shadow-[0_4px_10px_rgba(236,72,153,0.4)]',
-    rBtnDefaultClass: 'bg-zinc-950 border border-zinc-800 text-zinc-500 hover:text-white',
-    rBtnActiveClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_4px_10px_rgba(6,182,212,0.4)]',
+    containerBg: '#09090b',
+    containerStyle: { backgroundImage: 'url(/images/themes/cyberpunk.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
+    panelClass: 'bg-black/60 border-pink-500/25 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.6)]',
+    dpadPlateClass: 'bg-zinc-950/60 border border-cyan-555/30 shadow-[inset_0_4px_12px_rgba(0,0,0,0.8),0_0_15px_rgba(6,182,212,0.15)]',
+    centerCircleClass: 'bg-zinc-900 border border-pink-500/30 shadow-inner',
+    btnDefaultClass: 'bg-zinc-955 border-t border-l border-cyan-500/30 border-b-2 border-r-2 border-zinc-955 text-cyan-450 shadow-[3px_3px_5px_rgba(0,0,0,0.6)]',
+    btnActiveClass: 'bg-cyan-955/80 border-t border-l border-cyan-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(6,182,212,0.7)]',
+    btnTextDefaultClass: 'text-cyan-500 font-bold',
+    btnTextActiveClass: 'text-cyan-400 font-extrabold shadow-[0_0_8px_rgba(6,182,212,0.5)]',
+    lBtnDefaultClass: 'bg-zinc-950/90 border border-zinc-850 text-pink-500 shadow-[0_3px_6px_rgba(0,0,0,0.6)]',
+    lBtnActiveClass: 'bg-pink-500/25 border border-pink-500/60 text-pink-400 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_10px_rgba(236,72,153,0.5)]',
+    rBtnDefaultClass: 'bg-zinc-955/90 border border-zinc-850 text-cyan-500 shadow-[0_3px_6px_rgba(0,0,0,0.6)]',
+    rBtnActiveClass: 'bg-cyan-500/25 border border-cyan-500/60 text-cyan-400 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_10px_rgba(6,182,212,0.5)]',
     actionButtons: {
-      TRIANGLE: { defaultClass: 'border-pink-500/30 text-pink-500/70 bg-zinc-950', activeClass: 'bg-pink-500/20 border-pink-400 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.7)]', label: '▲', textClass: '' },
-      CONFIRM: { defaultClass: 'border-cyan-500/30 text-cyan-500/70 bg-zinc-950', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '✕', textClass: '' },
-      SQUARE: { defaultClass: 'border-pink-500/30 text-pink-500/70 bg-zinc-950', activeClass: 'bg-pink-500/20 border-pink-400 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.7)]', label: '■', textClass: '' },
-      BACK: { defaultClass: 'border-cyan-500/30 text-cyan-500/70 bg-zinc-950', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '◯', textClass: '' }
+      TRIANGLE: { defaultClass: 'bg-zinc-955 border-t border-l border-pink-500/30 border-b-2 border-r-2 border-zinc-955 text-pink-400 shadow-[3px_3px_5px_rgba(0,0,0,0.6)]', activeClass: 'bg-pink-955/25 border-t border-l border-pink-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-pink-300 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(236,72,153,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-zinc-955 border-t border-l border-cyan-500/30 border-b-2 border-r-2 border-zinc-955 text-cyan-400 shadow-[3px_3px_5px_rgba(0,0,0,0.6)]', activeClass: 'bg-cyan-955/25 border-t border-l border-cyan-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-cyan-300 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(6,182,212,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-zinc-955 border-t border-l border-pink-500/30 border-b-2 border-r-2 border-zinc-955 text-pink-400 shadow-[3px_3px_5px_rgba(0,0,0,0.6)]', activeClass: 'bg-pink-955/25 border-t border-l border-pink-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-pink-300 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(236,72,153,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-zinc-955 border-t border-l border-cyan-500/30 border-b-2 border-r-2 border-zinc-955 text-cyan-400 shadow-[3px_3px_5px_rgba(0,0,0,0.6)]', activeClass: 'bg-cyan-955/25 border-t border-l border-cyan-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-cyan-300 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(6,182,212,0.7)]', label: '◯', textClass: '' }
     },
-    joystickTrackClass: 'bg-zinc-950 border border-pink-500/20',
-    joystickKnobClass: 'from-zinc-900 to-zinc-955 border-cyan-500/30',
+    joystickTrackClass: 'bg-zinc-950 border border-pink-500/20 shadow-inner',
+    joystickKnobClass: 'from-zinc-900 to-zinc-955 border-cyan-500/30 shadow-md',
     joystickDotDefaultClass: 'bg-zinc-800',
-    joystickDotActiveClass: 'bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.8)]',
-    customDecor: (
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 select-none">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.15)_1px,transparent_1px)] bg-[size:30px_30px]" />
-      </div>
-    )
+    joystickDotActiveClass: 'bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.8)]'
   },
   'retro': {
     id: 'retro',
     name: 'Retro GB',
     preview: 'bg-gradient-to-r from-zinc-400 to-zinc-650 border-zinc-700',
-    containerBg: '',
-    containerStyle: { backgroundColor: '#c2c5ba' },
-    panelClass: 'bg-zinc-800/80 border border-zinc-700/50 text-zinc-100',
-    dpadPlateClass: 'bg-zinc-300/90 border border-zinc-400 shadow-[inset_0_2px_8px_rgba(0,0,0,0.2),0_2px_4px_rgba(255,255,255,0.8)] text-zinc-800',
-    centerCircleClass: 'bg-zinc-400 border border-zinc-550',
-    btnDefaultClass: 'bg-zinc-700 border border-zinc-850 text-zinc-955 shadow-md hover:bg-zinc-800',
-    btnActiveClass: 'bg-zinc-850 border-black text-white shadow-sm',
-    btnTextDefaultClass: 'text-zinc-955',
-    btnTextActiveClass: 'text-white',
-    lBtnDefaultClass: 'bg-zinc-500 border border-zinc-650 text-zinc-900 hover:bg-zinc-550',
-    lBtnActiveClass: 'bg-zinc-655 border border-zinc-750 text-white',
-    rBtnDefaultClass: 'bg-zinc-500 border border-zinc-655 text-zinc-900 hover:bg-zinc-550',
-    rBtnActiveClass: 'bg-zinc-655 border border-zinc-750 text-white',
+    containerBg: '#c2c5ba',
+    containerStyle: { backgroundImage: 'url(/images/themes/retro.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
+    panelClass: 'bg-zinc-800/80 border border-zinc-700/50 text-zinc-100 shadow-[0_8px_32px_rgba(0,0,0,0.4)]',
+    dpadPlateClass: 'bg-zinc-300/80 border border-zinc-400 shadow-[inset_0_3px_8px_rgba(0,0,0,0.3),0_4px_8px_rgba(0,0,0,0.2)] text-zinc-800',
+    centerCircleClass: 'bg-zinc-400 border border-zinc-500 shadow-inner',
+    btnDefaultClass: 'bg-zinc-700 border-t border-l border-zinc-550 border-b-2 border-r-2 border-zinc-900 text-zinc-900 shadow-[2px_2px_4px_rgba(0,0,0,0.5),inset_1px_1px_1px_rgba(255,255,255,0.1)]',
+    btnActiveClass: 'bg-zinc-800 border-t border-l border-zinc-900 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-white shadow-[inset_2px_2px_3px_rgba(0,0,0,0.7)]',
+    btnTextDefaultClass: 'text-zinc-900 font-bold',
+    btnTextActiveClass: 'text-white font-extrabold',
+    lBtnDefaultClass: 'bg-zinc-500 border-x border-b-2 border-zinc-700 text-zinc-900 shadow-[0_3px_5px_rgba(0,0,0,0.4)]',
+    lBtnActiveClass: 'bg-zinc-650 border-x border-b-0 text-white translate-y-[2px] shadow-inner',
+    rBtnDefaultClass: 'bg-zinc-500 border-x border-b-2 border-zinc-700 text-zinc-900 shadow-[0_3px_5px_rgba(0,0,0,0.4)]',
+    rBtnActiveClass: 'bg-zinc-655 border-x border-b-0 text-white translate-y-[2px] shadow-inner',
     actionButtons: {
-      TRIANGLE: { defaultClass: 'border-zinc-500 text-zinc-700 bg-zinc-400', activeClass: 'bg-zinc-500 border-zinc-700 text-zinc-900 shadow-inner', label: '▲', textClass: '' },
-      CONFIRM: { defaultClass: 'border-red-900 bg-red-650 text-white shadow-md', activeClass: 'bg-red-800 border border-red-950 text-zinc-200 shadow-inner', label: '✕', textClass: '' },
-      SQUARE: { defaultClass: 'border-zinc-500 text-zinc-700 bg-zinc-400', activeClass: 'bg-zinc-500 border-zinc-700 text-zinc-900 shadow-inner', label: '■', textClass: '' },
-      BACK: { defaultClass: 'border-red-900 bg-red-650 text-white shadow-md', activeClass: 'bg-red-800 border border-red-955 text-zinc-200 shadow-inner', label: '◯', textClass: '' }
+      TRIANGLE: { defaultClass: 'bg-zinc-700 border-t border-l border-zinc-550 border-b-2 border-r-2 border-zinc-900 text-zinc-900 shadow-[2px_2px_4px_rgba(0,0,0,0.5)]', activeClass: 'bg-zinc-800 border-t border-l border-zinc-900 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-white shadow-[inset_2px_2px_3px_rgba(0,0,0,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-red-700 border-t border-l border-red-500 border-b-2 border-r-2 border-red-950 text-white shadow-[2px_2px_4px_rgba(0,0,0,0.5),inset_1px_1px_2px_rgba(255,255,255,0.2)]', activeClass: 'bg-red-850 border-t border-l border-red-950 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-zinc-300 shadow-[inset_2px_2px_3px_rgba(0,0,0,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-zinc-700 border-t border-l border-zinc-550 border-b-2 border-r-2 border-zinc-900 text-zinc-900 shadow-[2px_2px_4px_rgba(0,0,0,0.5)]', activeClass: 'bg-zinc-800 border-t border-l border-zinc-900 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-white shadow-[inset_2px_2px_3px_rgba(0,0,0,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-red-700 border-t border-l border-red-500 border-b-2 border-r-2 border-red-955 text-white shadow-[2px_2px_4px_rgba(0,0,0,0.5),inset_1px_1px_2px_rgba(255,255,255,0.25)]', activeClass: 'bg-red-850 border-t border-l border-red-955 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-zinc-300 shadow-[inset_2px_2px_3px_rgba(0,0,0,0.7)]', label: '◯', textClass: '' }
     },
-    joystickTrackClass: 'bg-zinc-400 border border-zinc-550 shadow-inner',
-    joystickKnobClass: 'from-zinc-600 to-zinc-800 border-zinc-700',
-    joystickDotDefaultClass: 'bg-zinc-950',
-    joystickDotActiveClass: 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]',
-    customDecor: (
-      <div className="absolute top-4 left-6 pointer-events-none opacity-20 select-none flex flex-col font-mono text-[9px] text-zinc-900 font-bold">
-        <span>MODEL NO. FS-2026</span>
-        <span>MADE IN JAPAN</span>
-      </div>
-    )
+    joystickTrackClass: 'bg-zinc-400 border border-zinc-500 shadow-inner',
+    joystickKnobClass: 'from-zinc-650 to-zinc-800 border-zinc-700 shadow-md',
+    joystickDotDefaultClass: 'bg-zinc-900',
+    joystickDotActiveClass: 'bg-red-600 shadow-[0_0_6px_rgba(220,38,38,0.6)]'
   },
   'galactic': {
     id: 'galactic',
     name: 'Galactic',
     preview: 'bg-gradient-to-r from-purple-800 to-indigo-950 border-purple-400',
-    containerBg: 'radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.25) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.25) 0%, transparent 50%), #0b071e',
-    panelClass: 'bg-zinc-950/40 border-purple-500/25',
-    dpadPlateClass: 'bg-zinc-950/30 border border-purple-500/20 shadow-[inset_0_0_15px_rgba(139,92,246,0.2)]',
-    centerCircleClass: 'bg-zinc-900 border-purple-800/30',
-    btnDefaultClass: 'bg-zinc-900/60 border border-zinc-800 text-zinc-500 hover:bg-zinc-850/50',
-    btnActiveClass: 'bg-purple-650/20 border-purple-400 shadow-[0_0_15px_rgba(139,92,246,0.6)]',
-    btnTextDefaultClass: 'text-zinc-500',
-    btnTextActiveClass: 'text-purple-400',
-    lBtnDefaultClass: 'bg-zinc-900/60 border border-zinc-800 text-zinc-500 hover:text-white',
-    lBtnActiveClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_4px_10px_rgba(139,92,246,0.4)]',
-    rBtnDefaultClass: 'bg-zinc-900/60 border border-zinc-800 text-zinc-500 hover:text-white',
-    rBtnActiveClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_4px_10px_rgba(6,182,212,0.4)]',
+    containerBg: '#07021a',
+    containerStyle: { backgroundImage: 'url(/images/themes/galactic.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' },
+    panelClass: 'bg-purple-955/35 border-purple-800/30 backdrop-blur-md shadow-[0_8px_32px_rgba(139,92,246,0.15)]',
+    dpadPlateClass: 'bg-zinc-950/60 border border-purple-900/40 shadow-[inset_0_4px_12px_rgba(0,0,0,0.8),0_4px_8px_rgba(139,92,246,0.2)]',
+    centerCircleClass: 'bg-zinc-900 border-purple-900/30 shadow-inner',
+    btnDefaultClass: 'bg-purple-950/60 border-t border-l border-purple-700/50 border-b-2 border-r-2 border-purple-955 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.1)]',
+    btnActiveClass: 'bg-purple-900/80 border-t border-l border-purple-500 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(168,85,247,0.7)]',
+    btnTextDefaultClass: 'text-purple-300 font-bold',
+    btnTextActiveClass: 'text-purple-200 font-extrabold shadow-[0_0_8px_rgba(168,85,247,0.5)]',
+    lBtnDefaultClass: 'bg-purple-955/80 border-x border-b-2 border-purple-950 text-purple-400 hover:text-white shadow-[0_3px_6px_rgba(0,0,0,0.5),inset_1px_1px_1px_rgba(255,255,255,0.1)]',
+    lBtnActiveClass: 'bg-purple-500/25 border-x border-b-0 text-purple-300 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(168,85,247,0.5)]',
+    rBtnDefaultClass: 'bg-cyan-955/80 border-x border-b-2 border-cyan-950 text-cyan-400 hover:text-white shadow-[0_3px_6px_rgba(0,0,0,0.5),inset_1px_1px_1px_rgba(255,255,255,0.1)]',
+    rBtnActiveClass: 'bg-cyan-500/25 border-x border-b-0 text-cyan-300 translate-y-[2px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(6,182,212,0.5)]',
     actionButtons: {
-      TRIANGLE: { defaultClass: 'border-purple-550/25 text-purple-400/80 bg-zinc-950/60', activeClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(139,92,246,0.7)]', label: '▲', textClass: '' },
-      CONFIRM: { defaultClass: 'border-cyan-550/25 text-cyan-400/80 bg-zinc-950/60', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '✕', textClass: '' },
-      SQUARE: { defaultClass: 'border-purple-550/25 text-purple-400/80 bg-zinc-950/60', activeClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(139,92,246,0.7)]', label: '■', textClass: '' },
-      BACK: { defaultClass: 'border-cyan-550/25 text-cyan-400/80 bg-zinc-950/60', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '◯', textClass: '' }
+      TRIANGLE: { defaultClass: 'bg-purple-950/60 border-t border-l border-purple-700/50 border-b-2 border-r-2 border-purple-950 text-purple-400/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.1)]', activeClass: 'bg-purple-900/80 border-t border-l border-purple-500 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-purple-200 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(168,85,247,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-cyan-950/60 border-t border-l border-cyan-700/50 border-b-2 border-r-2 border-cyan-950 text-cyan-400/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.1)]', activeClass: 'bg-cyan-900/80 border-t border-l border-cyan-500 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-cyan-200 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(6,182,212,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-purple-955/60 border-t border-l border-purple-700/50 border-b-2 border-r-2 border-purple-955 text-purple-400/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.1)]', activeClass: 'bg-purple-900/80 border-t border-l border-purple-500 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-purple-200 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(168,85,247,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-cyan-955/60 border-t border-l border-cyan-700/50 border-b-2 border-r-2 border-cyan-955 text-cyan-400/80 shadow-[3px_3px_5px_rgba(0,0,0,0.6),inset_1px_1px_2px_rgba(255,255,255,0.1)]', activeClass: 'bg-cyan-900/80 border-t border-l border-cyan-500 border-b-0 border-r-0 translate-y-[2px] translate-x-[1px] text-cyan-200 shadow-[inset_2px_2px_4px_rgba(0,0,0,0.8),0_0_12px_rgba(6,182,212,0.7)]', label: '◯', textClass: '' }
     },
-    joystickTrackClass: 'bg-zinc-950/50 border border-purple-550/20',
-    joystickKnobClass: 'from-zinc-900 to-purple-950 border-purple-800/40',
+    joystickTrackClass: 'bg-purple-955/40 border border-purple-800/30 shadow-inner',
+    joystickKnobClass: 'from-zinc-900 to-purple-955 border-purple-800/40 shadow-md',
     joystickDotDefaultClass: 'bg-zinc-800',
-    joystickDotActiveClass: 'bg-cyan-450 shadow-[0_0_8px_rgba(6,182,212,0.8)]',
+    joystickDotActiveClass: 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]',
     customDecor: (
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20 select-none">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-25 select-none">
         <div className="absolute w-2 h-2 bg-white rounded-full top-1/4 left-1/3 animate-ping" style={{ animationDuration: '3s' }} />
         <div className="absolute w-1 h-1 bg-white rounded-full top-2/3 left-1/4" />
         <div className="absolute w-1.5 h-1.5 bg-cyan-400 rounded-full top-1/3 left-2/3 animate-ping" style={{ animationDuration: '4s' }} />
@@ -1067,7 +1037,7 @@ function ControllerContent() {
           onPointerUp={() => sendAction('L', 'up')}
           onPointerLeave={() => sendAction('L', 'up')}
           onPointerCancel={() => sendAction('L', 'up')}
-          className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 active:scale-95 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
+          className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
             activeButton === 'L'
               ? currentTheme.lBtnActiveClass
               : currentTheme.lBtnDefaultClass
@@ -1082,7 +1052,7 @@ function ControllerContent() {
           onPointerUp={() => sendAction('R', 'up')}
           onPointerLeave={() => sendAction('R', 'up')}
           onPointerCancel={() => sendAction('R', 'up')}
-          className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 active:scale-95 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
+          className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
             activeButton === 'R'
               ? currentTheme.rBtnActiveClass
               : currentTheme.rBtnDefaultClass
@@ -1112,7 +1082,7 @@ function ControllerContent() {
               onPointerUp={() => sendAction('UP', 'up')}
               onPointerLeave={() => sendAction('UP', 'up')}
               onPointerCancel={() => sendAction('UP', 'up')}
-              className={`absolute top-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
+              className={`absolute top-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'UP'
                   ? currentTheme.btnActiveClass
                   : currentTheme.btnDefaultClass
@@ -1127,7 +1097,7 @@ function ControllerContent() {
               onPointerUp={() => sendAction('DOWN', 'up')}
               onPointerLeave={() => sendAction('DOWN', 'up')}
               onPointerCancel={() => sendAction('DOWN', 'up')}
-              className={`absolute bottom-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
+              className={`absolute bottom-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'DOWN'
                   ? currentTheme.btnActiveClass
                   : currentTheme.btnDefaultClass
@@ -1142,7 +1112,7 @@ function ControllerContent() {
               onPointerUp={() => sendAction('LEFT', 'up')}
               onPointerLeave={() => sendAction('LEFT', 'up')}
               onPointerCancel={() => sendAction('LEFT', 'up')}
-              className={`absolute left-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
+              className={`absolute left-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'LEFT'
                   ? currentTheme.btnActiveClass
                   : currentTheme.btnDefaultClass
@@ -1157,7 +1127,7 @@ function ControllerContent() {
               onPointerUp={() => sendAction('RIGHT', 'up')}
               onPointerLeave={() => sendAction('RIGHT', 'up')}
               onPointerCancel={() => sendAction('RIGHT', 'up')}
-              className={`absolute right-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
+              className={`absolute right-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'RIGHT'
                   ? currentTheme.btnActiveClass
                   : currentTheme.btnDefaultClass
@@ -1263,7 +1233,7 @@ function ControllerContent() {
               onPointerUp={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
               onPointerLeave={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
               onPointerCancel={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
-              className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
+              className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'TRIANGLE'
                   ? currentTheme.actionButtons.TRIANGLE.activeClass
                   : currentTheme.actionButtons.TRIANGLE.defaultClass
@@ -1280,7 +1250,7 @@ function ControllerContent() {
               onPointerUp={() => sendAction('CONFIRM', 'up')}
               onPointerLeave={() => sendAction('CONFIRM', 'up')}
               onPointerCancel={() => sendAction('CONFIRM', 'up')}
-              className={`absolute bottom-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
+              className={`absolute bottom-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 cursor-pointer ${
                 activeButton === 'CONFIRM'
                   ? currentTheme.actionButtons.CONFIRM.activeClass
                   : currentTheme.actionButtons.CONFIRM.defaultClass
@@ -1298,7 +1268,7 @@ function ControllerContent() {
               onPointerUp={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
               onPointerLeave={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
               onPointerCancel={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
-              className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
+              className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'SQUARE'
                   ? currentTheme.actionButtons.SQUARE.activeClass
                   : currentTheme.actionButtons.SQUARE.defaultClass
@@ -1315,7 +1285,7 @@ function ControllerContent() {
               onPointerUp={() => sendAction('BACK', 'up')}
               onPointerLeave={() => sendAction('BACK', 'up')}
               onPointerCancel={() => sendAction('BACK', 'up')}
-              className={`absolute right-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
+              className={`absolute right-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 cursor-pointer ${
                 activeButton === 'BACK'
                   ? currentTheme.actionButtons.BACK.activeClass
                   : currentTheme.actionButtons.BACK.defaultClass
