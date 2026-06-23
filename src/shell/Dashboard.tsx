@@ -79,6 +79,16 @@ interface DashboardProps {
 
 // Plus de DEFAULT_GAMES / MOCK_TROPHIES : tout vient de Supabase (lib/db.ts).
 
+export function encodePathSegments(url: string): string {
+  return url
+    .split('/')
+    .map((segment) => {
+      if (!segment || segment.endsWith(':')) return segment;
+      return encodeURIComponent(segment);
+    })
+    .join('/');
+}
+
 export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpdateProfile, onRefreshProfile }) => {
   const [games, setGames] = useState<Game[]>([]);
   const [recentGames, setRecentGames] = useState<Game[]>([]); // rail "Continuer"
@@ -544,6 +554,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     };
   }, [activeGame?.id, activeGame?.video_url]);
 
+  // Gestion de l'état de jeu en cours pour suspendre la musique de fond
+  useEffect(() => {
+    if (selectedGame) {
+      AudioEngine.getInstance().setGameRunning(true);
+    } else {
+      AudioEngine.getInstance().setGameRunning(false);
+    }
+  }, [selectedGame]);
+
   // Ambient sound focusing
   useEffect(() => {
     if (!selectedGame && !isStudioOpen && activeGame && activeTab === 'games') {
@@ -565,7 +584,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   // PRÉCHAUFFAGE émulateurs : dès qu'un jeu GBA/PSP est focalisé, on précharge le
   // moteur EmulatorJS + la ROM en arrière-plan → démarrage quasi-instantané au clic « Jouer ».
   const activeGameRuntime = activeGame?.runtime;
-  const activeGameRomUrl = activeGame ? `${activeGame.assets_bucket_path}/${activeGame.entry_point}` : '';
+  const activeGameRomUrl = activeGame ? encodePathSegments(`${activeGame.assets_bucket_path}/${activeGame.entry_point}`) : '';
   useEffect(() => {
     if (activeGameRuntime !== 'gba' && activeGameRuntime !== 'psp') return;
     const links: HTMLLinkElement[] = [];

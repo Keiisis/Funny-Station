@@ -15,6 +15,7 @@ export class AudioEngine {
 
   private currentAmbientUrl: string | null = null;
   private currentObjectUrl: string | null = null;
+  private isGameRunning = false;
 
   private constructor() {
     // Initialisé à la demande pour respecter la politique d'autoplay
@@ -272,8 +273,18 @@ export class AudioEngine {
     };
   }
 
+  public setGameRunning(running: boolean) {
+    this.isGameRunning = running;
+    if (running) {
+      this.stopAmbientMusic();
+    }
+  }
+
   // Musique de fond (ambient) dynamique
   public async playAmbientMusic(url?: string) {
+    if (this.isGameRunning) {
+      return;
+    }
     this.initCtx();
     this.stopAmbientMusic();
 

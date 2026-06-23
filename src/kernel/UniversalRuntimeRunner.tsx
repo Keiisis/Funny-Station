@@ -52,7 +52,13 @@ export interface TrophyUnlockPayload {
  * Les chemins same-origin passent inchangés.
  */
 function resolveAssetUrl(url: string): string {
-  return url;
+  return url
+    .split('/')
+    .map((segment) => {
+      if (!segment || segment.endsWith(':')) return segment;
+      return encodeURIComponent(segment);
+    })
+    .join('/');
 }
 
 interface GameRunnerProps {
