@@ -21,9 +21,43 @@
 
 type Signal = (event: string, payload: any) => void;
 
-const ICE_CONFIG: RTCConfiguration = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-};
+// ── Serveurs ICE ────────────────────────────────────────────────────────────
+//  STUN : découverte d'adresse publique (suffit sur un même réseau / NAT simple).
+//  TURN : relais de secours quand le P2P direct est impossible (NAT strict, 4G ↔
+//         Wi-Fi, pare-feu d'entreprise). Sans TURN, la liaison retombe sur le
+//         broadcast Supabase ; avec TURN, le DataChannel s'établit quand même.
+//
+//  Par défaut on inclut le TURN public gratuit d'Open Relay (Metered). Tu peux
+//  fournir TON propre TURN (plus fiable) via les variables d'environnement :
+//    NEXT_PUBLIC_TURN_URL, NEXT_PUBLIC_TURN_USERNAME, NEXT_PUBLIC_TURN_CREDENTIAL
+function buildIceServers(): RTCIceServer[] {
+  const servers: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+  ];
+
+  // TURN personnalisé (prioritaire) si configuré côté projet.
+  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
+  if (turnUrl) {
+    servers.push({
+      urls: turnUrl,
+      username: process.env.NEXT_PUBLIC_TURN_USERNAME || '',
+      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || '',
+    });
+  }
+
+  // TURN public de secours (Open Relay) — gratuit, best-effort. UDP, TCP et TLS:443
+  // pour passer aussi les pare-feux qui ne laissent sortir que le HTTPS.
+  servers.push(
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  );
+
+  return servers;
+}
+
+const ICE_CONFIG: RTCConfiguration = { iceServers: buildIceServers() };
 
 function rtcAvailable(): boolean {
   return typeof window !== 'undefined' && typeof RTCPeerConnection !== 'undefined';
