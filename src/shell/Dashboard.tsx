@@ -80,13 +80,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     const items = container.children;
     if (items && items[focusedIndex]) {
       const activeItem = items[focusedIndex] as HTMLElement;
-      
-      // Calculate positions to center the active item within the horizontal carousel
-      const containerWidth = container.offsetWidth;
       const itemLeft = activeItem.offsetLeft;
-      const itemWidth = activeItem.offsetWidth;
       
-      const targetScrollLeft = itemLeft - (containerWidth / 2) + (itemWidth / 2);
+      // Align to the left with a 64px offset (matches our px-16 padding) so upcoming games stretch to the right
+      const targetScrollLeft = itemLeft - 64;
       
       container.scrollTo({
         left: targetScrollLeft,
