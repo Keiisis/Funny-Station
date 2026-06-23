@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX, Smartphone, Gamepad2, Power, ShoppingBag, User, Settings, Clock, Trophy, Palette } from 'lucide-react';
+import { Volume2, VolumeX, Smartphone, Gamepad2, Power, ShoppingBag, User, Settings, Clock, Trophy, Palette, Sparkles, Eye } from 'lucide-react';
 import { AudioEngine } from '@/drivers/AudioEngine';
 
 interface ControlCenterProps {
@@ -31,6 +31,26 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentTheme, setCurrentTheme] = useState<string>('auto');
+
+  // Accessibilité (réduction des animations / mode daltonien) — appliquées par AppInit.
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [colorblind, setColorblind] = useState(false);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    setReduceMotion(document.documentElement.classList.contains('reduce-motion'));
+    setColorblind(document.documentElement.classList.contains('colorblind'));
+  }, [isOpen]);
+
+  const toggleA11y = (key: 'reduce_motion' | 'colorblind') => {
+    AudioEngine.getInstance().playSFX('select');
+    const storeKey = key === 'reduce_motion' ? 'fs_reduce_motion' : 'fs_colorblind';
+    const next = localStorage.getItem(storeKey) === '1' ? '0' : '1';
+    localStorage.setItem(storeKey, next);
+    if (key === 'reduce_motion') setReduceMotion(next === '1');
+    else setColorblind(next === '1');
+    window.dispatchEvent(new CustomEvent('funny_a11y_changed'));
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('funny_station_theme') || 'auto';
@@ -221,6 +241,31 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
           <Clock size={16} className="text-blue-400" />
           <span className="text-xs font-black text-zinc-100 font-mono tracking-wide">{time}</span>
           <span className="text-[7px] text-zinc-500 uppercase tracking-widest font-bold">Heure</span>
+        </div>
+
+        {/* Accessibilité : réduction des animations + mode daltonien (clic) */}
+        <div className="flex flex-col gap-2">
+          <span className="text-[7px] uppercase tracking-widest text-zinc-500 font-bold">Accessibilité</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => toggleA11y('reduce_motion')}
+              title="Réduire les animations"
+              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl border text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                reduceMotion ? 'border-blue-500 bg-blue-500/15 text-blue-300' : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Sparkles size={13} /> Animations {reduceMotion ? 'off' : 'on'}
+            </button>
+            <button
+              onClick={() => toggleA11y('colorblind')}
+              title="Mode daltonien (couleurs renforcées)"
+              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl border text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                colorblind ? 'border-emerald-500 bg-emerald-500/15 text-emerald-300' : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Eye size={13} /> Daltonien {colorblind ? 'on' : 'off'}
+            </button>
+          </div>
         </div>
 
         {/* Game Trophies */}

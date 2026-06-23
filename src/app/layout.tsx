@@ -1,8 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Geist } from 'next/font/google';
 import './globals.css';
 import { TrophyOverlay } from '@/shell/TrophyOverlay';
 import { ThemeManager } from '@/shell/ThemeManager';
+import { AppInit } from '@/shell/AppInit';
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -13,7 +14,17 @@ export const metadata: Metadata = {
   title: 'Funny Station - Universal Web-Console & Social OS',
   description: 'Une console de jeux universelle inspirée de la PS5 fonctionnant entièrement dans le navigateur, supportant le multi-runtime JS, WASM, Python et l\'haptique DualSense.',
   keywords: 'Cloud Gaming, WebGL, WebAssembly, Pyodide, DualSense, WebHID, Next.js, PS5 UI',
-  authors: [{ name: 'Funny Station Team' }]
+  authors: [{ name: 'Funny Station Team' }],
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Funny Station' },
+  icons: { icon: '/icon.svg', apple: '/icon.svg' },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#020617',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -29,6 +40,9 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://cdn.emulatorjs.org" />
       </head>
       <body className={`${inter.className} min-h-full bg-zinc-950 text-slate-100 overflow-hidden relative`} suppressHydrationWarning>
+        {/* Init client : accessibilité (réduction animations / daltonien) + PWA (SW). */}
+        <AppInit />
+
         {/* Gestionnaire de thème aléatoire */}
         <ThemeManager />
         

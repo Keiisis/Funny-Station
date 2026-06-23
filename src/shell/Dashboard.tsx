@@ -1108,7 +1108,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           )}
 
           {/* Console main panel content */}
-          <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none animate-fade-in">
+          <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none animate-view-enter">
             
             {/* Rail "Continuer" — jeux récemment joués par ce compte (reprise rapide) */}
             {recentGames.length > 0 && (

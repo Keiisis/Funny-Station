@@ -302,7 +302,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-[#020617]/95 backdrop-blur-md z-45 flex flex-col font-sans select-none animate-fade-in text-white overflow-hidden">
+    <div className="fixed inset-0 bg-[#020617]/95 backdrop-blur-md z-45 flex flex-col font-sans select-none animate-view-enter text-white overflow-hidden">
       
       {/* Top Bar Header */}
       <div className="flex items-center justify-between px-16 py-6 border-b border-zinc-800/40 bg-zinc-950/40 backdrop-blur-md">

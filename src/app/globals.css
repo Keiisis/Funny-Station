@@ -555,6 +555,41 @@ body {
   animation: fadeIn 0.4s ease-out forwards;
 }
 
+/* Transition d'entree de vue (PS5) : fondu + leger glissement/zoom. */
+@keyframes viewEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-view-enter {
+  animation: viewEnter 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* Respecte la preference systeme / le reglage "reduire les animations". */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Mode daltonien : renforce la separation des couleurs (saturation + contraste)
+   pour mieux distinguer les elements rouge/vert. Applique sur tout le rendu. */
+.colorblind body,
+body.colorblind,
+.colorblind {
+  filter: saturate(1.5) contrast(1.12);
+}
+
 /* --- Premium PS5-style Background Animations --- */
 @keyframes bgKenBurns {
   0% {
