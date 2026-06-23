@@ -198,7 +198,14 @@ export class AudioEngine {
   // Jouer la piste suivante dans la playlist
   private async playNextTrack() {
     if (this.playlist.length === 0) return;
-    this.currentTrackIndex = (this.currentTrackIndex + 1) % this.playlist.length;
+    
+    if (this.currentTrackIndex === this.playlist.length - 1) {
+      // Si on a joué tout le cycle, on remélange la playlist pour le tour suivant
+      this.playlist = this.shuffleArray(this.playlist);
+      this.currentTrackIndex = 0;
+    } else {
+      this.currentTrackIndex = (this.currentTrackIndex + 1) % this.playlist.length;
+    }
     const nextUrl = this.playlist[this.currentTrackIndex];
 
     this.stopAmbientMusic();
