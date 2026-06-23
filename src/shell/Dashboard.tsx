@@ -89,6 +89,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [trophies, setTrophies] = useState<Trophy[]>([]);
   
   const carouselRef = useRef<HTMLDivElement>(null);
+  const navInitRef = useRef(true);
+
+  // Retour "console" au changement de jeu focalisé : son de navigation + vibration légère.
+  useEffect(() => {
+    if (navInitRef.current) { navInitRef.current = false; return; }
+    AudioEngine.getInstance().playSFX('navigate');
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(8);
+  }, [focusedIndex]);
 
   // Auto-scroll the focused carousel item into view (PS5-style continuous list scroll)
   useEffect(() => {
@@ -1024,7 +1032,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           )}
 
           {/* Console main panel content */}
-          <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none">
+          <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none animate-fade-in">
             
             {/* Rail "Continuer" — jeux récemment joués par ce compte (reprise rapide) */}
             {recentGames.length > 0 && (
