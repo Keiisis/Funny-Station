@@ -8,6 +8,7 @@ import { AudioEngine } from '@/drivers/AudioEngine';
 import { Delete, Check, ShieldCheck, Mail, AlertTriangle, ArrowLeft, UserPlus } from 'lucide-react';
 import { BootScreen } from '@/shell/BootScreen';
 import { supabase } from '@/utils/supabase/client';
+import { WebGLBackground } from '@/drivers/WebGLBackground';
 
 type Mode = 'profiles' | 'login' | 'signup' | 'forgot';
 
@@ -176,6 +177,7 @@ export default function LoginPage() {
   return (
     <BootScreen>
       <div className="flex flex-col items-center justify-center min-h-screen text-white px-4 select-none relative z-10">
+        <WebGLBackground />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,24,48,0.45)_0%,rgba(2,6,23,0.99)_80%)] -z-10 pointer-events-none" />
 
         <h1 className="text-3xl font-extralight tracking-widest mb-2 text-zinc-100 uppercase">

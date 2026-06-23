@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Geist } from 'next/font/google';
 import './globals.css';
-import { WebGLBackground } from '@/drivers/WebGLBackground';
 import { TrophyOverlay } from '@/shell/TrophyOverlay';
 import { ThemeManager } from '@/shell/ThemeManager';
 import { cn } from "@/lib/utils";
@@ -32,9 +31,6 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-full bg-zinc-950 text-slate-100 overflow-hidden relative`} suppressHydrationWarning>
         {/* Gestionnaire de thème aléatoire */}
         <ThemeManager />
-
-        {/* Shader WebGL — arrière-plan animé PS5 */}
-        <WebGLBackground />
         
         {/* Notifications globales de trophées débloqués */}
         <TrophyOverlay />

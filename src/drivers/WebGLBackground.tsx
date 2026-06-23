@@ -3,7 +3,17 @@
 import React, { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 
-export const WebGLBackground: React.FC = () => {
+interface WebGLBackgroundProps {
+  className?: string;
+  mixBlendMode?: React.CSSProperties['mixBlendMode'];
+  zIndex?: number;
+}
+
+export const WebGLBackground: React.FC<WebGLBackgroundProps> = ({
+  className = "fixed inset-0 w-screen h-screen -z-10 bg-zinc-950 pointer-events-none",
+  mixBlendMode = "normal",
+  zIndex = -10
+}) => {
   const pathname = usePathname();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isController = !!pathname && pathname.startsWith('/controller');
@@ -289,8 +299,8 @@ export const WebGLBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 w-screen h-screen -z-10 bg-zinc-950 pointer-events-none"
-      style={{ mixBlendMode: 'normal' }}
+      className={className}
+      style={{ mixBlendMode, zIndex }}
     />
   );
 };

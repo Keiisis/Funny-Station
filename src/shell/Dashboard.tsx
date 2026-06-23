@@ -15,6 +15,7 @@ import QRCode from 'qrcode';
 import { GameRoom } from '@/multiplayer/GameRoom';
 import { GameStateSync } from '@/multiplayer/GameStateSync';
 import { DynamicAura } from './DynamicAura';
+import { WebGLBackground } from '@/drivers/WebGLBackground';
 import { ControlCenter } from './ControlCenter';
 import { ShutdownScreen } from './ShutdownScreen';
 import { loadKeyMapping, saveKeyMapping, KeyMapping, ConsoleAction, DEFAULT_KEY_MAPPING, ACTION_LABELS } from '@/utils/inputMapping';
@@ -964,6 +965,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
               )}
               {/* Dynamic Aura background effect */}
               <DynamicAura gameSlug={activeGame?.slug} />
+
+              {/* WebGL Animated Waves overlaying on top of the background image */}
+              <WebGLBackground 
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                mixBlendMode="screen"
+                zIndex={15}
+              />
 
               {/* Shading gradients to keep text readable on the left and trophies panel readable on the bottom */}
               <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/95 via-zinc-950/50 to-transparent pointer-events-none z-20" />
