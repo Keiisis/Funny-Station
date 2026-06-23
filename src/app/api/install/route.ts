@@ -52,6 +52,11 @@ function detectRuntimeAndEntry(fileNames: string[]): { runtime: string; entryPoi
     return { runtime: 'psp', entryPoint: fileNames.find((f) => f.endsWith('.cso'))! };
   if (fileNames.some((f) => f.endsWith('.iso')))
     return { runtime: 'psp', entryPoint: fileNames.find((f) => f.endsWith('.iso'))! };
+  // Nintendo (NES / Super Nintendo) : ROMs légères, parfaites en navigateur.
+  if (fileNames.some((f) => f.endsWith('.nes')))
+    return { runtime: 'nes', entryPoint: fileNames.find((f) => f.endsWith('.nes'))! };
+  if (fileNames.some((f) => f.endsWith('.sfc') || f.endsWith('.smc') || f.endsWith('.fig')))
+    return { runtime: 'snes', entryPoint: fileNames.find((f) => f.endsWith('.sfc') || f.endsWith('.smc') || f.endsWith('.fig'))! };
   // Par défaut : JS / HTML5
   const entry =
     fileNames.find((f) => f === 'index.html') ||
