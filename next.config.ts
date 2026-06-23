@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: '*.workers.dev' },
       { protocol: 'https', hostname: '*.r2.dev' },
     ],
+    // Certaines jaquettes locales sont en .svg (assets de confiance fournis par le
+    // créateur). On autorise leur optimisation, avec une CSP restrictive par sécurité.
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   // NB: on NE proxy PAS les gros jeux R2 par Vercel (limites plateforme → 502).
   // Les assets R2 volumineux sont chargés DIRECTEMENT par le navigateur (cf. le
