@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX, Smartphone, Gamepad2, Power, ShoppingBag, User, Settings, Clock, Trophy } from 'lucide-react';
+import { Volume2, VolumeX, Smartphone, Gamepad2, Power, ShoppingBag, User, Settings, Clock, Trophy, Palette } from 'lucide-react';
 import { AudioEngine } from '@/drivers/AudioEngine';
 
 interface ControlCenterProps {
@@ -30,6 +30,34 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
   const [focusedIndex, setFocusedIndex] = useState<number>(0);
   
   const containerRef = useRef<HTMLDivElement>(null);
+  const [currentTheme, setCurrentTheme] = useState<string>('auto');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('funny_station_theme') || 'auto';
+    setCurrentTheme(saved);
+
+    const handleThemeChange = (e: Event) => {
+      const savedTheme = localStorage.getItem('funny_station_theme') || 'auto';
+      setCurrentTheme(savedTheme);
+    };
+
+    window.addEventListener('funny_theme_changed', handleThemeChange);
+    window.addEventListener('funny_theme_action_change', handleThemeChange);
+    return () => {
+      window.removeEventListener('funny_theme_changed', handleThemeChange);
+      window.removeEventListener('funny_theme_action_change', handleThemeChange);
+    };
+  }, []);
+
+  const cycleTheme = () => {
+    const ALL_THEMES = ['noir', 'blanc', 'vert', 'rouge', 'jaune', 'bleu', 'auto'];
+    const nextIdx = (ALL_THEMES.indexOf(currentTheme) + 1) % ALL_THEMES.length;
+    const nextTheme = ALL_THEMES[nextIdx];
+    localStorage.setItem('funny_station_theme', nextTheme);
+    setCurrentTheme(nextTheme);
+    window.dispatchEvent(new CustomEvent('funny_theme_action_change', { detail: { theme: nextTheme } }));
+    AudioEngine.getInstance().playSFX('select');
+  };
 
   // Sync clock time
   useEffect(() => {
@@ -79,9 +107,8 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
         return;
       }
 
-      // Control Center Quick Actions (6 items: Volume, Store, Profile, Power)
-      // Index: 0 -> Volume, 1 -> Boutique, 2 -> Profil, 3 -> Éteindre
-      const maxItems = 4;
+      // Control Center Quick Actions (5 items: Volume, Thème, Boutique, Profil, Éteindre)
+      const maxItems = 5;
 
       if (e.key === 'ArrowRight') {
         e.preventDefault();
@@ -106,7 +133,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, focusedIndex, volume]);
+  }, [isOpen, focusedIndex, volume, currentTheme]);
 
   // Handle Gamepad events mapped from custom event bus
   useEffect(() => {
@@ -116,7 +143,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
       if (e.detail.action === 'up') return;
       const dir = e.detail.direction;
 
-      const maxItems = 4;
+      const maxItems = 5;
 
       if (dir === 'RIGHT') {
         AudioEngine.getInstance().playSFX('navigate', 0.1);
@@ -143,16 +170,18 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
 
     window.addEventListener('funny_gamepad_action', handleGamepadAction as EventListener);
     return () => window.removeEventListener('funny_gamepad_action', handleGamepadAction as EventListener);
-  }, [isOpen, focusedIndex, volume]);
+  }, [isOpen, focusedIndex, volume, currentTheme]);
 
   const triggerFocusedItem = () => {
     if (focusedIndex === 1) {
+      cycleTheme();
+    } else if (focusedIndex === 2) {
       onChangeTab('store');
       onClose();
-    } else if (focusedIndex === 2) {
+    } else if (focusedIndex === 3) {
       onChangeTab('profile');
       onClose();
-    } else if (focusedIndex === 3) {
+    } else if (focusedIndex === 4) {
       onOpenPowerMenu();
     }
   };
@@ -164,12 +193,14 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
       // Small timeout to allow visual feedback
       setTimeout(() => {
         if (index === 1) {
+          cycleTheme();
+        } else if (index === 2) {
           onChangeTab('store');
           onClose();
-        } else if (index === 2) {
+        } else if (index === 3) {
           onChangeTab('profile');
           onClose();
-        } else if (index === 3) {
+        } else if (index === 4) {
           onOpenPowerMenu();
         }
       }, 100);
@@ -238,11 +269,27 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
           </div>
         </div>
 
-        {/* Boutique Store Shortcut */}
+        {/* Theme Shortcut */}
         <button 
           onClick={() => selectItemDirect(1)}
           className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
             focusedIndex === 1 
+              ? 'border-blue-500 bg-blue-500/10 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.25)] scale-105' 
+              : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
+          }`}
+          title="Thème de la console"
+        >
+          <Palette size={18} className={currentTheme === 'auto' ? 'animate-pulse' : ''} />
+          <span className="text-[6px] uppercase tracking-widest font-black text-center w-full px-0.5 truncate">
+            {currentTheme === 'auto' ? 'Auto 🌟' : currentTheme}
+          </span>
+        </button>
+
+        {/* Boutique Store Shortcut */}
+        <button 
+          onClick={() => selectItemDirect(2)}
+          className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            focusedIndex === 2 
               ? 'border-purple-500 bg-purple-500/10 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.25)] scale-105' 
               : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
           }`}
@@ -254,9 +301,9 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
 
         {/* Profil Shortcut */}
         <button 
-          onClick={() => selectItemDirect(2)}
+          onClick={() => selectItemDirect(3)}
           className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-            focusedIndex === 2 
+            focusedIndex === 3 
               ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)] scale-105' 
               : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
           }`}
@@ -268,9 +315,9 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
 
         {/* Power Menu Shortcut */}
         <button 
-          onClick={() => selectItemDirect(3)}
+          onClick={() => selectItemDirect(4)}
           className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-            focusedIndex === 3 
+            focusedIndex === 4 
               ? 'border-red-500 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.25)] scale-105' 
               : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-red-500/80'
           }`}

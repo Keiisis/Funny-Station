@@ -604,3 +604,12 @@ body {
   animation: videoFadeIn 1.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
   will-change: opacity, filter;
 }
+
+/* Smooth global theme color transitions */
+html, body, .glass-panel, .glass-panel-active, [class*="theme-"] {
+  transition: 
+    background-color 1.5s cubic-bezier(0.25, 1, 0.5, 1), 
+    border-color 1.5s cubic-bezier(0.25, 1, 0.5, 1), 
+    color 1.0s cubic-bezier(0.25, 1, 0.5, 1), 
+    box-shadow 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
