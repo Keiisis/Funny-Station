@@ -18,6 +18,7 @@ import { DynamicAura } from './DynamicAura';
 import { ControlCenter } from './ControlCenter';
 import { ShutdownScreen } from './ShutdownScreen';
 import { loadKeyMapping, saveKeyMapping, KeyMapping, ConsoleAction, DEFAULT_KEY_MAPPING, ACTION_LABELS } from '@/utils/inputMapping';
+import { createConsoleRtc, ConsoleRtc } from '@/utils/rtcLink';
 import {
   fetchPublishedGames,
   fetchGamesByAuthor,
@@ -121,6 +122,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     return () => window.removeEventListener('keydown', handleKeyCapture, { capture: true });
   }, [listeningAction, keyMapping]);
   const connectedPlayersRef = useRef<ConnectedPlayer[]>([]);
+  const rtcRef = useRef<ConsoleRtc | null>(null);
   useEffect(() => {
     connectedPlayersRef.current = connectedPlayers;
   }, [connectedPlayers]);
@@ -249,7 +251,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       }
     });
 
-    channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => {
+    // Traitement d'un input manette — partagé par le broadcast Supabase ET la liaison
+    // P2P (WebRTC). Quel que soit le transport, l'input pilote le jeu de la même façon.
+    const processControllerInput = (payload: any) => {
       const { userId, direction, action, clientPlayerId } = payload;
 
       // Si le payload contient un clientPlayerId, n'accepter que les inputs destinés à cette console
@@ -310,7 +314,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           }
         });
       }
-    });
+    };
+
+    // Transport 1 : broadcast Supabase (toujours actif, repli universel).
+    channel.on('broadcast', { event: 'controller_state' }, ({ payload }: any) => processControllerInput(payload));
+
+    // Transport 2 : liaison P2P (WebRTC). Le signaling passe par ce même canal ;
+    // une fois ouverte, la manette envoie ses inputs en direct (latence minimale).
+    const rtc = createConsoleRtc(
+      (event, p) => channel.send({ type: 'broadcast', event, payload: p }),
+      processControllerInput,
+    );
+    rtcRef.current = rtc;
+    channel.on('broadcast', { event: 'rtc_offer' }, ({ payload }: any) => rtc.handleSignal('rtc_offer', payload));
+    channel.on('broadcast', { event: 'rtc_ice' }, ({ payload }: any) => rtc.handleSignal('rtc_ice', payload));
 
     let lastPingTime = 0;
     channel.on('broadcast', { event: 'pong' }, ({ payload }: any) => {
@@ -382,11 +399,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({ online_at: new Date().toISOString(), type: 'console' });
+          // Annonce que la console est prête : les manettes déjà connectées (re)lancent
+          // la négociation P2P pour ouvrir leur DataChannel basse latence.
+          rtc.announce();
         }
       });
 
     return () => {
       clearInterval(pingInterval);
+      rtc.close();
+      rtcRef.current = null;
       channel.unsubscribe();
     };
   }, [controllerType, lobbyId, profile.id]);

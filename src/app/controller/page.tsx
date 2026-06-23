@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
-import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, User, Maximize } from 'lucide-react';
+import { createControllerRtc, ControllerRtc } from '@/utils/rtcLink';
+import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, User, Maximize, Zap } from 'lucide-react';
 
 // Couleurs correspondant aux assignations du Dashboard
 const PLAYER_COLORS = [
@@ -229,7 +230,9 @@ function ControllerContent() {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [activeButton, setActiveButton] = useState<string | null>(null);
   const [latency, setLatency] = useState<number>(0);
+  const [rtcOpen, setRtcOpen] = useState(false); // liaison P2P basse latence active ?
   const channelRef = useRef<any>(null);
+  const rtcRef = useRef<ControllerRtc | null>(null);
 
   // Track fullscreen exit to re-show the gate
   useEffect(() => {
@@ -303,6 +306,18 @@ function ControllerContent() {
 
     channelRef.current = channel;
 
+    // ── Liaison P2P (WebRTC) : signaling via ce canal, inputs en direct une fois ouverte.
+    //    Repli transparent sur le broadcast si la négociation n'aboutit pas.
+    const rtc = createControllerRtc(
+      userId,
+      (event, payload) => channel.send({ type: 'broadcast', event, payload }),
+      (open) => setRtcOpen(open),
+    );
+    rtcRef.current = rtc;
+    channel.on('broadcast', { event: 'rtc_answer' }, ({ payload }: any) => rtc.handleSignal('rtc_answer', payload));
+    channel.on('broadcast', { event: 'rtc_ice' }, ({ payload }: any) => rtc.handleSignal('rtc_ice', payload));
+    channel.on('broadcast', { event: 'rtc_console_ready' }, ({ payload }: any) => rtc.handleSignal('rtc_console_ready', payload));
+
     // Calcul de la latence (ping/pong)
     channel.on('broadcast', { event: 'ping' }, () => {
       channel.send({
@@ -348,13 +363,18 @@ function ControllerContent() {
           // Mark as connected as soon as we successfully subscribe
           // (presence sync will refine this state later)
           setConnected(true);
+          // Lance la négociation P2P dès que le canal est prêt.
+          rtc.start();
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           setSubscribed(false);
           setConnected(false);
+          setRtcOpen(false);
         }
       });
 
     return () => {
+      rtc.close();
+      rtcRef.current = null;
       channel.unsubscribe();
     };
   }, [lobbyId, userId]);
@@ -413,19 +433,19 @@ function ControllerContent() {
       setActiveButton(prev => prev === direction ? null : prev);
     }
 
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'controller_state',
-        payload: { 
-          userId, 
-          direction, 
-          action, 
-          playerNumber: playerNumber !== null ? playerNumber : undefined,
-          clientPlayerId: searchParams.get('clientPlayerId') || ''
-        }
-      });
-      console.log(`[Gamepad] Envoi direction: ${direction}, action: ${action}`);
+    const payload = {
+      userId,
+      direction,
+      action,
+      playerNumber: playerNumber !== null ? playerNumber : undefined,
+      clientPlayerId: searchParams.get('clientPlayerId') || ''
+    };
+
+    // Chemin RAPIDE : liaison P2P si ouverte (latence minimale, pas de relais).
+    const sentP2P = rtcRef.current?.send(payload) ?? false;
+    // Repli : broadcast Supabase (toujours fiable).
+    if (!sentP2P && channelRef.current) {
+      channelRef.current.send({ type: 'broadcast', event: 'controller_state', payload });
     }
   }, [userId, playerNumber, searchParams, triggerVibration, playTouchSound]);
 
@@ -662,6 +682,12 @@ function ControllerContent() {
         </div>
         
         <div className="flex items-center gap-2">
+          {rtcOpen && (
+            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40">
+              <Zap size={9} className="text-amber-400" />
+              <span className="text-[8px] font-black uppercase tracking-wider text-amber-400">Direct</span>
+            </div>
+          )}
           {latency > 0 && (
             <span className="text-[8px] font-mono text-zinc-500">{latency}ms</span>
           )}
