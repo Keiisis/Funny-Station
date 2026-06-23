@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { ProfileData, Game } from '@/types';
 import { supabase } from '@/utils/supabase/client';
 import { AudioEngine } from '@/drivers/AudioEngine';
-import { Coins, ShoppingBag, Gamepad2, ArrowLeft, Check, AlertTriangle, PlayCircle, X, Star, Zap, Terminal } from 'lucide-react';
+import { Coins, ShoppingBag, Gamepad2, ArrowLeft, Check, AlertTriangle, PlayCircle, X, Star, Zap, Terminal, Search } from 'lucide-react';
 
 interface StoreViewProps {
   profile: ProfileData;
@@ -54,6 +54,21 @@ export const StoreView: React.FC<StoreViewProps> = ({
   // rowIndex: 0 = Hero Banner, 1 = Popular games shelf, 2 = New games shelf, 3 = Cheats shelf
   const [rowIndex, setRowIndex] = useState(0);
   const [colIndex, setColIndex] = useState(0);
+
+  // Recherche + filtre par console (section "Tout le catalogue").
+  const [search, setSearch] = useState('');
+  const [consoleFilter, setConsoleFilter] = useState<string>('all');
+  const CONSOLE_FILTERS: { key: string; label: string }[] = [
+    { key: 'all', label: 'Tous' },
+    { key: 'gba', label: 'GBA' },
+    { key: 'nes', label: 'NES' },
+    { key: 'snes', label: 'SNES' },
+    { key: 'js', label: 'Jeux' },
+  ];
+  const catalogueResults = games.filter((g) =>
+    (consoleFilter === 'all' || g.runtime === consoleFilter) &&
+    g.title.toLowerCase().includes(search.trim().toLowerCase())
+  );
 
   // Group games
   const popularGames = [...games].sort((a, b) => (b.play_count || 0) - (a.play_count || 0)).slice(0, 6);
@@ -462,6 +477,75 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Row 2.5: TOUT LE CATALOGUE (recherche + filtre par console) */}
+          <div className="flex flex-col gap-3.5 px-16">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Tout le catalogue</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-zinc-950/60 border border-zinc-800 rounded-full px-3 py-1.5">
+                  <Search size={12} className="text-zinc-500" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Rechercher un jeu..."
+                    className="bg-transparent outline-none text-[11px] text-zinc-200 placeholder-zinc-600 w-40"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  {CONSOLE_FILTERS.map((f) => (
+                    <button
+                      key={f.key}
+                      onClick={() => setConsoleFilter(f.key)}
+                      className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all cursor-pointer ${
+                        consoleFilter === f.key
+                          ? 'bg-purple-500/20 border-purple-500 text-purple-300'
+                          : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 py-1">
+              {catalogueResults.length === 0 ? (
+                <span className="text-[11px] text-zinc-600 py-6">Aucun jeu ne correspond à ta recherche.</span>
+              ) : (
+                catalogueResults.map((game) => {
+                  const owned = isGameOwned(game);
+                  return (
+                    <div
+                      key={game.id}
+                      onClick={() => handleSelectGame(game)}
+                      className="relative flex-shrink-0 cursor-pointer rounded-2xl w-32 aspect-[9/14] overflow-hidden border border-zinc-800/80 opacity-85 hover:opacity-100 hover:border-zinc-600 transition-all"
+                    >
+                      {game.background_url ? (
+                        <Image src={game.background_url} alt={game.title} fill sizes="128px" className="object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-tr from-violet-950 via-fuchsia-950/50 to-zinc-950" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+                      <div className="absolute inset-0 p-2.5 flex flex-col justify-between z-20">
+                        <span
+                          className={`self-end text-[6.5px] uppercase font-black tracking-widest px-1.5 py-0.5 rounded border ${
+                            owned
+                              ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                              : 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                          }`}
+                        >
+                          {owned ? 'Possédé' : `${game.price} FC`}
+                        </span>
+                        <h4 className="text-[9px] font-black text-zinc-200 uppercase truncate">{game.title}</h4>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 

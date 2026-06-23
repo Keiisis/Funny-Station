@@ -81,6 +81,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpdateProfile, onRefreshProfile }) => {
   const [games, setGames] = useState<Game[]>([]);
+  const [recentGames, setRecentGames] = useState<Game[]>([]); // rail "Continuer"
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
@@ -194,6 +195,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   useEffect(() => {
     reloadGames();
   }, [reloadGames]);
+
+  // Rail « Continuer » : jeux récemment joués par CE compte (d'après game_saves.updated_at).
+  useEffect(() => {
+    if (games.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const { data } = await supabase
+        .from('game_saves')
+        .select('game_id, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(16);
+      if (cancelled || !data) return;
+      const seen = new Set<string>();
+      const ordered: Game[] = [];
+      for (const row of data as { game_id: string }[]) {
+        if (seen.has(row.game_id)) continue;
+        seen.add(row.game_id);
+        const g = games.find((x) => x.id === row.game_id);
+        if (g) ordered.push(g);
+        if (ordered.length >= 8) break;
+      }
+      setRecentGames(ordered);
+    })();
+    return () => { cancelled = true; };
+  }, [games, profile.id]);
 
   // Trophées déjà débloqués par l'utilisateur (état global, toutes parties confondues).
   useEffect(() => {
@@ -997,6 +1026,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           {/* Console main panel content */}
           <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none">
             
+            {/* Rail "Continuer" — jeux récemment joués par ce compte (reprise rapide) */}
+            {recentGames.length > 0 && (
+              <div className="flex flex-col gap-2 w-full mb-4">
+                <span className="text-[9px] uppercase tracking-widest font-black text-zinc-400">Continuer</span>
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
+                  {recentGames.map((game) => {
+                    const b = RUNTIME_BADGE[game.runtime] || { label: game.runtime.toUpperCase(), cls: 'bg-zinc-700/90 text-white' };
+                    return (
+                      <div
+                        key={`recent-${game.id}`}
+                        onClick={() => {
+                          AudioEngine.getInstance().playSFX('select');
+                          incrementPlayCount(game.id);
+                          setSelectedGame(game);
+                        }}
+                        className="relative flex-shrink-0 cursor-pointer rounded-xl w-[150px] h-[84px] overflow-hidden border border-zinc-800/80 hover:border-zinc-600 transition-all group"
+                      >
+                        {game.background_url ? (
+                          <Image src={game.background_url} alt={game.title} fill sizes="150px" className="object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-tr from-blue-950 via-violet-950/60 to-zinc-950" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
+                        <span className={`absolute top-1.5 left-1.5 z-20 px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-wider shadow ${b.cls}`}>{b.label}</span>
+                        <div className="absolute bottom-1.5 left-2 right-2 z-20 flex items-center gap-1.5">
+                          <span className="w-5 h-5 rounded-full bg-white text-zinc-950 flex items-center justify-center shadow shrink-0">
+                            <Play size={9} fill="currentColor" />
+                          </span>
+                          <h4 className="text-[9px] font-black text-white uppercase truncate">{game.title}</h4>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Top Area: PS5-style horizontal 9:16 carousel */}
             <div className="flex flex-col gap-2 w-full mt-4">
               <span className="text-[9px] uppercase tracking-widest font-black text-zinc-400">Bibliothèque</span>
