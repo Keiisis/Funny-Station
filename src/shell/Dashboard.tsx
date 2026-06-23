@@ -932,12 +932,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   loop
                   muted
                   playsInline
-                  className="absolute inset-0 w-full h-full object-cover opacity-65"
+                  className="absolute inset-0 w-full h-full object-cover opacity-85"
                 />
               ) : (
                 <div 
                   key={activeGame.id}
-                  className="absolute inset-0 bg-cover bg-center opacity-50"
+                  className="absolute inset-0 bg-cover bg-center opacity-85"
                   style={{ backgroundImage: `url(${activeGame.background_url})` }}
                 />
               )}
