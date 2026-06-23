@@ -5,6 +5,17 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
+  // Optimisation d'images (next/image) : AVIF/WebP, redimensionnement, lazy-load.
+  // On autorise les hôtes de jaquettes : Unsplash (placeholders), Supabase Storage
+  // (uploads), et le Worker Cloudflare R2 (assets volumineux).
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: '*.workers.dev' },
+      { protocol: 'https', hostname: '*.r2.dev' },
+    ],
+  },
   // NB: on NE proxy PAS les gros jeux R2 par Vercel (limites plateforme → 502).
   // Les assets R2 volumineux sont chargés DIRECTEMENT par le navigateur (cf. le
   // Cloudflare Worker qui ajoute le CORS). COEP `credentialless` autorise ce
