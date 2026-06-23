@@ -70,6 +70,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [unlockedTrophyIds, setUnlockedTrophyIds] = useState<string[]>([]);
   const [trophies, setTrophies] = useState<Trophy[]>([]);
+  
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the focused carousel item into view (PS5-style continuous list scroll)
+  useEffect(() => {
+    if (!carouselRef.current) return;
+    const container = carouselRef.current;
+    const items = container.children;
+    if (items && items[focusedIndex]) {
+      const activeItem = items[focusedIndex] as HTMLElement;
+      
+      // Calculate positions to center the active item within the horizontal carousel
+      const containerWidth = container.offsetWidth;
+      const itemLeft = activeItem.offsetLeft;
+      const itemWidth = activeItem.offsetWidth;
+      
+      const targetScrollLeft = itemLeft - (containerWidth / 2) + (itemWidth / 2);
+      
+      container.scrollTo({
+        left: targetScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  }, [focusedIndex]);
 
   // Tab views
   const [activeTab, setActiveTab] = useState<'games' | 'store' | 'profile'>('games');
@@ -932,21 +956,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                   loop
                   muted
                   playsInline
-                  className="absolute inset-0 w-full h-full object-cover opacity-85"
+                  className="absolute inset-0 w-full h-full object-cover opacity-90"
                 />
               ) : (
-                <div 
-                  key={activeGame.id}
-                  className="absolute inset-0 bg-cover bg-center opacity-85"
-                  style={{ backgroundImage: `url(${activeGame.background_url})` }}
-                />
+                <div key={activeGame.id} className="absolute inset-0">
+                  {/* Blurred background backing to fill any empty space and prevent black bars */}
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center opacity-35 blur-[25px] scale-105"
+                    style={{ backgroundImage: `url(${activeGame.background_url})` }}
+                  />
+                  {/* Sharp background image, adapted perfectly without cropping */}
+                  <div 
+                    className="absolute inset-0 bg-contain bg-no-repeat bg-center opacity-90"
+                    style={{ backgroundImage: `url(${activeGame.background_url})` }}
+                  />
+                </div>
               )}
               {/* Dynamic Aura background effect */}
               <DynamicAura gameSlug={activeGame?.slug} />
 
               {/* Shading gradients to keep text readable on the left and trophies panel readable on the bottom */}
-              <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/90 via-zinc-950/40 to-transparent pointer-events-none" />
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/30 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/95 via-zinc-950/50 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-black/45 pointer-events-none" />
             </div>
           )}
 
@@ -954,10 +985,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           <div className="flex-1 flex flex-col justify-between px-16 py-12 select-none">
             
             {/* Top Area: PS5-style horizontal 9:16 carousel */}
-            <div className="flex flex-col gap-2 max-w-4xl mt-4">
+            <div className="flex flex-col gap-2 w-full mt-4">
               <span className="text-[9px] uppercase tracking-widest font-black text-zinc-400">Bibliothèque</span>
               
-              <div className="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar pt-2">
+              <div 
+                ref={carouselRef}
+                className="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar pt-2 scroll-smooth"
+              >
                 {games.map((game, idx) => {
                   const isFocused = idx === focusedIndex;
                   const gameOwned = isGameOwned(game);
