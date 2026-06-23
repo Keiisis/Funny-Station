@@ -7,6 +7,7 @@ import { createControllerRtc, ControllerRtc } from '@/utils/rtcLink';
 import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, User, Maximize, Zap } from 'lucide-react';
 
 // Couleurs correspondant aux assignations du Dashboard
+// Couleurs correspondant aux assignations du Dashboard
 const PLAYER_COLORS = [
   { text: 'text-blue-400', bg: 'bg-blue-500/20', border: 'border-blue-500/40', label: 'Joueur 1' },
   { text: 'text-rose-400', bg: 'bg-rose-500/20', border: 'border-rose-500/40', label: 'Joueur 2' },
@@ -14,13 +15,262 @@ const PLAYER_COLORS = [
   { text: 'text-amber-400', bg: 'bg-amber-500/20', border: 'border-amber-500/40', label: 'Joueur 4' },
 ];
 
+interface ActionButtonConfig {
+  defaultClass: string;
+  activeClass: string;
+  label: string;
+  textClass: string;
+}
+
+interface ThemeConfig {
+  id: string;
+  name: string;
+  preview: string;
+  containerBg: string;
+  containerStyle?: React.CSSProperties;
+  panelClass: string;
+  dpadPlateClass: string;
+  centerCircleClass: string;
+  btnDefaultClass: string;
+  btnActiveClass: string;
+  btnTextDefaultClass: string;
+  btnTextActiveClass: string;
+  lBtnDefaultClass: string;
+  lBtnActiveClass: string;
+  rBtnDefaultClass: string;
+  rBtnActiveClass: string;
+  actionButtons: {
+    TRIANGLE: ActionButtonConfig;
+    CONFIRM: ActionButtonConfig;
+    SQUARE: ActionButtonConfig;
+    BACK: ActionButtonConfig;
+  };
+  joystickTrackClass: string;
+  joystickKnobClass: string;
+  joystickDotDefaultClass: string;
+  joystickDotActiveClass: string;
+  customDecor?: React.ReactNode;
+}
+
+const THEME_CONFIGS: Record<string, ThemeConfig> = {
+  'stealth-blue': {
+    id: 'stealth-blue',
+    name: 'Stealth Blue',
+    preview: 'bg-gradient-to-r from-blue-650 to-indigo-900 border-blue-400',
+    containerBg: 'radial-gradient(circle at 20% 20%, rgba(0, 114, 206, 0.15) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgba(107, 33, 168, 0.15) 0%, transparent 45%), #020617',
+    panelClass: 'bg-zinc-950/40 border-zinc-800/40',
+    dpadPlateClass: 'bg-zinc-950/40 border border-zinc-800/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]',
+    centerCircleClass: 'bg-zinc-900 border-zinc-800',
+    btnDefaultClass: 'bg-zinc-900/80 border-zinc-700/50 hover:bg-zinc-800/60',
+    btnActiveClass: 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]',
+    btnTextDefaultClass: 'text-zinc-450',
+    btnTextActiveClass: 'text-blue-400',
+    lBtnDefaultClass: 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white',
+    lBtnActiveClass: 'bg-blue-500/20 border-blue-400 text-blue-300 shadow-[0_4px_10px_rgba(59,130,246,0.3)]',
+    rBtnDefaultClass: 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white',
+    rBtnActiveClass: 'bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_4px_10px_rgba(244,63,94,0.3)]',
+    actionButtons: {
+      TRIANGLE: { defaultClass: 'bg-zinc-900/80 border-emerald-500/30 text-emerald-500/80 hover:bg-zinc-800/60', activeClass: 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-zinc-900/80 border-cyan-500/30 text-cyan-500/80 hover:bg-zinc-800/60', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.6)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-zinc-900/80 border-purple-500/30 text-purple-500/80 hover:bg-zinc-800/60', activeClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.6)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-zinc-900/80 border-rose-500/30 text-rose-500/80 hover:bg-zinc-800/60', activeClass: 'bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.6)]', label: '◯', textClass: '' }
+    },
+    joystickTrackClass: 'bg-zinc-950/60 border-zinc-800/80',
+    joystickKnobClass: 'from-zinc-700 to-zinc-900 border-zinc-650',
+    joystickDotDefaultClass: 'bg-zinc-800',
+    joystickDotActiveClass: 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]'
+  },
+  'akatsuki': {
+    id: 'akatsuki',
+    name: 'Akatsuki',
+    preview: 'bg-gradient-to-r from-red-650 to-black border-red-500',
+    containerBg: 'radial-gradient(circle at 50% 50%, rgba(220, 38, 38, 0.12) 0%, transparent 60%), #050505',
+    panelClass: 'bg-zinc-950/80 border-red-950/80',
+    dpadPlateClass: 'bg-black/85 border border-red-950/80 shadow-[inset_0_0_20px_rgba(220,38,38,0.25)]',
+    centerCircleClass: 'bg-zinc-950 border-red-900/40',
+    btnDefaultClass: 'bg-zinc-950 border-zinc-900 text-zinc-550 hover:bg-zinc-900/40',
+    btnActiveClass: 'bg-red-950/40 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.7)]',
+    btnTextDefaultClass: 'text-zinc-600',
+    btnTextActiveClass: 'text-red-500',
+    lBtnDefaultClass: 'bg-zinc-950 border-red-950 text-zinc-500 hover:text-zinc-300',
+    lBtnActiveClass: 'bg-red-950/50 border-red-500 text-red-400 shadow-[0_4px_10px_rgba(220,38,38,0.4)]',
+    rBtnDefaultClass: 'bg-zinc-950 border-red-950 text-zinc-500 hover:text-zinc-300',
+    rBtnActiveClass: 'bg-red-950/50 border-red-500 text-red-400 shadow-[0_4px_10px_rgba(220,38,38,0.4)]',
+    actionButtons: {
+      TRIANGLE: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-zinc-950 border-red-955/80 text-red-900 hover:bg-zinc-900/40', activeClass: 'bg-red-950/30 border-red-500 text-red-400 shadow-[0_0_15px_rgba(220,38,38,0.8)]', label: '◯', textClass: '' }
+    },
+    joystickTrackClass: 'bg-black/90 border border-red-950/80',
+    joystickKnobClass: 'from-zinc-900 to-black border-red-955',
+    joystickDotDefaultClass: 'bg-zinc-800',
+    joystickDotActiveClass: 'bg-red-550 shadow-[0_0_8px_rgba(220,38,38,0.8)]',
+    customDecor: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30 select-none">
+        <svg className="absolute w-48 h-32 text-red-750/35 fill-current -top-6 -left-10 transform scale-x-[-1]" viewBox="0 0 100 60">
+          <path d="M15 35c0-5.5 4.5-10 10-10 1-5.5 5.5-10 11-10 7.8 0 14 6.2 14 14 1.1 0 2.2.2 3.2.7C55.6 24.3 61 20 67 20c8.3 0 15 6.7 15 15 0 1.2-.1 2.3-.4 3.4 3 2.1 4.9 5.6 4.9 9.6 0 6.6-5.4 12-12 12H20c-7.7 0-14-6.3-14-14 0-5.3 3-9.9 7.4-12.2-.3-1.1-.4-2.3-.4-3.5z"/>
+        </svg>
+        <svg className="absolute w-64 h-40 text-red-750/30 fill-current -bottom-10 -right-16" viewBox="0 0 100 60">
+          <path d="M15 35c0-5.5 4.5-10 10-10 1-5.5 5.5-10 11-10 7.8 0 14 6.2 14 14 1.1 0 2.2.2 3.2.7C55.6 24.3 61 20 67 20c8.3 0 15 6.7 15 15 0 1.2-.1 2.3-.4 3.4 3 2.1 4.9 5.6 4.9 9.6 0 6.6-5.4 12-12 12H20c-7.7 0-14-6.3-14-14 0-5.3 3-9.9 7.4-12.2-.3-1.1-.4-2.3-.4-3.5z"/>
+        </svg>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center opacity-10">
+          <svg className="w-40 h-40 text-red-500 fill-none stroke-current stroke-[4]" viewBox="0 0 100 100">
+            <path d="M20 50 C20 20, 80 20, 80 50 C80 80, 20 80, 20 50" />
+            <path d="M15 45 L85 55" />
+          </svg>
+        </div>
+      </div>
+    )
+  },
+  'cr7': {
+    id: 'cr7',
+    name: 'CR7 Legend',
+    preview: 'bg-gradient-to-r from-emerald-800 to-yellow-600 border-yellow-500',
+    containerBg: 'radial-gradient(circle at 50% 50%, rgba(234, 179, 8, 0.08) 0%, transparent 65%), linear-gradient(135deg, #07170f 0%, #020704 100%)',
+    panelClass: 'bg-zinc-950/60 border-yellow-500/20',
+    dpadPlateClass: 'bg-zinc-950/70 border border-yellow-600/30 shadow-[inset_0_0_20px_rgba(234,179,8,0.15)]',
+    centerCircleClass: 'bg-zinc-900 border-yellow-500/40',
+    btnDefaultClass: 'bg-zinc-900/80 border-zinc-750 text-zinc-400 hover:bg-zinc-800/60',
+    btnActiveClass: 'bg-yellow-500/20 border-yellow-400 shadow-[0_0_15px_rgba(234,179,8,0.6)]',
+    btnTextDefaultClass: 'text-zinc-550',
+    btnTextActiveClass: 'text-yellow-400',
+    lBtnDefaultClass: 'bg-zinc-900/85 border-zinc-800 text-zinc-400 hover:text-white',
+    lBtnActiveClass: 'bg-yellow-500/20 border-yellow-400 text-yellow-400 shadow-[0_4px_10px_rgba(234,179,8,0.4)]',
+    rBtnDefaultClass: 'bg-zinc-900/85 border-zinc-800 text-zinc-400 hover:text-white',
+    rBtnActiveClass: 'bg-yellow-500/20 border-yellow-400 text-yellow-400 shadow-[0_4px_10px_rgba(234,179,8,0.4)]',
+    actionButtons: {
+      TRIANGLE: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'bg-zinc-900/85 border-yellow-650/40 text-yellow-500/70', activeClass: 'bg-yellow-500/25 border-yellow-400 text-yellow-350 shadow-[0_0_15px_rgba(234,179,8,0.7)]', label: '◯', textClass: '' }
+    },
+    joystickTrackClass: 'bg-zinc-950/80 border border-yellow-500/20',
+    joystickKnobClass: 'from-zinc-900 to-zinc-950 border-yellow-500/40',
+    joystickDotDefaultClass: 'bg-zinc-800',
+    joystickDotActiveClass: 'bg-yellow-550 shadow-[0_0_8px_rgba(234,179,8,0.8)]',
+    customDecor: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-15 select-none flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center border-4 border-yellow-500/20 px-8 py-4 rounded-3xl transform rotate-3">
+          <span className="text-[110px] font-black italic tracking-tighter leading-none text-yellow-500/20">7</span>
+          <span className="text-xl font-black tracking-[0.4em] text-yellow-500/30 uppercase mt-[-10px]">RONALDO</span>
+        </div>
+      </div>
+    )
+  },
+  'cyberpunk': {
+    id: 'cyberpunk',
+    name: 'Cyber Neon',
+    preview: 'bg-gradient-to-r from-pink-500 to-cyan-500 border-pink-400',
+    containerBg: 'radial-gradient(circle at 10% 10%, rgba(236, 72, 153, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 90%, rgba(6, 182, 212, 0.15) 0%, transparent 40%), #09090b',
+    panelClass: 'bg-zinc-950/80 border-pink-500/30',
+    dpadPlateClass: 'bg-zinc-950/80 border border-cyan-500/30 shadow-[0_0_15px_rgba(6,182,212,0.15)]',
+    centerCircleClass: 'bg-zinc-900 border border-pink-500/40',
+    btnDefaultClass: 'bg-zinc-950 border border-zinc-800 text-zinc-500 hover:bg-zinc-900/60',
+    btnActiveClass: 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.7)]',
+    btnTextDefaultClass: 'text-zinc-500',
+    btnTextActiveClass: 'text-cyan-400',
+    lBtnDefaultClass: 'bg-zinc-950 border border-zinc-800 text-zinc-500 hover:text-white',
+    lBtnActiveClass: 'bg-pink-500/20 border-pink-400 text-pink-300 shadow-[0_4px_10px_rgba(236,72,153,0.4)]',
+    rBtnDefaultClass: 'bg-zinc-950 border border-zinc-800 text-zinc-500 hover:text-white',
+    rBtnActiveClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_4px_10px_rgba(6,182,212,0.4)]',
+    actionButtons: {
+      TRIANGLE: { defaultClass: 'border-pink-500/30 text-pink-500/70 bg-zinc-950', activeClass: 'bg-pink-500/20 border-pink-400 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'border-cyan-500/30 text-cyan-500/70 bg-zinc-950', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'border-pink-500/30 text-pink-500/70 bg-zinc-950', activeClass: 'bg-pink-500/20 border-pink-400 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'border-cyan-500/30 text-cyan-500/70 bg-zinc-950', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '◯', textClass: '' }
+    },
+    joystickTrackClass: 'bg-zinc-950 border border-pink-500/20',
+    joystickKnobClass: 'from-zinc-900 to-zinc-955 border-cyan-500/30',
+    joystickDotDefaultClass: 'bg-zinc-800',
+    joystickDotActiveClass: 'bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.8)]',
+    customDecor: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10 select-none">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.15)_1px,transparent_1px)] bg-[size:30px_30px]" />
+      </div>
+    )
+  },
+  'retro': {
+    id: 'retro',
+    name: 'Retro GB',
+    preview: 'bg-gradient-to-r from-zinc-400 to-zinc-650 border-zinc-700',
+    containerBg: '',
+    containerStyle: { backgroundColor: '#c2c5ba' },
+    panelClass: 'bg-zinc-800/80 border border-zinc-700/50 text-zinc-100',
+    dpadPlateClass: 'bg-zinc-300/90 border border-zinc-400 shadow-[inset_0_2px_8px_rgba(0,0,0,0.2),0_2px_4px_rgba(255,255,255,0.8)] text-zinc-800',
+    centerCircleClass: 'bg-zinc-400 border border-zinc-550',
+    btnDefaultClass: 'bg-zinc-700 border border-zinc-850 text-zinc-955 shadow-md hover:bg-zinc-800',
+    btnActiveClass: 'bg-zinc-850 border-black text-white shadow-sm',
+    btnTextDefaultClass: 'text-zinc-955',
+    btnTextActiveClass: 'text-white',
+    lBtnDefaultClass: 'bg-zinc-500 border border-zinc-650 text-zinc-900 hover:bg-zinc-550',
+    lBtnActiveClass: 'bg-zinc-655 border border-zinc-750 text-white',
+    rBtnDefaultClass: 'bg-zinc-500 border border-zinc-655 text-zinc-900 hover:bg-zinc-550',
+    rBtnActiveClass: 'bg-zinc-655 border border-zinc-750 text-white',
+    actionButtons: {
+      TRIANGLE: { defaultClass: 'border-zinc-500 text-zinc-700 bg-zinc-400', activeClass: 'bg-zinc-500 border-zinc-700 text-zinc-900 shadow-inner', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'border-red-900 bg-red-650 text-white shadow-md', activeClass: 'bg-red-800 border border-red-950 text-zinc-200 shadow-inner', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'border-zinc-500 text-zinc-700 bg-zinc-400', activeClass: 'bg-zinc-500 border-zinc-700 text-zinc-900 shadow-inner', label: '■', textClass: '' },
+      BACK: { defaultClass: 'border-red-900 bg-red-650 text-white shadow-md', activeClass: 'bg-red-800 border border-red-955 text-zinc-200 shadow-inner', label: '◯', textClass: '' }
+    },
+    joystickTrackClass: 'bg-zinc-400 border border-zinc-550 shadow-inner',
+    joystickKnobClass: 'from-zinc-600 to-zinc-800 border-zinc-700',
+    joystickDotDefaultClass: 'bg-zinc-950',
+    joystickDotActiveClass: 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.7)]',
+    customDecor: (
+      <div className="absolute top-4 left-6 pointer-events-none opacity-20 select-none flex flex-col font-mono text-[9px] text-zinc-900 font-bold">
+        <span>MODEL NO. FS-2026</span>
+        <span>MADE IN JAPAN</span>
+      </div>
+    )
+  },
+  'galactic': {
+    id: 'galactic',
+    name: 'Galactic',
+    preview: 'bg-gradient-to-r from-purple-800 to-indigo-950 border-purple-400',
+    containerBg: 'radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.25) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.25) 0%, transparent 50%), #0b071e',
+    panelClass: 'bg-zinc-950/40 border-purple-500/25',
+    dpadPlateClass: 'bg-zinc-950/30 border border-purple-500/20 shadow-[inset_0_0_15px_rgba(139,92,246,0.2)]',
+    centerCircleClass: 'bg-zinc-900 border-purple-800/30',
+    btnDefaultClass: 'bg-zinc-900/60 border border-zinc-800 text-zinc-500 hover:bg-zinc-850/50',
+    btnActiveClass: 'bg-purple-650/20 border-purple-400 shadow-[0_0_15px_rgba(139,92,246,0.6)]',
+    btnTextDefaultClass: 'text-zinc-500',
+    btnTextActiveClass: 'text-purple-400',
+    lBtnDefaultClass: 'bg-zinc-900/60 border border-zinc-800 text-zinc-500 hover:text-white',
+    lBtnActiveClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_4px_10px_rgba(139,92,246,0.4)]',
+    rBtnDefaultClass: 'bg-zinc-900/60 border border-zinc-800 text-zinc-500 hover:text-white',
+    rBtnActiveClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_4px_10px_rgba(6,182,212,0.4)]',
+    actionButtons: {
+      TRIANGLE: { defaultClass: 'border-purple-550/25 text-purple-400/80 bg-zinc-950/60', activeClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(139,92,246,0.7)]', label: '▲', textClass: '' },
+      CONFIRM: { defaultClass: 'border-cyan-550/25 text-cyan-400/80 bg-zinc-950/60', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '✕', textClass: '' },
+      SQUARE: { defaultClass: 'border-purple-550/25 text-purple-400/80 bg-zinc-950/60', activeClass: 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(139,92,246,0.7)]', label: '■', textClass: '' },
+      BACK: { defaultClass: 'border-cyan-550/25 text-cyan-400/80 bg-zinc-950/60', activeClass: 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.7)]', label: '◯', textClass: '' }
+    },
+    joystickTrackClass: 'bg-zinc-950/50 border border-purple-550/20',
+    joystickKnobClass: 'from-zinc-900 to-purple-950 border-purple-800/40',
+    joystickDotDefaultClass: 'bg-zinc-800',
+    joystickDotActiveClass: 'bg-cyan-450 shadow-[0_0_8px_rgba(6,182,212,0.8)]',
+    customDecor: (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20 select-none">
+        <div className="absolute w-2 h-2 bg-white rounded-full top-1/4 left-1/3 animate-ping" style={{ animationDuration: '3s' }} />
+        <div className="absolute w-1 h-1 bg-white rounded-full top-2/3 left-1/4" />
+        <div className="absolute w-1.5 h-1.5 bg-cyan-400 rounded-full top-1/3 left-2/3 animate-ping" style={{ animationDuration: '4s' }} />
+        <div className="absolute w-1 h-1 bg-white rounded-full top-4/5 left-3/4" />
+      </div>
+    )
+  }
+};
+
+const THEMES = Object.values(THEME_CONFIGS);
+
 interface VirtualJoystickProps {
   side: 'LEFT' | 'RIGHT';
   onMove: (x: number, y: number) => void;
   onEnd: () => void;
+  theme: ThemeConfig;
 }
 
-const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ side, onMove, onEnd }) => {
+const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ side, onMove, onEnd, theme }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const [active, setActive] = useState(false);
@@ -99,16 +349,16 @@ const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ side, onMove, onEnd }
       onTouchMove={handleMove}
       onMouseDown={handleStart}
       onMouseMove={handleMove}
-      className="w-20 h-20 rounded-full bg-zinc-950/60 border border-zinc-800/80 shadow-[inset_0_0_12px_rgba(0,0,0,0.8)] flex items-center justify-center relative touch-none select-none"
+      className={`w-20 h-20 rounded-full border shadow-[inset_0_0_12px_rgba(0,0,0,0.8)] flex items-center justify-center relative touch-none select-none ${theme.joystickTrackClass}`}
     >
-      <div className={`absolute inset-0 rounded-full border border-blue-500/10 transition-opacity duration-300 ${active ? 'opacity-100 border-blue-500/30' : 'opacity-0'}`} />
+      <div className="absolute inset-0 rounded-full border border-blue-500/10 transition-opacity duration-300 opacity-0" />
       <div
-        className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 border border-zinc-650 shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center absolute transition-all duration-75"
+        className={`w-8 h-8 rounded-full border shadow-[0_4px_10px_rgba(0,0,0,0.5)] flex items-center justify-center absolute transition-all duration-75 bg-gradient-to-br ${theme.joystickKnobClass}`}
         style={{
           transform: `translate(${knobPos.x}px, ${knobPos.y}px)`,
         }}
       >
-        <div className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]' : 'bg-zinc-800'} transition-all`} />
+        <div className={`w-2.5 h-2.5 rounded-full ${active ? theme.joystickDotActiveClass : theme.joystickDotDefaultClass} transition-all`} />
       </div>
     </div>
   );
@@ -117,7 +367,13 @@ const VirtualJoystick: React.FC<VirtualJoystickProps> = ({ side, onMove, onEnd }
 // ============================================================================
 // Fullscreen Splash Gate
 // ============================================================================
-function FullscreenGate({ onEnter }: { onEnter: () => void }) {
+interface FullscreenGateProps {
+  selectedTheme: string;
+  onSelectTheme: (theme: string) => void;
+  onEnter: () => void;
+}
+
+function FullscreenGate({ selectedTheme, onSelectTheme, onEnter }: FullscreenGateProps) {
   const [animReady, setAnimReady] = useState(false);
 
   useEffect(() => {
@@ -158,7 +414,7 @@ function FullscreenGate({ onEnter }: { onEnter: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 w-screen h-screen flex flex-col items-center justify-center z-[999999] select-none overflow-hidden"
+      className="fixed inset-0 w-screen h-screen flex flex-col items-center justify-center z-[999999] select-none overflow-y-auto py-6"
       style={{
         background: 'radial-gradient(circle at 30% 30%, rgba(0, 114, 206, 0.2) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(107, 33, 168, 0.2) 0%, transparent 50%), #020617',
       }}
@@ -169,30 +425,60 @@ function FullscreenGate({ onEnter }: { onEnter: () => void }) {
       <div className={`absolute w-48 h-48 rounded-full border border-cyan-500/10 transition-all duration-[2000ms] delay-400 ${animReady ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} />
 
       {/* Gamepad icon */}
-      <div className={`mb-6 transition-all duration-1000 ${animReady ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.2)]">
-          <Gamepad size={36} className="text-blue-400" />
+      <div className={`mb-2 transition-all duration-1000 ${animReady ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.2)]">
+          <Gamepad size={28} className="text-blue-400" />
         </div>
       </div>
 
       {/* Title */}
-      <div className={`text-center mb-8 transition-all duration-1000 delay-300 ${animReady ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
-        <h1 className="text-2xl font-extrabold tracking-[0.2em] bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent uppercase mb-2">
+      <div className={`text-center mb-4 transition-all duration-1000 delay-300 ${animReady ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <h1 className="text-xl font-extrabold tracking-[0.2em] bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent uppercase mb-0.5">
           Funny Station
         </h1>
-        <p className="text-zinc-400 text-sm font-medium">Manette Virtuelle</p>
+        <p className="text-zinc-400 text-xs font-medium">Configurez votre manette</p>
+      </div>
+
+      {/* Theme Selection Grid */}
+      <div className={`w-full max-w-md px-6 mb-6 transition-all duration-1000 delay-500 ${animReady ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <div className="text-center mb-2.5">
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">Choisir un Thème</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2.5">
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => onSelectTheme(t.id)}
+              className={`relative p-2 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 active:scale-95 cursor-pointer ${
+                selectedTheme === t.id
+                  ? 'border-white bg-white/10 scale-105 shadow-[0_0_12px_rgba(255,255,255,0.2)]'
+                  : 'border-zinc-800/80 bg-zinc-950/60 hover:border-zinc-700'
+              }`}
+            >
+              <div className={`w-7 h-7 rounded-full border mb-1.5 ${t.preview} shadow-md flex items-center justify-center text-xs`}>
+                {t.id === 'akatsuki' && <span>☁️</span>}
+                {t.id === 'cr7' && <span className="font-black text-[9px] text-yellow-400">7</span>}
+                {t.id === 'cyberpunk' && <span>⚡</span>}
+                {t.id === 'retro' && <span>👾</span>}
+                {t.id === 'galactic' && <span>✨</span>}
+                {t.id === 'stealth-blue' && <span>🎮</span>}
+              </div>
+              <span className="text-[8px] font-black tracking-wider uppercase text-zinc-300 text-center">{t.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Enter button */}
       <button
         onClick={handleEnterFullscreen}
-        className={`group relative px-10 py-4 rounded-2xl border-2 border-blue-500/50 bg-blue-500/10 backdrop-blur-sm hover:bg-blue-500/20 hover:border-blue-400 active:scale-95 transition-all duration-300 cursor-pointer ${animReady ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
-        style={{ transitionDelay: '500ms' }}
+        className={`group relative px-8 py-3 rounded-2xl border-2 border-blue-500/50 bg-blue-500/10 backdrop-blur-sm hover:bg-blue-500/20 hover:border-blue-400 active:scale-95 transition-all duration-300 cursor-pointer ${animReady ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
+        style={{ transitionDelay: '700ms' }}
       >
-        <div className="flex items-center gap-3">
-          <Maximize size={20} className="text-blue-400 group-hover:text-blue-300 transition-colors" />
-          <span className="text-base font-extrabold uppercase tracking-widest text-blue-300 group-hover:text-white transition-colors">
-            Appuyer pour entrer
+        <div className="flex items-center gap-2.5">
+          <Maximize size={16} className="text-blue-400 group-hover:text-blue-300 transition-colors" />
+          <span className="text-xs font-extrabold uppercase tracking-widest text-blue-300 group-hover:text-white transition-colors">
+            Appuyer pour connecter
           </span>
         </div>
         {/* Pulse ring */}
@@ -200,8 +486,8 @@ function FullscreenGate({ onEnter }: { onEnter: () => void }) {
       </button>
 
       {/* Hint */}
-      <p className={`mt-6 text-zinc-500 text-[10px] font-mono tracking-wider text-center max-w-xs transition-all duration-1000 delay-700 ${animReady ? 'opacity-100' : 'opacity-0'}`}>
-        Le mode plein écran masque la barre du navigateur pour une expérience immersive
+      <p className={`mt-4 text-zinc-550 text-[8px] font-mono tracking-wider text-center max-w-xs transition-all duration-1000 delay-[900ms] ${animReady ? 'opacity-100' : 'opacity-0'}`}>
+        L'orientation paysage et le plein écran seront activés automatiquement après la connexion.
       </p>
     </div>
   );
@@ -234,6 +520,69 @@ function ControllerContent() {
   const [rtcOpen, setRtcOpen] = useState(false); // liaison P2P basse latence active ?
   const channelRef = useRef<any>(null);
   const rtcRef = useRef<ControllerRtc | null>(null);
+
+  // Thème de la manette virtuelle
+  const [activeTheme, setActiveTheme] = useState<string>('stealth-blue');
+
+  // Charger le thème à partir du localStorage ou des paramètres d'URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const queryTheme = params.get('theme');
+      if (queryTheme && THEME_CONFIGS[queryTheme]) {
+        setActiveTheme(queryTheme);
+        localStorage.setItem('funnystation_controller_theme', queryTheme);
+        return;
+      }
+      const stored = localStorage.getItem('funnystation_controller_theme');
+      if (stored && THEME_CONFIGS[stored]) {
+        setActiveTheme(stored);
+      }
+    }
+  }, []);
+
+  const handleSelectTheme = (newTheme: string) => {
+    setActiveTheme(newTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('funnystation_controller_theme', newTheme);
+    }
+  };
+
+  // Screen Wake Lock API pour empêcher l'écran du mobile de s'assombrir ou s'éteindre
+  useEffect(() => {
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('[WakeLock] Verrou d\'activation de l\'écran activé.');
+        }
+      } catch (err) {
+        console.warn('[WakeLock] Échec de l\'activation du Screen Wake Lock :', err);
+      }
+    };
+
+    if (isFullscreen) {
+      requestWakeLock();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isFullscreen) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock) {
+        wakeLock.release().then(() => {
+          wakeLock = null;
+          console.log('[WakeLock] Verrou d\'activation de l\'écran relâché.');
+        }).catch(() => {});
+      }
+    };
+  }, [isFullscreen]);
 
   // Track fullscreen exit to re-show the gate
   useEffect(() => {
@@ -648,8 +997,10 @@ function ControllerContent() {
   // FULLSCREEN GATE — show splash until user taps
   // =============================================
   if (!isFullscreen) {
-    return <FullscreenGate onEnter={() => setIsFullscreen(true)} />;
+    return <FullscreenGate selectedTheme={activeTheme} onSelectTheme={handleSelectTheme} onEnter={() => setIsFullscreen(true)} />;
   }
+
+  const currentTheme = THEME_CONFIGS[activeTheme] || THEME_CONFIGS['stealth-blue'];
 
   // =============================================
   // MAIN CONTROLLER UI (fullscreen)
@@ -661,12 +1012,14 @@ function ControllerContent() {
         width: '100vw',
         height: '100dvh',
         padding: 'env(safe-area-inset-top, 4px) env(safe-area-inset-right, 8px) env(safe-area-inset-bottom, 4px) env(safe-area-inset-left, 8px)',
-        background: 'radial-gradient(circle at 20% 20%, rgba(0, 114, 206, 0.15) 0%, transparent 45%), radial-gradient(circle at 80% 80%, rgba(107, 33, 168, 0.15) 0%, transparent 45%), #020617',
+        background: currentTheme.containerBg || undefined,
+        ...currentTheme.containerStyle
       }}
     >
+      {currentTheme.customDecor}
       
       {/* Compact Status Bar — minimal to save space */}
-      <div className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-950/40 border border-zinc-800/40 backdrop-blur-sm" style={{ flexShrink: 0 }}>
+      <div className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl border ${currentTheme.panelClass}`} style={{ flexShrink: 0, zIndex: 20 }}>
         <div className="flex items-center gap-2">
           {playerColor ? (
             <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${playerColor.bg} ${playerColor.border} border`}>
@@ -707,7 +1060,7 @@ function ControllerContent() {
       </div>
 
       {/* SECTION BOUTONS L & R (Gâchettes Épaules) */}
-      <div className="w-full flex justify-between px-6" style={{ flexShrink: 0 }}>
+      <div className="w-full flex justify-between px-6" style={{ flexShrink: 0, zIndex: 20 }}>
         {/* BOUTON GAUCHE L */}
         <button
           onPointerDown={() => sendAction('L', 'down')}
@@ -716,8 +1069,8 @@ function ControllerContent() {
           onPointerCancel={() => sendAction('L', 'up')}
           className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 active:scale-95 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
             activeButton === 'L'
-              ? 'bg-blue-500/20 border-blue-400 text-blue-300 shadow-[0_4px_10px_rgba(59,130,246,0.3)]'
-              : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white'
+              ? currentTheme.lBtnActiveClass
+              : currentTheme.lBtnDefaultClass
           }`}
         >
           L
@@ -731,8 +1084,8 @@ function ControllerContent() {
           onPointerCancel={() => sendAction('R', 'up')}
           className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 active:scale-95 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
             activeButton === 'R'
-              ? 'bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_4px_10px_rgba(244,63,94,0.3)]'
-              : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white'
+              ? currentTheme.rBtnActiveClass
+              : currentTheme.rBtnDefaultClass
           }`}
         >
           R
@@ -740,13 +1093,13 @@ function ControllerContent() {
       </div>
 
       {/* Zone du Gamepad principal — takes all available space */}
-      <div className="flex-1 w-full flex items-center justify-between px-2 md:px-12 my-auto relative" style={{ minHeight: 0 }}>
+      <div className="flex-1 w-full flex items-center justify-between px-2 md:px-12 my-auto relative" style={{ minHeight: 0, zIndex: 20 }}>
         
         {/* SECTION GAUCHE : D-PAD + JOYSTICK GAUCHE */}
         <div className="flex flex-col items-center gap-2 select-none">
-          <div className="relative w-36 h-36 rounded-full flex items-center justify-center bg-zinc-950/40 border border-zinc-800/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]">
+          <div className={`relative w-36 h-36 rounded-full flex items-center justify-center border shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] ${currentTheme.dpadPlateClass}`}>
             {/* Support Circulaire Central */}
-            <div className="absolute w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 shadow-md z-10 flex items-center justify-center">
+            <div className={`absolute w-16 h-16 rounded-full border shadow-md z-10 flex items-center justify-center ${currentTheme.centerCircleClass}`}>
               <div className="w-8 h-8 rounded-full bg-zinc-950/90 shadow-[inset_0_0_5px_rgba(0,0,0,0.8)] border border-zinc-800 flex items-center justify-center">
                 <Gamepad size={10} className="text-zinc-600" />
               </div>
@@ -759,13 +1112,13 @@ function ControllerContent() {
               onPointerUp={() => sendAction('UP', 'up')}
               onPointerLeave={() => sendAction('UP', 'up')}
               onPointerCancel={() => sendAction('UP', 'up')}
-              className={`absolute top-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
+              className={`absolute top-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
                 activeButton === 'UP'
-                  ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
-                  : 'bg-zinc-900/80 border-zinc-700/50 hover:bg-zinc-800/60'
-              } border`}
+                  ? currentTheme.btnActiveClass
+                  : currentTheme.btnDefaultClass
+              }`}
             >
-              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'UP' ? 'text-blue-400' : 'text-zinc-400'}`}>▲</span>
+              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'UP' ? currentTheme.btnTextActiveClass : currentTheme.btnTextDefaultClass}`}>▲</span>
             </button>
 
             {/* BAS */}
@@ -774,13 +1127,13 @@ function ControllerContent() {
               onPointerUp={() => sendAction('DOWN', 'up')}
               onPointerLeave={() => sendAction('DOWN', 'up')}
               onPointerCancel={() => sendAction('DOWN', 'up')}
-              className={`absolute bottom-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
+              className={`absolute bottom-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
                 activeButton === 'DOWN'
-                  ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
-                  : 'bg-zinc-900/80 border-zinc-700/50 hover:bg-zinc-800/60'
-              } border`}
+                  ? currentTheme.btnActiveClass
+                  : currentTheme.btnDefaultClass
+              }`}
             >
-              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'DOWN' ? 'text-blue-400' : 'text-zinc-400'}`}>▼</span>
+              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'DOWN' ? currentTheme.btnTextActiveClass : currentTheme.btnTextDefaultClass}`}>▼</span>
             </button>
 
             {/* GAUCHE */}
@@ -789,13 +1142,13 @@ function ControllerContent() {
               onPointerUp={() => sendAction('LEFT', 'up')}
               onPointerLeave={() => sendAction('LEFT', 'up')}
               onPointerCancel={() => sendAction('LEFT', 'up')}
-              className={`absolute left-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
+              className={`absolute left-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
                 activeButton === 'LEFT'
-                  ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
-                  : 'bg-zinc-900/80 border-zinc-700/50 hover:bg-zinc-800/60'
-              } border`}
+                  ? currentTheme.btnActiveClass
+                  : currentTheme.btnDefaultClass
+              }`}
             >
-              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'LEFT' ? 'text-blue-400' : 'text-zinc-400'}`}>◀</span>
+              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'LEFT' ? currentTheme.btnTextActiveClass : currentTheme.btnTextDefaultClass}`}>◀</span>
             </button>
 
             {/* DROITE */}
@@ -804,17 +1157,17 @@ function ControllerContent() {
               onPointerUp={() => sendAction('RIGHT', 'up')}
               onPointerLeave={() => sendAction('RIGHT', 'up')}
               onPointerCancel={() => sendAction('RIGHT', 'up')}
-              className={`absolute right-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 ${
+              className={`absolute right-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 active:scale-90 border ${
                 activeButton === 'RIGHT'
-                  ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]'
-                  : 'bg-zinc-900/80 border-zinc-700/50 hover:bg-zinc-800/60'
-              } border`}
+                  ? currentTheme.btnActiveClass
+                  : currentTheme.btnDefaultClass
+              }`}
             >
-              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'RIGHT' ? 'text-blue-400' : 'text-zinc-400'}`}>▶</span>
+              <span className={`text-sm font-extrabold transition-colors ${activeButton === 'RIGHT' ? currentTheme.btnTextActiveClass : currentTheme.btnTextDefaultClass}`}>▶</span>
             </button>
           </div>
           
-          <VirtualJoystick side="LEFT" onMove={handleLeftJoystickMove} onEnd={handleLeftJoystickEnd} />
+          <VirtualJoystick side="LEFT" onMove={handleLeftJoystickMove} onEnd={handleLeftJoystickEnd} theme={currentTheme} />
         </div>
 
         {/* SECTION CENTRALE : SELECT / START / OPTIONS */}
@@ -826,7 +1179,7 @@ function ControllerContent() {
           </div>
 
           {/* Boutons Select, Start et Options */}
-          <div className="flex flex-col items-center gap-2.5">
+          <div className="flex flex-col items-center gap-2">
             <div className="flex gap-3">
               {/* SELECT */}
               <button
@@ -873,20 +1226,37 @@ function ControllerContent() {
               <RefreshCw size={8} className={activeButton === 'OPTION' ? 'animate-spin' : ''} />
               <span>Options / Menu</span>
             </button>
+
+            {/* Sélecteur de Thèmes à la volée */}
+            <div className="flex flex-col items-center gap-1 mt-1 bg-zinc-950/60 p-1.5 rounded-2xl border border-zinc-900/50 backdrop-blur-md">
+              <span className="text-[7px] font-black tracking-widest text-zinc-500 uppercase">Thème</span>
+              <div className="flex gap-1.5">
+                {THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleSelectTheme(t.id)}
+                    title={t.name}
+                    className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${t.preview} border active:scale-75 cursor-pointer ${
+                      activeTheme === t.id ? 'ring-2 ring-white scale-110 border-white' : 'opacity-60 border-zinc-800 hover:opacity-100'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* SECTION DROITE : BOUTONS D'ACTION + JOYSTICK DROIT */}
         <div className="flex flex-col items-center gap-2 select-none">
-          <div className="relative w-36 h-36 rounded-full flex items-center justify-center bg-zinc-950/40 border border-zinc-800/40 shadow-[inset_0_0_15px_rgba(0,0,0,0.8)]">
+          <div className={`relative w-36 h-36 rounded-full flex items-center justify-center border shadow-[inset_0_0_15px_rgba(0,0,0,0.8)] ${currentTheme.dpadPlateClass}`}>
             {/* Support Circulaire Central */}
-            <div className="absolute w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 shadow-md z-10 flex items-center justify-center">
+            <div className={`absolute w-16 h-16 rounded-full border shadow-md z-10 flex items-center justify-center ${currentTheme.centerCircleClass}`}>
               <div className="w-8 h-8 rounded-full bg-zinc-950/90 shadow-[inset_0_0_5px_rgba(0,0,0,0.8)] border border-zinc-800 flex items-center justify-center">
                 <span className="text-[6px] font-black tracking-widest text-zinc-500 uppercase">Action</span>
               </div>
             </div>
 
-            {/* TRIANGLE (▲) - HAUT — toujours présent ; inactif sur GBA/NES (pas de bouton Y/X) */}
+            {/* TRIANGLE (▲) */}
             <button
               disabled={isGbaOrNes}
               onPointerDown={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'down'); }}
@@ -895,8 +1265,8 @@ function ControllerContent() {
               onPointerCancel={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
               className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'TRIANGLE'
-                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.6)]'
-                  : 'bg-zinc-900/80 border-emerald-500/30 text-emerald-500/80 hover:bg-zinc-800/60'
+                  ? currentTheme.actionButtons.TRIANGLE.activeClass
+                  : currentTheme.actionButtons.TRIANGLE.defaultClass
               }`}
             >
               <span className="text-sm font-bold">
@@ -904,7 +1274,7 @@ function ControllerContent() {
               </span>
             </button>
 
-            {/* CROSS (✕) - BAS - CONFIRM (= bouton A sur GBA/NES/PSP, bouton B sur SNES) */}
+            {/* CROSS (✕) */}
             <button
               onPointerDown={() => sendAction('CONFIRM', 'down')}
               onPointerUp={() => sendAction('CONFIRM', 'up')}
@@ -912,8 +1282,8 @@ function ControllerContent() {
               onPointerCancel={() => sendAction('CONFIRM', 'up')}
               className={`absolute bottom-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
                 activeButton === 'CONFIRM'
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.6)]'
-                  : 'bg-zinc-900/80 border-cyan-500/30 text-cyan-500/80 hover:bg-zinc-800/60'
+                  ? currentTheme.actionButtons.CONFIRM.activeClass
+                  : currentTheme.actionButtons.CONFIRM.defaultClass
               }`}
             >
               <span className="text-sm font-bold">
@@ -921,7 +1291,7 @@ function ControllerContent() {
               </span>
             </button>
 
-            {/* SQUARE (■) - GAUCHE — toujours présent ; inactif sur GBA/NES (pas de bouton X/Y) */}
+            {/* SQUARE (■) */}
             <button
               disabled={isGbaOrNes}
               onPointerDown={() => { if (!isGbaOrNes) sendAction('SQUARE', 'down'); }}
@@ -930,8 +1300,8 @@ function ControllerContent() {
               onPointerCancel={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
               className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'SQUARE'
-                  ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.6)]'
-                  : 'bg-zinc-900/80 border-purple-500/30 text-purple-500/80 hover:bg-zinc-800/60'
+                  ? currentTheme.actionButtons.SQUARE.activeClass
+                  : currentTheme.actionButtons.SQUARE.defaultClass
               }`}
             >
               <span className="text-xs font-bold">
@@ -939,7 +1309,7 @@ function ControllerContent() {
               </span>
             </button>
 
-            {/* CIRCLE (◯) - DROITE - BACK (= bouton B sur GBA/NES/PSP, bouton A sur SNES) */}
+            {/* CIRCLE (◯) */}
             <button
               onPointerDown={() => sendAction('BACK', 'down')}
               onPointerUp={() => sendAction('BACK', 'up')}
@@ -947,8 +1317,8 @@ function ControllerContent() {
               onPointerCancel={() => sendAction('BACK', 'up')}
               className={`absolute right-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 active:scale-90 border-2 cursor-pointer ${
                 activeButton === 'BACK'
-                  ? 'bg-rose-500/20 border-rose-400 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
-                  : 'bg-zinc-900/80 border-rose-500/30 text-rose-500/80 hover:bg-zinc-800/60'
+                  ? currentTheme.actionButtons.BACK.activeClass
+                  : currentTheme.actionButtons.BACK.defaultClass
               }`}
             >
               <span className="text-sm font-bold">
@@ -957,7 +1327,7 @@ function ControllerContent() {
             </button>
           </div>
 
-          <VirtualJoystick side="RIGHT" onMove={handleRightJoystickMove} onEnd={handleRightJoystickEnd} />
+          <VirtualJoystick side="RIGHT" onMove={handleRightJoystickMove} onEnd={handleRightJoystickEnd} theme={currentTheme} />
         </div>
 
       </div>

@@ -567,6 +567,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   useEffect(() => {
     if (!selectedGame && !isStudioOpen && activeGame && activeTab === 'games') {
       AudioEngine.getInstance().playAmbientMusic(activeGame.ambient_music_url);
+    } else {
+      AudioEngine.getInstance().stopAmbientMusic();
     }
   }, [focusedIndex, selectedGame, isStudioOpen, activeGame, activeTab]);
 
@@ -610,12 +612,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     }
 
     AudioEngine.getInstance().playSFX('select');
+    AudioEngine.getInstance().setGameRunning(true);
     AudioEngine.getInstance().stopAmbientMusic();
     setSelectedGame(activeGame);
   };
 
   const handleExitGame = () => {
     AudioEngine.getInstance().playSFX('select');
+    AudioEngine.getInstance().setGameRunning(false);
     setSelectedGame(null);
 
     if (networkMode !== 'local') {
@@ -1069,7 +1073,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         /* GAMES CONSOLE VIEW */
         <>
           {/* Loop background video or image fallback behind everything */}
-          {activeGame && (
+          {activeGame && !selectedGame && (
             <div className="absolute inset-0 -z-20 pointer-events-none overflow-hidden transition-all duration-1000">
               {activeGame.video_url ? (
                 <video

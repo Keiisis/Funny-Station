@@ -214,10 +214,19 @@ export class AudioEngine {
     this.isAmbientSynthesized = false;
     this.isPlayingConsolePlaylist = true;
 
+    const targetUrl = nextUrl;
+    this.currentAmbientUrl = targetUrl;
+
     // Charger l'élément audio de manière sécurisée contre IDM
     const blobUrl = await this.getObfuscatedBlobUrl(nextUrl);
-    this.currentObjectUrl = blobUrl;
 
+    // Annuler la lecture si l'état a changé pendant le chargement asynchrone (ex: jeu lancé)
+    if (this.currentAmbientUrl !== targetUrl || !this.isPlayingConsolePlaylist || this.isGameRunning) {
+      try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+      return;
+    }
+
+    this.currentObjectUrl = blobUrl;
     this.ambientElement = new Audio(blobUrl);
     this.ambientElement.loop = false;
     // Volume adéquat et équilibré : 0.18 * volume système (doux mais présent)
@@ -276,6 +285,7 @@ export class AudioEngine {
   public setGameRunning(running: boolean) {
     this.isGameRunning = running;
     if (running) {
+      this.currentAmbientUrl = null;
       this.stopAmbientMusic();
     }
   }
@@ -288,14 +298,23 @@ export class AudioEngine {
     this.initCtx();
     this.stopAmbientMusic();
 
+    const targetUrl = url || 'playlist';
+    this.currentAmbientUrl = targetUrl;
+
     if (url) {
       // Charger la musique spécifique du jeu focalisé
       this.isAmbientSynthesized = false;
       this.isPlayingConsolePlaylist = false;
       
       const blobUrl = await this.getObfuscatedBlobUrl(url);
-      this.currentObjectUrl = blobUrl;
 
+      // Annuler si l'état a changé (ex: jeu lancé ou navigation vers un autre jeu)
+      if (this.currentAmbientUrl !== targetUrl || this.isGameRunning) {
+        try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+        return;
+      }
+
+      this.currentObjectUrl = blobUrl;
       this.ambientElement = new Audio(blobUrl);
       this.ambientElement.loop = true;
       this.ambientElement.volume = 0.25 * this.volume;
@@ -315,7 +334,7 @@ export class AudioEngine {
 
         // Charger et démarrer la playlist dès qu'elle est prête
         this.loadPlaylist().then(() => {
-          if (this.isPlayingConsolePlaylist && this.playlist.length > 0) {
+          if (this.currentAmbientUrl === targetUrl && this.isPlayingConsolePlaylist && this.playlist.length > 0 && !this.isGameRunning) {
             this.stopAmbientMusic();
             this.playNextTrack();
           }
@@ -326,6 +345,7 @@ export class AudioEngine {
 
   public stopAmbientMusic() {
     this.isPlayingConsolePlaylist = false;
+    this.currentAmbientUrl = null;
 
     // Arrêter l'élément audio
     if (this.ambientElement) {
