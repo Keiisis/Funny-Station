@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInAction, signUpAction, resetPinAction } from '../actions';
+import { resetPinAction } from '../actions';
+import { signInClient, signUpClient } from '@/lib/authClient';
 import { PRESET_AVATARS } from '@/shell/ProfileSpace';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { Delete, Check, ShieldCheck, Mail, AlertTriangle, ArrowLeft, UserPlus } from 'lucide-react';
@@ -84,7 +85,8 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError('');
-    const res = await signInAction({ username, pin });
+    // Auth CÔTÉ NAVIGATEUR → session immédiate, redirection instantanée (pas de refresh).
+    const res = await signInClient({ username, pin });
     setLoading(false);
     if (res.ok) goConsole();
     else {
@@ -98,35 +100,20 @@ export default function LoginPage() {
     if (pin.length !== 6) return setError('Choisis un code PIN à 6 chiffres.');
     setLoading(true);
     setError('');
-    const res = await signUpAction({ username, pin, email: email || undefined, accountType, avatarUrl: avatar });
-    if (!res.ok) {
-      // Si le pseudo est "déjà utilisé", il peut s'agir d'un compte fantôme non confirmé.
-      // On tente une connexion directe avec le PIN fourni.
-      if (res.error.toLowerCase().includes('déjà utilisé') || res.error.toLowerCase().includes('already')) {
-        const loginAttempt = await signInAction({ username, pin });
-        setLoading(false);
-        if (loginAttempt.ok) {
-          goConsole();
-          return;
-        }
-        // Si la connexion échoue aussi, on affiche une erreur claire
-        setError('Ce pseudo existe déjà. Si c\'est ton compte, vérifie ton code PIN.');
-        setPin('');
-        return;
-      }
-      setLoading(false);
-      setError(res.error);
+    // signUpClient gère tout (création + session) en 1 aller → ultra rapide.
+    const res = await signUpClient({ username, pin, email: email || undefined, accountType, avatarUrl: avatar });
+    setLoading(false);
+    if (res.ok) {
+      goConsole();
       return;
     }
-    // Connexion automatique après inscription
-    const login = await signInAction({ username, pin });
-    setLoading(false);
-    if (login.ok) goConsole();
-    else {
+    if (res.error.toLowerCase().includes('déjà utilisé') || res.error.toLowerCase().includes('already')) {
+      setError('Ce pseudo existe déjà. Si c\'est ton compte, connecte-toi avec ton PIN.');
       setMode('login');
-      setInfo('Compte créé ! Connecte-toi avec ton pseudo et ton PIN.');
       setPin('');
+      return;
     }
+    setError(res.error);
   };
 
   const handleForgot = async () => {

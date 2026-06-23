@@ -575,12 +575,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     return () => { cancelled = true; };
   }, [activeGameId]);
 
-  // PRÉCHAUFFAGE émulateurs : dès qu'un jeu GBA/PSP est focalisé, on précharge le
-  // moteur EmulatorJS + la ROM en arrière-plan → démarrage quasi-instantané au clic « Jouer ».
+  // PRÉCHAUFFAGE émulateurs : dès qu'un jeu GBA/NES/SNES/PSP est focalisé, on précharge
+  // le moteur EmulatorJS + la ROM en arrière-plan → démarrage quasi-instantané au clic.
   const activeGameRuntime = activeGame?.runtime;
   const activeGameRomUrl = activeGame ? encodePathSegments(`${activeGame.assets_bucket_path}/${activeGame.entry_point}`) : '';
   useEffect(() => {
-    if (activeGameRuntime !== 'gba' && activeGameRuntime !== 'psp') return;
+    const isEmu = activeGameRuntime === 'gba' || activeGameRuntime === 'nes' ||
+      activeGameRuntime === 'snes' || activeGameRuntime === 'psp';
+    if (!isEmu) return;
     const links: HTMLLinkElement[] = [];
     const prefetch = (href: string, as?: string) => {
       const l = document.createElement('link');
@@ -591,6 +593,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       document.head.appendChild(l);
       links.push(l);
     };
+    // Moteur (loader + core du système) + ROM → tout est chaud au lancement.
     prefetch('https://cdn.emulatorjs.org/stable/data/loader.js', 'script');
     if (activeGameRomUrl) prefetch(activeGameRomUrl, 'fetch');
     return () => { links.forEach((l) => l.remove()); };

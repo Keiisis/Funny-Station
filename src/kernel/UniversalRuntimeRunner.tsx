@@ -303,13 +303,20 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
         // 1. Initialiser le système de fichiers virtuel (VFS)
         const vfs = await initVFS(gameId);
         vfsRef.current = vfs;
-        
-        // Tenter de restaurer les sauvegardes depuis Supabase si connecté
+
+        // 2. Restaurer les sauvegardes cloud — UNIQUEMENT pour les runtimes qui s'en
+        //    servent (JS/Python/WASM). Les ÉMULATEURS (GBA/NES/SNES/PSP) sauvegardent
+        //    via l'état EmulatorJS (slot 'emu_state', chargé après le boot) → inutile
+        //    de bloquer leur démarrage avec un aller Supabase. Gros gain de réactivité.
+        const isEmulator =
+          language === 'gba' || language === 'psp' || language === 'nes' || language === 'snes';
         setLoadingProgress(25);
-        try {
-          await vfs.syncFromCloud(gameId);
-        } catch (e) {
-          console.log("[Kernel] Mode hors-ligne / Non authentifié. Sauvegarde locale active.");
+        if (!isEmulator) {
+          try {
+            await vfs.syncFromCloud(gameId);
+          } catch (e) {
+            console.log("[Kernel] Mode hors-ligne / Non authentifié. Sauvegarde locale active.");
+          }
         }
         setLoadingProgress(40);
 
@@ -999,7 +1006,8 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
         if (readyHandled) return;
         readyHandled = true;
         try {
-          const { data: { user } } = await supabase.auth.getUser();
+          const { data: { session } } = await supabase.auth.getSession();
+          const user = session?.user;
           if (!user) return; // invité : ni trophée persistant ni sauvegarde cloud.
 
           // (1) Trophée d'entrée « tu as lancé le jeu » — seulement s'il n'est pas déjà obtenu.
@@ -1039,7 +1047,8 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
       } else if (d.type === 'FUNNY_EMU_STATE' && typeof d.b64 === 'string') {
         // (2) Sauvegarde de l'état → cloud, par utilisateur (upsert sur la contrainte unique).
         try {
-          const { data: { user } } = await supabase.auth.getUser();
+          const { data: { session } } = await supabase.auth.getSession();
+          const user = session?.user;
           if (!user) return;
           await supabase.from('game_saves').upsert(
             {

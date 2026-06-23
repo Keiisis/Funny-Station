@@ -150,7 +150,8 @@ export class VirtualFileSystem {
   // Synchronisation Cloud avec Supabase (table game_saves, une ligne par user+game+slot).
   public async syncToCloud(gameId: string): Promise<boolean> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) {
         console.warn("[VFS] Aucun utilisateur connecté pour la synchronisation cloud.");
         return false;
@@ -193,7 +194,8 @@ export class VirtualFileSystem {
 
   public async syncFromCloud(gameId: string): Promise<boolean> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return false;
 
       const { data, error } = await supabase

@@ -7,7 +7,6 @@ import { GamepadController } from '@/drivers/GamepadController';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { supabase } from '@/utils/supabase/client';
 import { fetchProfileData } from '@/lib/db';
-import { signOutAction } from './auth/actions';
 import { ProfileData } from '@/types';
 import { BootScreen } from '@/shell/BootScreen';
 
@@ -17,13 +16,15 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
 
   // Recharge le profil applicatif depuis Supabase (source de vérité).
+  // On lit la session LOCALEMENT (getSession = pas d'aller réseau) → gating instantané ;
+  // la RLS protège déjà les données au fetch. Beaucoup plus rapide que getUser().
   const loadProfile = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
       router.replace('/auth/login');
       return;
     }
-    const data = await fetchProfileData(user.id);
+    const data = await fetchProfileData(session.user.id);
     setProfile(data);
     setLoaded(true);
   }, [router]);
@@ -43,7 +44,14 @@ export default function Home() {
 
     loadProfile();
 
+    // Réagit INSTANTANÉMENT à une connexion/déconnexion (fini le « rafraîchir la page »).
+    const { data: sub } = supabase.auth.onAuthStateChange((event: string) => {
+      if (event === 'SIGNED_IN') loadProfile();
+      else if (event === 'SIGNED_OUT') { setProfile(null); setLoaded(false); }
+    });
+
     return () => {
+      sub.subscription.unsubscribe();
       window.removeEventListener('click', resumeAudio);
       window.removeEventListener('keydown', resumeAudio);
     };
@@ -57,9 +65,9 @@ export default function Home() {
   const handleSignOut = async () => {
     AudioEngine.getInstance().playSFX('select');
     AudioEngine.getInstance().stopAmbientMusic();
-    await signOutAction();
+    // Déconnexion côté navigateur → session vidée immédiatement (onAuthStateChange).
+    await supabase.auth.signOut();
     router.replace('/auth/login');
-    router.refresh();
   };
 
   if (!loaded || !profile) {
