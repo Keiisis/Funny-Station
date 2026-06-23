@@ -88,6 +88,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [unlockedTrophyIds, setUnlockedTrophyIds] = useState<string[]>([]);
   const [trophies, setTrophies] = useState<Trophy[]>([]);
   
+  // Clean up all cached object URLs on unmount
+  useEffect(() => {
+    return () => {
+      videoCacheRef.current.forEach((url) => {
+        if (url.startsWith('blob:')) {
+          try { URL.revokeObjectURL(url); } catch (e) {}
+        }
+      });
+      videoCacheRef.current.clear();
+    };
+  }, []);
+  
   const carouselRef = useRef<HTMLDivElement>(null);
   const navInitRef = useRef(true);
 
@@ -481,6 +493,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   }, [controllerType, lobbyId, profile.id]);
 
   const activeGame = games[focusedIndex];
+
+  const [videoSrc, setVideoSrc] = useState<string>('');
+  const videoCacheRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (!activeGame || !activeGame.video_url) {
+      setVideoSrc('');
+      return;
+    }
+
+    const rawUrl = activeGame.video_url;
+    let active = true;
+
+    // Check cache first
+    const cachedUrl = videoCacheRef.current.get(rawUrl);
+    if (cachedUrl) {
+      setVideoSrc(cachedUrl);
+      return;
+    }
+
+    // Otherwise fetch via media proxy
+    const loadVideo = async () => {
+      try {
+        const base64Key = btoa(unescape(encodeURIComponent(rawUrl)));
+        const res = await fetch(`/api/media?key=${base64Key}`);
+        if (!res.ok) throw new Error('Failed to fetch video');
+        const blob = await res.blob();
+        const mediaBlob = new Blob([blob], { type: 'video/mp4' });
+        const blobUrl = URL.createObjectURL(mediaBlob);
+        
+        if (active) {
+          videoCacheRef.current.set(rawUrl, blobUrl);
+          setVideoSrc(blobUrl);
+        } else {
+          URL.revokeObjectURL(blobUrl);
+        }
+      } catch (e) {
+        console.warn('Failed to load active game video via obfuscated route, falling back to direct url:', e);
+        if (active) {
+          setVideoSrc(rawUrl);
+        }
+      }
+    };
+
+    loadVideo();
+
+    return () => {
+      active = false;
+    };
+  }, [activeGame?.id, activeGame?.video_url]);
 
   // Ambient sound focusing
   useEffect(() => {
@@ -993,7 +1055,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
               {activeGame.video_url ? (
                 <video
                   key={activeGame.id}
-                  src={activeGame.video_url}
+                  src={videoSrc || undefined}
                   poster={activeGame.background_url}
                   autoPlay
                   loop

@@ -14,11 +14,42 @@ export const BootScreen: React.FC<BootScreenProps> = ({ children }) => {
   const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoSrc, setVideoSrc] = useState<string>('');
 
   useEffect(() => {
     // Check if console is already booted in this tab session
     const booted = sessionStorage.getItem('funnystation_booted') === 'true';
     setHasBooted(booted);
+
+    if (!booted) {
+      // Précharger la vidéo via le proxy d'obfuscation
+      const loadVideo = async () => {
+        try {
+          const rawUrl = '/videos/startup.mp4';
+          const base64Key = btoa(unescape(encodeURIComponent(rawUrl)));
+          const res = await fetch(`/api/media?key=${base64Key}`);
+          if (!res.ok) throw new Error('Failed to fetch boot video');
+          const blob = await res.blob();
+          const mediaBlob = new Blob([blob], { type: 'video/mp4' });
+          const blobUrl = URL.createObjectURL(mediaBlob);
+          setVideoSrc(blobUrl);
+        } catch (e) {
+          console.warn('Failed to load boot video via obfuscated route, falling back to direct url:', e);
+          setVideoSrc('/videos/startup.mp4');
+        }
+      };
+      loadVideo();
+    }
+
+    return () => {
+      // Nettoyage de l'Object URL s'il y en a un
+      setVideoSrc(prev => {
+        if (prev && prev.startsWith('blob:')) {
+          try { URL.revokeObjectURL(prev); } catch (e) {}
+        }
+        return '';
+      });
+    };
   }, []);
 
   const playConsoleBeep = () => {
@@ -77,15 +108,15 @@ export const BootScreen: React.FC<BootScreenProps> = ({ children }) => {
     const playPromise = vid.play();
     if (playPromise !== undefined) {
       playPromise
-        .then(() => {
-          // Playback started — unmute now (user gesture context is still active)
-          vid.muted = false;
-          vid.volume = 1.0;
-        })
-        .catch((err) => {
-          console.warn('Video playback was blocked/failed:', err);
-          handleBootComplete();
-        });
+          .then(() => {
+            // Playback started — unmute now (user gesture context is still active)
+            vid.muted = false;
+            vid.volume = 1.0;
+          })
+          .catch((err) => {
+            console.warn('Video playback was blocked/failed:', err);
+            handleBootComplete();
+          });
     }
   };
 
@@ -139,7 +170,7 @@ export const BootScreen: React.FC<BootScreenProps> = ({ children }) => {
       >
         <video
           ref={videoRef}
-          src="/videos/startup.mp4"
+          src={videoSrc || undefined}
           className="w-full h-full object-cover"
           preload="auto"
           playsInline

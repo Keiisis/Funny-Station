@@ -13,6 +13,9 @@ export class AudioEngine {
   private currentTrackIndex = -1;
   private isPlayingConsolePlaylist = false;
 
+  private currentAmbientUrl: string | null = null;
+  private currentObjectUrl: string | null = null;
+
   private constructor() {
     // Initialisé à la demande pour respecter la politique d'autoplay
   }
@@ -34,6 +37,34 @@ export class AudioEngine {
     // Reprendre le contexte s'il a été suspendu par le navigateur
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
+    }
+  }
+
+  // Obtenir un Object URL de Blob via le proxy obfuscateur
+  private async getObfuscatedBlobUrl(url: string): Promise<string> {
+    try {
+      const base64Key = btoa(unescape(encodeURIComponent(url)));
+      const res = await fetch(`/api/media?key=${base64Key}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch media through proxy: ${res.status}`);
+      }
+      const blob = await res.blob();
+      // On crée un blob avec un type MIME correct pour la lecture mais stocké localement
+      // de façon à ce que IDM ne puisse pas l'intercepter via le réseau ou le DOM.
+      const mediaBlob = new Blob([blob], { type: 'audio/mpeg' });
+      return URL.createObjectURL(mediaBlob);
+    } catch (e) {
+      console.warn("Erreur d'obfuscation du média, repli sur l'URL directe:", e);
+      return url;
+    }
+  }
+
+  private revokeCurrentObjectUrl() {
+    if (this.currentObjectUrl) {
+      try {
+        URL.revokeObjectURL(this.currentObjectUrl);
+      } catch (e) {}
+      this.currentObjectUrl = null;
     }
   }
 
@@ -165,7 +196,7 @@ export class AudioEngine {
   }
 
   // Jouer la piste suivante dans la playlist
-  private playNextTrack() {
+  private async playNextTrack() {
     if (this.playlist.length === 0) return;
     this.currentTrackIndex = (this.currentTrackIndex + 1) % this.playlist.length;
     const nextUrl = this.playlist[this.currentTrackIndex];
@@ -175,7 +206,11 @@ export class AudioEngine {
     this.isAmbientSynthesized = false;
     this.isPlayingConsolePlaylist = true;
 
-    this.ambientElement = new Audio(nextUrl);
+    // Charger l'élément audio de manière sécurisée contre IDM
+    const blobUrl = await this.getObfuscatedBlobUrl(nextUrl);
+    this.currentObjectUrl = blobUrl;
+
+    this.ambientElement = new Audio(blobUrl);
     this.ambientElement.loop = false;
     // Volume adéquat et équilibré : 0.18 * volume système (doux mais présent)
     this.ambientElement.volume = 0.18 * this.volume;
@@ -198,6 +233,7 @@ export class AudioEngine {
     this.currentAmbientGain = this.ctx.createGain();
     this.currentAmbientGain.gain.setValueAtTime(0, now);
     this.currentAmbientGain.gain.linearRampToValueAtTime(0.08 * this.volume, now + 2.0); // fade in
+
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -230,7 +266,7 @@ export class AudioEngine {
   }
 
   // Musique de fond (ambient) dynamique
-  public playAmbientMusic(url?: string) {
+  public async playAmbientMusic(url?: string) {
     this.initCtx();
     this.stopAmbientMusic();
 
@@ -238,7 +274,11 @@ export class AudioEngine {
       // Charger la musique spécifique du jeu focalisé
       this.isAmbientSynthesized = false;
       this.isPlayingConsolePlaylist = false;
-      this.ambientElement = new Audio(url);
+      
+      const blobUrl = await this.getObfuscatedBlobUrl(url);
+      this.currentObjectUrl = blobUrl;
+
+      this.ambientElement = new Audio(blobUrl);
       this.ambientElement.loop = true;
       this.ambientElement.volume = 0.25 * this.volume;
       this.ambientElement.play().catch((err) => {
@@ -274,6 +314,9 @@ export class AudioEngine {
       this.ambientElement.pause();
       this.ambientElement = null;
     }
+
+    // Libérer l'Object URL pour éviter les fuites de mémoire
+    this.revokeCurrentObjectUrl();
 
     // Arrêter le synthétiseur de secours
     if (this.isAmbientSynthesized && this.currentAmbientSource) {

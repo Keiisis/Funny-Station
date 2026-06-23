@@ -10,6 +10,7 @@ interface ShutdownScreenProps {
 
 export const ShutdownScreen: React.FC<ShutdownScreenProps> = ({ isShuttingDown }) => {
   const [showFallback, setShowFallback] = useState(false);
+  const [videoSrc, setVideoSrc] = useState<string>('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const safetyTimeoutRef = useRef<any>(null);
 
@@ -75,6 +76,62 @@ export const ShutdownScreen: React.FC<ShutdownScreenProps> = ({ isShuttingDown }
       console.warn('Failed to pause secondary media:', e);
     }
 
+    // Précharger la vidéo d'extinction via le proxy d'obfuscation
+    const loadVideo = async () => {
+      try {
+        const rawUrl = '/videos/shutdown.mp4';
+        const base64Key = btoa(unescape(encodeURIComponent(rawUrl)));
+        const res = await fetch(`/api/media?key=${base64Key}`);
+        if (!res.ok) throw new Error('Failed to fetch shutdown video');
+        const blob = await res.blob();
+        const mediaBlob = new Blob([blob], { type: 'video/mp4' });
+        const blobUrl = URL.createObjectURL(mediaBlob);
+        setVideoSrc(blobUrl);
+
+        // Attendre que le state soit mis à jour pour récupérer le ref de la vidéo
+        setTimeout(() => {
+          const video = videoRef.current;
+          if (video) {
+            video.muted = true;
+            video.currentTime = 0;
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+              playPromise
+                .then(() => {
+                  video.muted = false;
+                  video.volume = 1.0;
+                  console.log('[System] Shutdown video started playing and was unmuted.');
+                })
+                .catch((err) => {
+                  console.warn('Shutdown video blocked/failed, bypassing to close:', err);
+                  triggerCloseSequence();
+                });
+            }
+          } else {
+            triggerCloseSequence();
+          }
+        }, 100);
+      } catch (e) {
+        console.warn('Failed to load shutdown video via obfuscated route, falling back to direct:', e);
+        setVideoSrc('/videos/shutdown.mp4');
+        setTimeout(() => {
+          const video = videoRef.current;
+          if (video) {
+            video.muted = true;
+            video.currentTime = 0;
+            video.play()
+              .then(() => {
+                video.muted = false;
+                video.volume = 1.0;
+              })
+              .catch(() => triggerCloseSequence());
+          } else {
+            triggerCloseSequence();
+          }
+        }, 100);
+      }
+    };
+
     // Check for debug flag in URL or sessionStorage
     const isDebug = 
       sessionStorage.getItem('funnystation_debug_shutdown') === 'true' || 
@@ -92,32 +149,18 @@ export const ShutdownScreen: React.FC<ShutdownScreenProps> = ({ isShuttingDown }
       triggerCloseSequence();
     }, 11000);
 
-    // Play video
-    const video = videoRef.current;
-    if (video) {
-      // Robust start muted, then unmute
-      video.muted = true;
-      video.currentTime = 0;
-      
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            video.muted = false;
-            video.volume = 1.0;
-            console.log('[System] Shutdown video started playing and was unmuted.');
-          })
-          .catch((err) => {
-            console.warn('Shutdown video blocked/failed, bypassing to close:', err);
-            triggerCloseSequence();
-          });
-      }
-    }
+    loadVideo();
 
     return () => {
       if (safetyTimeoutRef.current) {
         clearTimeout(safetyTimeoutRef.current);
       }
+      setVideoSrc(prev => {
+        if (prev && prev.startsWith('blob:')) {
+          try { URL.revokeObjectURL(prev); } catch (e) {}
+        }
+        return '';
+      });
     };
   }, [isShuttingDown]);
 
@@ -145,7 +188,7 @@ export const ShutdownScreen: React.FC<ShutdownScreenProps> = ({ isShuttingDown }
         /* Dynamic Shutdown video playing */
         <video
           ref={videoRef}
-          src="/videos/shutdown.mp4"
+          src={videoSrc || undefined}
           className="w-full h-full object-cover"
           preload="auto"
           playsInline
