@@ -574,6 +574,7 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
                 <title>Funny Sandbox</title>
                 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: *;">
                 <script>${injectSDK}</script>
+                <script src="/funny-netplay.js"></script>
                 <script src="${entryPath}" type="module" defer></script>
               </head>
               <body style="margin: 0; overflow: hidden; background: #000; color: #fff; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;">
