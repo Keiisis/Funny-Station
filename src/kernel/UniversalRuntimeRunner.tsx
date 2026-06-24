@@ -556,8 +556,9 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
         
         const injectBridge = () => {
           try {
-            if (iframeRef.current?.contentWindow) {
-              (iframeRef.current.contentWindow as any).funnyStation = {
+            const win = iframeRef.current?.contentWindow as any;
+            if (win) {
+              win.funnyStation = {
                 save: (slot: string, data: any) => window.parent.postMessage({ type: 'FUNNY_BUS_SAVE', payload: { slot, data } }, '*'),
                 load: (slot: string) => window.parent.postMessage({ type: 'FUNNY_BUS_LOAD', payload: { slot } }, '*'),
                 unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
@@ -565,6 +566,32 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
                 networkMode: networkMode,
                 playerNumber: localPlayerNumber
               };
+
+              // PONT CLAVIER NATIF (Unity WebGL & co) : la manette envoie FUNNY_KEY ;
+              // on recrée le KeyboardEvent DANS LE REALM DE L'IFRAME (new win.KeyboardEvent)
+              // → Unity le reconnaît comme une vraie touche (fini la désync), avec keyCode/code
+              // forcés. Latence minimale : on pilote le moteur directement, sans relais clavier
+              // synthétique cross-realm peu fiable.
+              if (!win.__funnyKeyBridge) {
+                win.__funnyKeyBridge = true;
+                win.addEventListener('message', (ev: MessageEvent) => {
+                  const d: any = ev.data;
+                  if (!d || d.type !== 'FUNNY_KEY') return;
+                  try {
+                    const k = new win.KeyboardEvent(d.down ? 'keydown' : 'keyup', {
+                      key: d.key, code: d.code, bubbles: true, cancelable: true,
+                    });
+                    Object.defineProperty(k, 'keyCode', { get: () => d.keyCode });
+                    Object.defineProperty(k, 'which', { get: () => d.keyCode });
+                    win.document.dispatchEvent(k);
+                    win.dispatchEvent(k);
+                    const c = win.document.querySelector('canvas');
+                    if (c) c.dispatchEvent(k);
+                  } catch (e) { /* ignore */ }
+                });
+                // Focus du canvas Unity → l'entrée est captée dès le départ.
+                try { win.document.querySelector('canvas')?.focus(); } catch (e) { /* */ }
+              }
             }
           } catch (e) {
             console.warn("[Kernel] Impossible d'injecter funnyStation directement dans l'iframe HTML:", e);

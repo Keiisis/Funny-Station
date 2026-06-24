@@ -19,7 +19,7 @@ import { DynamicAura } from './DynamicAura';
 import { WebGLBackground } from '@/drivers/WebGLBackground';
 import { ControlCenter } from './ControlCenter';
 import { ShutdownScreen } from './ShutdownScreen';
-import { loadKeyMapping, saveKeyMapping, KeyMapping, ConsoleAction, DEFAULT_KEY_MAPPING, ACTION_LABELS, makeKeyboardEvent } from '@/utils/inputMapping';
+import { loadKeyMapping, saveKeyMapping, KeyMapping, ConsoleAction, DEFAULT_KEY_MAPPING, ACTION_LABELS, makeKeyboardEvent, keyEventInit } from '@/utils/inputMapping';
 import { createConsoleRtc, ConsoleRtc } from '@/utils/rtcLink';
 import {
   fetchPublishedGames,
@@ -399,16 +399,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         // Événement COMPLET (key + code + keyCode) — sinon Unity WebGL l'ignore.
         window.dispatchEvent(makeKeyboardEvent(evType, keyName));
 
+        // Pont natif (Unity & co) : on envoie la touche à l'iframe qui recrée
+        // l'événement DANS SON PROPRE REALM → reconnu de façon fiable, sans désync.
+        const { code, keyCode } = keyEventInit(keyName);
+        const keyMsg = { type: 'FUNNY_KEY', key: keyName, code, keyCode, down: effectiveAction === 'down' };
+
         const iframes = document.querySelectorAll('iframe');
         iframes.forEach(iframe => {
           try {
             const iframeWindow = iframe.contentWindow;
             if (iframeWindow) {
-              // Unity écoute sur le document/canvas du jeu → on cible les deux + la window.
+              // 1) Pont natif (Unity WebGL) — chemin fiable.
+              iframeWindow.postMessage(keyMsg, '*');
+              // 2) Repli cross-realm pour les jeux JS sandbox (neon-runner, etc.).
               iframeWindow.document.dispatchEvent(makeKeyboardEvent(evType, keyName));
               iframeWindow.dispatchEvent(makeKeyboardEvent(evType, keyName));
-              const canvas = iframeWindow.document.querySelector('canvas');
-              if (canvas) canvas.dispatchEvent(makeKeyboardEvent(evType, keyName));
             }
           } catch (e) {
             console.warn('[Dashboard] Impossible de relayer les inputs dans l\'iframe:', e);
