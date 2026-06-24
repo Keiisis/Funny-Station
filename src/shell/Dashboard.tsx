@@ -195,6 +195,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   // du jeu en cours → adaptation dynamique du layout (anti-conflit de touches).
   const lobbyChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const gameContextRef = useRef<{ runtime: string; slug: string; title: string }>({ runtime: '', slug: '', title: '' });
+  // Suit l'état du Control Center pour la manette (suspend l'entrée jeu quand ouvert).
+  const controlCenterOpenRef = useRef(false);
   useEffect(() => {
     connectedPlayersRef.current = connectedPlayers;
   }, [connectedPlayers]);
@@ -229,6 +231,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   useEffect(() => {
     reloadGames();
   }, [reloadGames]);
+
+  useEffect(() => { controlCenterOpenRef.current = isControlCenterOpen; }, [isControlCenterOpen]);
 
   // Rail « Continuer » : jeux récemment joués par CE compte (d'après game_saves.updated_at).
   useEffect(() => {
@@ -367,16 +371,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       // Si le payload contient un clientPlayerId, n'accepter que les inputs destinés à cette console
       if (clientPlayerId && clientPlayerId !== profile.id) return;
 
+      // BOUTON « PS » (FS) — exactement comme sur la PS5 : touche SYSTÈME, pas une
+      // entrée de jeu. Un appui (down) ouvre/ferme le Control Center. On NE transmet
+      // RIEN au jeu pour cette touche.
+      if (direction === 'HOME') {
+        if ((action || 'down') === 'down') {
+          AudioEngine.getInstance().playSFX('select');
+          setIsControlCenterOpen(prev => !prev);
+        }
+        return;
+      }
+
       const playerIdx = connectedPlayersRef.current.findIndex(p => p.userId === userId);
       const playerNumber = playerIdx >= 0 ? connectedPlayersRef.current[playerIdx].playerNumber : 0;
       const effectiveAction = action || 'down';
       
       window.dispatchEvent(
-        new CustomEvent('funny_gamepad_action', { 
-          detail: { direction, playerNumber, userId, action: effectiveAction } 
+        new CustomEvent('funny_gamepad_action', {
+          detail: { direction, playerNumber, userId, action: effectiveAction }
         })
       );
-      
+
+      // Control Center ouvert (bouton PS) → la manette NAVIGUE l'overlay (via l'event
+      // ci-dessus) mais N'ENVOIE PAS de touche au jeu — comme sur la PS5.
+      if (controlCenterOpenRef.current) return;
+
       let keyName = '';
       if (playerNumber === 0) {
         // Mappage dynamique pour le joueur local (Player 1)

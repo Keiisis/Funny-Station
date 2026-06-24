@@ -749,7 +749,7 @@ function ControllerContent() {
   }, []);
 
   // Transmission des actions
-  const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE' | 'SELECT' | 'START' | 'L' | 'R', action: 'down' | 'up') => {
+  const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE' | 'SELECT' | 'START' | 'L' | 'R' | 'HOME', action: 'down' | 'up') => {
     if (action === 'down') {
       triggerVibration(25);
       
@@ -1199,12 +1199,13 @@ function ControllerContent() {
               </button>
             </div>
 
-            {/* Bouton central rond style PS5 (touche « PS »/Menu) avec le logo FS1. */}
+            {/* Bouton central rond style PS5 — touche « PS » : ouvre le Control Center
+                de la Funny Station (comportement identique au bouton PS de la PS5). */}
             <button
-              {...pressProps('OPTION')}
-              aria-label="Menu Funny Station"
+              {...pressProps('HOME')}
+              aria-label="Bouton PS Funny Station"
               className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-150 active:scale-90 cursor-pointer ${
-                activeButton === 'OPTION'
+                activeButton === 'HOME'
                   ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_18px_rgba(59,130,246,0.65)]'
                   : 'bg-zinc-900/70 border-zinc-700/60 hover:border-zinc-500 shadow-[0_2px_8px_rgba(0,0,0,0.55),inset_0_1px_2px_rgba(255,255,255,0.08)]'
               }`}
