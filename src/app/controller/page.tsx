@@ -787,6 +787,20 @@ function ControllerContent() {
     }
   }, [userId, playerNumber, searchParams, triggerVibration, playTouchSound]);
 
+  // Handlers d'un bouton « maintenable » avec CAPTURE DU POINTEUR : une fois l'appui
+  // commencé, le bouton garde le pointeur même si le doigt glisse hors de sa zone.
+  // → fini le `up` prématuré (qui coupait l'accélération/le virage quand le doigt
+  // bougeait un peu pendant un appui prolongé). S'applique à TOUS les jeux.
+  type Btn = Parameters<typeof sendAction>[0];
+  const pressProps = useCallback((action: Btn) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
+      sendAction(action, 'down');
+    },
+    onPointerUp: () => sendAction(action, 'up'),
+    onPointerCancel: () => sendAction(action, 'up'),
+  }), [sendAction]);
+
   const prevLeftAxes = useRef({ UP: false, DOWN: false, LEFT: false, RIGHT: false });
   const prevRightAxes = useRef({ TRIANGLE: false, CONFIRM: false, SQUARE: false, BACK: false });
 
@@ -1060,10 +1074,7 @@ function ControllerContent() {
       <div className="w-full flex justify-between px-6" style={{ flexShrink: 0, zIndex: 20 }}>
         {/* BOUTON GAUCHE L */}
         <button
-          onPointerDown={() => sendAction('L', 'down')}
-          onPointerUp={() => sendAction('L', 'up')}
-          onPointerLeave={() => sendAction('L', 'up')}
-          onPointerCancel={() => sendAction('L', 'up')}
+              {...pressProps('L')}
           className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
             activeButton === 'L'
               ? currentTheme.lBtnActiveClass
@@ -1075,10 +1086,7 @@ function ControllerContent() {
 
         {/* BOUTON DROIT R */}
         <button
-          onPointerDown={() => sendAction('R', 'down')}
-          onPointerUp={() => sendAction('R', 'up')}
-          onPointerLeave={() => sendAction('R', 'up')}
-          onPointerCancel={() => sendAction('R', 'up')}
+              {...pressProps('R')}
           className={`w-28 py-2.5 rounded-b-2xl border-x border-b transition-all duration-150 text-xs font-black uppercase tracking-widest text-center cursor-pointer ${
             activeButton === 'R'
               ? currentTheme.rBtnActiveClass
@@ -1105,10 +1113,7 @@ function ControllerContent() {
             {/* Boutons Directionnels */}
             {/* HAUT */}
             <button
-              onPointerDown={() => sendAction('UP', 'down')}
-              onPointerUp={() => sendAction('UP', 'up')}
-              onPointerLeave={() => sendAction('UP', 'up')}
-              onPointerCancel={() => sendAction('UP', 'up')}
+              {...pressProps('UP')}
               className={`absolute top-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'UP'
                   ? currentTheme.btnActiveClass
@@ -1120,10 +1125,7 @@ function ControllerContent() {
 
             {/* BAS */}
             <button
-              onPointerDown={() => sendAction('DOWN', 'down')}
-              onPointerUp={() => sendAction('DOWN', 'up')}
-              onPointerLeave={() => sendAction('DOWN', 'up')}
-              onPointerCancel={() => sendAction('DOWN', 'up')}
+              {...pressProps('DOWN')}
               className={`absolute bottom-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'DOWN'
                   ? currentTheme.btnActiveClass
@@ -1135,10 +1137,7 @@ function ControllerContent() {
 
             {/* GAUCHE */}
             <button
-              onPointerDown={() => sendAction('LEFT', 'down')}
-              onPointerUp={() => sendAction('LEFT', 'up')}
-              onPointerLeave={() => sendAction('LEFT', 'up')}
-              onPointerCancel={() => sendAction('LEFT', 'up')}
+              {...pressProps('LEFT')}
               className={`absolute left-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'LEFT'
                   ? currentTheme.btnActiveClass
@@ -1150,10 +1149,7 @@ function ControllerContent() {
 
             {/* DROITE */}
             <button
-              onPointerDown={() => sendAction('RIGHT', 'down')}
-              onPointerUp={() => sendAction('RIGHT', 'up')}
-              onPointerLeave={() => sendAction('RIGHT', 'up')}
-              onPointerCancel={() => sendAction('RIGHT', 'up')}
+              {...pressProps('RIGHT')}
               className={`absolute right-1.5 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-150 border ${
                 activeButton === 'RIGHT'
                   ? currentTheme.btnActiveClass
@@ -1180,10 +1176,7 @@ function ControllerContent() {
             <div className="flex gap-3">
               {/* SELECT */}
               <button
-                onPointerDown={() => sendAction('SELECT', 'down')}
-                onPointerUp={() => sendAction('SELECT', 'up')}
-                onPointerLeave={() => sendAction('SELECT', 'up')}
-                onPointerCancel={() => sendAction('SELECT', 'up')}
+              {...pressProps('SELECT')}
                 className={`px-3.5 py-1.5 rounded-full border transition-all duration-150 active:scale-95 text-[9px] uppercase tracking-widest font-black cursor-pointer ${
                   activeButton === 'SELECT'
                     ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_8px_rgba(168,85,247,0.4)]'
@@ -1195,10 +1188,7 @@ function ControllerContent() {
 
               {/* START */}
               <button
-                onPointerDown={() => sendAction('START', 'down')}
-                onPointerUp={() => sendAction('START', 'up')}
-                onPointerLeave={() => sendAction('START', 'up')}
-                onPointerCancel={() => sendAction('START', 'up')}
+              {...pressProps('START')}
                 className={`px-3.5 py-1.5 rounded-full border transition-all duration-150 active:scale-95 text-[9px] uppercase tracking-widest font-black cursor-pointer ${
                   activeButton === 'START'
                     ? 'bg-purple-500/20 border-purple-400 text-purple-300 shadow-[0_0_8px_rgba(168,85,247,0.4)]'
@@ -1210,10 +1200,7 @@ function ControllerContent() {
             </div>
 
             <button
-              onPointerDown={() => sendAction('OPTION', 'down')}
-              onPointerUp={() => sendAction('OPTION', 'up')}
-              onPointerLeave={() => sendAction('OPTION', 'up')}
-              onPointerCancel={() => sendAction('OPTION', 'up')}
+              {...pressProps('OPTION')}
               className={`px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border transition-all duration-150 active:scale-95 text-[8px] uppercase tracking-widest font-bold cursor-pointer ${
                 activeButton === 'OPTION'
                   ? 'bg-zinc-800 border-zinc-650 text-zinc-200'
@@ -1256,10 +1243,7 @@ function ControllerContent() {
             {/* TRIANGLE (▲) */}
             <button
               disabled={isGbaOrNes}
-              onPointerDown={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'down'); }}
-              onPointerUp={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
-              onPointerLeave={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
-              onPointerCancel={() => { if (!isGbaOrNes) sendAction('TRIANGLE', 'up'); }}
+              {...pressProps('TRIANGLE')}
               className={`absolute top-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'TRIANGLE'
                   ? currentTheme.actionButtons.TRIANGLE.activeClass
@@ -1273,10 +1257,7 @@ function ControllerContent() {
 
             {/* CROSS (✕) */}
             <button
-              onPointerDown={() => sendAction('CONFIRM', 'down')}
-              onPointerUp={() => sendAction('CONFIRM', 'up')}
-              onPointerLeave={() => sendAction('CONFIRM', 'up')}
-              onPointerCancel={() => sendAction('CONFIRM', 'up')}
+              {...pressProps('CONFIRM')}
               className={`absolute bottom-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 cursor-pointer ${
                 activeButton === 'CONFIRM'
                   ? currentTheme.actionButtons.CONFIRM.activeClass
@@ -1291,10 +1272,7 @@ function ControllerContent() {
             {/* SQUARE (■) */}
             <button
               disabled={isGbaOrNes}
-              onPointerDown={() => { if (!isGbaOrNes) sendAction('SQUARE', 'down'); }}
-              onPointerUp={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
-              onPointerLeave={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
-              onPointerCancel={() => { if (!isGbaOrNes) sendAction('SQUARE', 'up'); }}
+              {...pressProps('SQUARE')}
               className={`absolute left-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 ${isGbaOrNes ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'} ${
                 activeButton === 'SQUARE'
                   ? currentTheme.actionButtons.SQUARE.activeClass
@@ -1308,10 +1286,7 @@ function ControllerContent() {
 
             {/* CIRCLE (◯) */}
             <button
-              onPointerDown={() => sendAction('BACK', 'down')}
-              onPointerUp={() => sendAction('BACK', 'up')}
-              onPointerLeave={() => sendAction('BACK', 'up')}
-              onPointerCancel={() => sendAction('BACK', 'up')}
+              {...pressProps('BACK')}
               className={`absolute right-1.5 w-11 h-11 rounded-full flex items-center justify-center transition-all duration-150 border-2 cursor-pointer ${
                 activeButton === 'BACK'
                   ? currentTheme.actionButtons.BACK.activeClass
