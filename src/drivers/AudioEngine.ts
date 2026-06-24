@@ -295,6 +295,19 @@ export class AudioEngine {
     if (this.isGameRunning) {
       return;
     }
+
+    // IDEMPOTENCE — clé de la continuité : si on redemande EXACTEMENT ce qui joue déjà,
+    // on ne coupe RIEN. Sans ça, naviguer dans le carrousel relançait stop()+play() en
+    // boucle et la musique n'avait jamais le temps de démarrer.
+    const requested = url || 'playlist';
+    const isLive = !!this.ambientElement && !this.ambientElement.paused;
+    if (requested === 'playlist') {
+      // La playlist console tourne déjà → laisse-la continuer.
+      if (this.isPlayingConsolePlaylist && (isLive || this.isAmbientSynthesized)) return;
+    } else if (this.currentAmbientUrl === requested && isLive) {
+      return; // même musique de jeu déjà en cours
+    }
+
     this.initCtx();
     this.stopAmbientMusic();
 
