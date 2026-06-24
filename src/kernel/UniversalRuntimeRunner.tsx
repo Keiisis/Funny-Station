@@ -184,7 +184,9 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     }
   };
 
-  // Keyboard C & Gamepad Triangle panel toggle
+  // Panneau de triche : ouverture UNIQUEMENT au clavier (touche « C »).
+  // Le bouton Triangle de la manette NE doit PLUS l'ouvrir — c'est une touche de jeu
+  // (X/Y sur SNES/PSP). On a donc retiré le déclencheur gamepad Triangle.
   useEffect(() => {
     const handleInput = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
@@ -197,19 +199,9 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
       }
     };
 
-    const handleGamepadInput = (e: CustomEvent<{ direction: string; action?: string }>) => {
-      if (e.detail.action === 'up') return;
-      if (e.detail.direction === 'TRIANGLE') {
-        AudioEngine.getInstance().playSFX('select');
-        setIsCheatPanelOpen(prev => !prev);
-      }
-    };
-
     window.addEventListener('keydown', handleInput);
-    window.addEventListener('funny_gamepad_action', handleGamepadInput as EventListener);
     return () => {
       window.removeEventListener('keydown', handleInput);
-      window.removeEventListener('funny_gamepad_action', handleGamepadInput as EventListener);
     };
   }, []);
 

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase/client';
 import { createControllerRtc, ControllerRtc } from '@/utils/rtcLink';
 import { PSCross, PSCircle, PSSquare, PSTriangle } from '@/components/PSGlyphs';
-import { Gamepad, Wifi, WifiOff, RefreshCw, Smartphone, User, Maximize, Zap } from 'lucide-react';
+import { Gamepad, Wifi, WifiOff, Smartphone, User, Maximize, Zap } from 'lucide-react';
 
 // Couleurs correspondant aux assignations du Dashboard
 // Couleurs correspondant aux assignations du Dashboard
@@ -1199,16 +1199,22 @@ function ControllerContent() {
               </button>
             </div>
 
+            {/* Bouton central rond style PS5 (touche « PS »/Menu) avec le logo FS1. */}
             <button
               {...pressProps('OPTION')}
-              className={`px-3.5 py-1.5 rounded-full flex items-center gap-1.5 border transition-all duration-150 active:scale-95 text-[8px] uppercase tracking-widest font-bold cursor-pointer ${
+              aria-label="Menu Funny Station"
+              className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-150 active:scale-90 cursor-pointer ${
                 activeButton === 'OPTION'
-                  ? 'bg-zinc-800 border-zinc-650 text-zinc-200'
-                  : 'bg-zinc-950/20 border-zinc-900 text-zinc-550'
+                  ? 'bg-blue-500/20 border-blue-400 shadow-[0_0_18px_rgba(59,130,246,0.65)]'
+                  : 'bg-zinc-900/70 border-zinc-700/60 hover:border-zinc-500 shadow-[0_2px_8px_rgba(0,0,0,0.55),inset_0_1px_2px_rgba(255,255,255,0.08)]'
               }`}
             >
-              <RefreshCw size={8} className={activeButton === 'OPTION' ? 'animate-spin' : ''} />
-              <span>Options / Menu</span>
+              <img
+                src="/fs1-logo.png"
+                alt="FS"
+                draggable={false}
+                className="w-7 h-7 object-contain pointer-events-none select-none"
+              />
             </button>
 
             {/* Sélecteur de Thèmes à la volée */}
