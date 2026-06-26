@@ -6,7 +6,8 @@ import { useEffect } from 'react';
  * Initialisation client globale :
  *  - applique les réglages d'ACCESSIBILITÉ persistés (réduction des animations,
  *    mode daltonien), en respectant par défaut la préférence système ;
- *  - enregistre le SERVICE WORKER (PWA installable) en production.
+ *  - enregistre le SERVICE WORKER (PWA installable) en production et en dev ;
+ *  - synchronise les sauvegardes virtuelles automatiquement au retour en ligne.
  * Réagit à l'événement `funny_a11y_changed` pour s'actualiser à chaud.
  */
 export function AppInit() {
@@ -22,11 +23,22 @@ export function AppInit() {
     apply();
     window.addEventListener('funny_a11y_changed', apply);
 
-    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    const handleOnline = () => {
+      console.log('[PWA] Network online restored, triggering save sync...');
+      window.dispatchEvent(new CustomEvent('funny_station_online'));
+    };
+    window.addEventListener('online', handleOnline);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('[PWA] Service Worker registered scope:', reg.scope))
+        .catch(err => console.error('[PWA] Service Worker registration error:', err));
     }
 
-    return () => window.removeEventListener('funny_a11y_changed', apply);
+    return () => {
+      window.removeEventListener('funny_a11y_changed', apply);
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   return null;

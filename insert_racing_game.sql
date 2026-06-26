@@ -14,7 +14,7 @@ VALUES (
   '/games/racing-game',
   '/images/racing-game.png',
   0, 
-  '{"screen_ratio":"16/9"}'::jsonb, 
+  '{"screen_ratio":"16/9", "background_url":"/images/racing-game-bg.png"}'::jsonb, 
   'published'
 )
 ON CONFLICT (slug) DO UPDATE SET

@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Volume2, VolumeX, Smartphone, Gamepad2, Power, ShoppingBag, User, Settings, Clock, Trophy, Palette, Sparkles, Eye } from 'lucide-react';
+import { Volume2, VolumeX, Smartphone, Gamepad2, Power, ShoppingBag, User, Settings, Clock, Trophy, Palette, Sparkles, Eye, Users, Music } from 'lucide-react';
 import { AudioEngine } from '@/drivers/AudioEngine';
+import { getLocale, setLocale } from '@/lib/i18n';
+import type { TopBarTabType } from './TopBar';
 
 interface ControlCenterProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenPowerMenu: () => void;
-  onChangeTab: (tab: 'games' | 'store' | 'profile') => void;
+  onChangeTab: (tab: TopBarTabType) => void;
   activeGameTrophiesCount: number;
   activeGameUnlockedTrophiesCount: number;
   gamepadConnected: boolean;
@@ -31,6 +33,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentTheme, setCurrentTheme] = useState<string>('auto');
+  const [currentLang, setCurrentLang] = useState<string>('fr');
 
   // Accessibilité (réduction des animations / mode daltonien) — appliquées par AppInit.
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -40,6 +43,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
     if (typeof document === 'undefined') return;
     setReduceMotion(document.documentElement.classList.contains('reduce-motion'));
     setColorblind(document.documentElement.classList.contains('colorblind'));
+    setCurrentLang(getLocale());
   }, [isOpen]);
 
   const toggleA11y = (key: 'reduce_motion' | 'colorblind') => {
@@ -61,11 +65,17 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
       setCurrentTheme(savedTheme);
     };
 
+    const handleLangChange = () => {
+      setCurrentLang(getLocale());
+    };
+
     window.addEventListener('funny_theme_changed', handleThemeChange);
     window.addEventListener('funny_theme_action_change', handleThemeChange);
+    window.addEventListener('funny_locale_changed', handleLangChange);
     return () => {
       window.removeEventListener('funny_theme_changed', handleThemeChange);
       window.removeEventListener('funny_theme_action_change', handleThemeChange);
+      window.removeEventListener('funny_locale_changed', handleLangChange);
     };
   }, []);
 
@@ -76,6 +86,16 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
     localStorage.setItem('funny_station_theme', nextTheme);
     setCurrentTheme(nextTheme);
     window.dispatchEvent(new CustomEvent('funny_theme_action_change', { detail: { theme: nextTheme } }));
+    AudioEngine.getInstance().playSFX('select');
+  };
+
+  const cycleLanguage = () => {
+    const locales = ['fr', 'en', 'es', 'pt', 'ar'];
+    const current = getLocale();
+    const nextIdx = (locales.indexOf(current) + 1) % locales.length;
+    const nextLang = locales[nextIdx];
+    setLocale(nextLang as any);
+    setCurrentLang(nextLang);
     AudioEngine.getInstance().playSFX('select');
   };
 
@@ -127,8 +147,8 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
         return;
       }
 
-      // Control Center Quick Actions (5 items: Volume, Thème, Boutique, Profil, Éteindre)
-      const maxItems = 5;
+      // Control Center Quick Actions (7 items: Volume, Thème, Musique, Amis, Boutique, Profil, Éteindre)
+      const maxItems = 7;
 
       if (e.key === 'ArrowRight') {
         e.preventDefault();
@@ -163,7 +183,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
       if (e.detail.action === 'up') return;
       const dir = e.detail.direction;
 
-      const maxItems = 5;
+      const maxItems = 7;
 
       if (dir === 'RIGHT') {
         AudioEngine.getInstance().playSFX('navigate', 0.1);
@@ -196,12 +216,18 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
     if (focusedIndex === 1) {
       cycleTheme();
     } else if (focusedIndex === 2) {
-      onChangeTab('store');
+      onChangeTab('playlist');
       onClose();
     } else if (focusedIndex === 3) {
-      onChangeTab('profile');
+      onChangeTab('friends');
       onClose();
     } else if (focusedIndex === 4) {
+      onChangeTab('store');
+      onClose();
+    } else if (focusedIndex === 5) {
+      onChangeTab('profile');
+      onClose();
+    } else if (focusedIndex === 6) {
       onOpenPowerMenu();
     }
   };
@@ -215,12 +241,18 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
         if (index === 1) {
           cycleTheme();
         } else if (index === 2) {
-          onChangeTab('store');
+          onChangeTab('playlist');
           onClose();
         } else if (index === 3) {
-          onChangeTab('profile');
+          onChangeTab('friends');
           onClose();
         } else if (index === 4) {
+          onChangeTab('store');
+          onClose();
+        } else if (index === 5) {
+          onChangeTab('profile');
+          onClose();
+        } else if (index === 6) {
           onOpenPowerMenu();
         }
       }, 100);
@@ -235,7 +267,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
       ref={containerRef}
     >
       {/* LEFT: Dynamic Stats & Trophies overview */}
-      <div className="flex items-center gap-10">
+      <div className="flex items-center gap-8">
         {/* Clock */}
         <div className="flex flex-col items-center justify-center gap-1 bg-[#101930]/40 border border-zinc-800/60 p-4 rounded-2xl w-24">
           <Clock size={16} className="text-blue-400" />
@@ -243,7 +275,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
           <span className="text-[7px] text-zinc-500 uppercase tracking-widest font-bold">Heure</span>
         </div>
 
-        {/* Accessibilité : réduction des animations + mode daltonien (clic) */}
+        {/* Accessibilité & Langue */}
         <div className="flex flex-col gap-2">
           <span className="text-[7px] uppercase tracking-widest text-zinc-500 font-bold">Accessibilité</span>
           <div className="flex items-center gap-2">
@@ -264,6 +296,13 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
               }`}
             >
               <Eye size={13} /> Daltonien {colorblind ? 'on' : 'off'}
+            </button>
+            <button
+              onClick={cycleLanguage}
+              title="Langue de la console"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Langue: {currentLang.toUpperCase()}
             </button>
           </div>
         </div>
@@ -290,7 +329,7 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
       </div>
 
       {/* CENTER: Main navigation shortcuts (Volume, Store, Profile, Shutdown) */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
         {/* Volume Node */}
         <div 
           onClick={() => selectItemDirect(0)}
@@ -330,11 +369,39 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
           </span>
         </button>
 
-        {/* Boutique Store Shortcut */}
+        {/* Music Shortcut */}
         <button 
           onClick={() => selectItemDirect(2)}
           className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
             focusedIndex === 2 
+              ? 'border-pink-500 bg-pink-500/10 text-pink-400 shadow-[0_0_15px_rgba(236,72,153,0.25)] scale-105' 
+              : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
+          }`}
+          title="Musique"
+        >
+          <Music size={18} />
+          <span className="text-[6px] uppercase tracking-widest font-black">Musique</span>
+        </button>
+
+        {/* Friends Shortcut */}
+        <button 
+          onClick={() => selectItemDirect(3)}
+          className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            focusedIndex === 3 
+              ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.25)] scale-105' 
+              : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
+          }`}
+          title="Amis"
+        >
+          <Users size={18} />
+          <span className="text-[6px] uppercase tracking-widest font-black">Amis</span>
+        </button>
+
+        {/* Boutique Store Shortcut */}
+        <button 
+          onClick={() => selectItemDirect(4)}
+          className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            focusedIndex === 4 
               ? 'border-purple-500 bg-purple-500/10 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.25)] scale-105' 
               : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
           }`}
@@ -346,9 +413,9 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
 
         {/* Profil Shortcut */}
         <button 
-          onClick={() => selectItemDirect(3)}
+          onClick={() => selectItemDirect(5)}
           className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-            focusedIndex === 3 
+            focusedIndex === 5 
               ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.25)] scale-105' 
               : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-white'
           }`}
@@ -360,9 +427,9 @@ export const ControlCenter: React.FC<ControlCenterProps> = ({
 
         {/* Power Menu Shortcut */}
         <button 
-          onClick={() => selectItemDirect(4)}
+          onClick={() => selectItemDirect(6)}
           className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
-            focusedIndex === 4 
+            focusedIndex === 6 
               ? 'border-red-500 bg-red-500/10 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.25)] scale-105' 
               : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:text-red-500/80'
           }`}

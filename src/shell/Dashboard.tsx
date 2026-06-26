@@ -4,9 +4,21 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CoverImage } from './CoverImage';
 import { Game, Trophy, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
 import { useGamepadNavigation } from '@/hooks/useGamepadNavigation';
-import { TopBar } from './TopBar';
+import { TopBar, TopBarTabType } from './TopBar';
 import { StoreView } from './StoreView';
 import { ProfileSpace } from './ProfileSpace';
+import { FriendsPanel } from './FriendsPanel';
+import { LeaderboardView } from './LeaderboardView';
+import { SeasonPass } from './SeasonPass';
+import { PlaylistManager } from './PlaylistManager';
+import { SpectatorMode } from './SpectatorMode';
+import { CreatorDashboard } from './CreatorDashboard';
+import { DailyRewards } from './DailyRewards';
+import { LevelUpPopup } from './PlayerLevelBadge';
+import { fetchDailyStatus } from '@/lib/progression';
+import { fetchUnreadCount, subscribeToNotifications } from '@/lib/notifications';
+import { ChatPanel } from './ChatPanel';
+import { NotificationCenter } from './NotificationCenter';
 import { UniversalRuntimeRunner, TrophyUnlockPayload } from '@/kernel/UniversalRuntimeRunner';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { FunnyStudio } from './FunnyStudio';
@@ -140,7 +152,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   }, [focusedIndex]);
 
   // Tab views
-  const [activeTab, setActiveTab] = useState<'games' | 'store' | 'profile'>('games');
+  const [activeTab, setActiveTab] = useState<TopBarTabType>('games');
+  const [isDailyRewardsOpen, setIsDailyRewardsOpen] = useState(false);
+  const [levelUpData, setLevelUpData] = useState<{ level: number; title: string } | null>(null);
+  const [activeChat, setActiveChat] = useState<{ type: 'private' | 'room' | 'global'; id: string; title: string } | null>(null);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Control Center & Power Menu Systems
   const [isControlCenterOpen, setIsControlCenterOpen] = useState(false);
@@ -274,7 +291,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   // Restaurer l'état depuis sessionStorage au chargement
   useEffect(() => {
     const savedTab = sessionStorage.getItem('funny_station_active_tab');
-    if (savedTab && ['games', 'store', 'profile'].includes(savedTab)) {
+    if (savedTab && ['games', 'store', 'profile', 'friends', 'leaderboard', 'season', 'playlist', 'spectate', 'creator_dashboard'].includes(savedTab)) {
       setActiveTab(savedTab as any);
     }
 
@@ -302,6 +319,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   useEffect(() => {
     sessionStorage.setItem('funny_station_active_tab', activeTab);
   }, [activeTab]);
+
+  // Listen for level up events
+  useEffect(() => {
+    const handleLevelUp = (e: any) => {
+      const { level, title } = e.detail;
+      setLevelUpData({ level, title });
+      AudioEngine.getInstance().playSFX('trophy');
+    };
+    window.addEventListener('funny_station_levelup', handleLevelUp);
+    return () => window.removeEventListener('funny_station_levelup', handleLevelUp);
+  }, []);
+
+  // Listen for profile refresh requests (e.g. after screenshot save or XP add)
+  useEffect(() => {
+    const handleRefresh = () => {
+      onRefreshProfile?.();
+    };
+    window.addEventListener('funny_station_refresh_profile', handleRefresh);
+    return () => window.removeEventListener('funny_station_refresh_profile', handleRefresh);
+  }, [onRefreshProfile]);
+
+  // Check daily connection reward connection streak
+  useEffect(() => {
+    if (!profile.id) return;
+    fetchDailyStatus(profile.id).then((status) => {
+      if (status.can_claim) {
+        setIsDailyRewardsOpen(true);
+      }
+    }).catch(console.error);
+  }, [profile.id]);
+
+  // Listen for notifications
+  useEffect(() => {
+    if (!profile.id) return;
+    fetchUnreadCount(profile.id).then(setUnreadNotificationsCount).catch(console.error);
+    const unsub = subscribeToNotifications(profile.id, (notif) => {
+      setUnreadNotificationsCount(prev => prev + 1);
+      AudioEngine.getInstance().playSFX('navigate');
+    });
+    return unsub;
+  }, [profile.id]);
 
   // Sauvegarder l'index du jeu focalisé
   useEffect(() => {
@@ -397,7 +455,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       if (controlCenterOpenRef.current) return;
 
       let keyName = '';
-      if (playerNumber === 0) {
+      if (activeGame?.slug === 'racing-game') {
+        const racingMap: Record<string, string> = {
+          'UP': 'ArrowUp',
+          'DOWN': 'ArrowDown',
+          'LEFT': 'ArrowLeft',
+          'RIGHT': 'ArrowRight',
+          'CONFIRM': 'ArrowUp',
+          'A': 'ArrowUp',
+          'BACK': 'ArrowDown',
+          'B': 'ArrowDown',
+          'SQUARE': ' ',
+          'X': ' ',
+          'START': 'Escape',
+          'OPTION': 'Escape',
+        };
+        keyName = racingMap[direction] || '';
+      } else if (playerNumber === 0) {
         // Mappage dynamique pour le joueur local (Player 1)
         const customMapping = loadKeyMapping();
         let consoleAction: ConsoleAction = direction as ConsoleAction;
@@ -1007,6 +1081,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
             <CornerDownLeft size={12} />
             <span>Quitter le jeu (ESC)</span>
           </button>
+
+          <button
+            onClick={async () => {
+              try {
+                const iframe = document.querySelector('iframe');
+                if (iframe) {
+                  let canvas: HTMLCanvasElement | null = null;
+                  try {
+                    canvas = iframe.contentWindow?.document?.querySelector('canvas') || null;
+                  } catch (e) {
+                    console.warn('[Dashboard] Direct canvas access failed, trying message trigger:', e);
+                  }
+
+                  if (canvas) {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    window.postMessage({
+                      type: 'FUNNY_BUS_SCREENSHOT',
+                      payload: { dataUrl, caption: `Capture de ${selectedGame?.title || 'jeu'}` }
+                    }, '*');
+                    AudioEngine.getInstance().playSFX('select');
+                    alert("Capture d'écran enregistrée ! Retrouvez-la dans votre profil.");
+                  } else {
+                    iframe.contentWindow?.postMessage({
+                      type: 'FUNNY_STATION_TRIGGER_SCREENSHOT',
+                      caption: `Capture de ${selectedGame?.title || 'jeu'}`
+                    }, '*');
+                    AudioEngine.getInstance().playSFX('select');
+                    alert("Demande de capture d'écran envoyée au jeu.");
+                  }
+                }
+              } catch (err) {
+                console.error('[Dashboard] Screenshot failed:', err);
+              }
+            }}
+            className="glass-panel px-4 py-2 rounded-full border border-zinc-800 text-[10px] tracking-wider uppercase text-zinc-400 hover:text-white flex items-center gap-1.5 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <span>Capture d'écran</span>
+          </button>
         </div>
 
         <div className="flex-1 w-full h-full p-8 pt-16">
@@ -1048,6 +1160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       
       {/* Top Navigation Bar with active tab links */}
       <TopBar
+        userId={profile.id}
         username={profile.username}
         avatar={profile.avatar}
         funnyCoins={profile.funnyCoins}
@@ -1057,6 +1170,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         onOpenControllerMenu={() => setIsControllerModalOpen(true)}
         onOpenPowerMenu={() => setIsPowerMenuOpen(true)}
         activeControllerType={controllerType}
+        notificationCount={unreadNotificationsCount}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
       />
 
       {/* Render selected view based on active tab */}
@@ -1088,6 +1203,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           onPublishGame={handlePublishGame}
           onDeleteGame={handleDeleteGame}
         />
+      ) : activeTab === 'friends' ? (
+        <div className="flex-1 px-16 py-8 animate-view-enter">
+          <FriendsPanel
+            profile={profile}
+            isOpen={true}
+            onClose={() => { AudioEngine.getInstance().playSFX('select'); setActiveTab('games'); }}
+            onOpenChat={(friendId, friendUsername) => {
+              const ids = [profile.id, friendId].sort();
+              const channelId = `${ids[0]}-${ids[1]}`;
+              setActiveChat({ type: 'private', id: channelId, title: friendUsername });
+            }}
+          />
+        </div>
+      ) : activeTab === 'leaderboard' ? (
+        <div className="flex-1 px-16 py-8 animate-view-enter">
+          <LeaderboardView
+            profile={profile}
+            games={games}
+            isOpen={true}
+            onClose={() => { AudioEngine.getInstance().playSFX('select'); setActiveTab('games'); }}
+          />
+        </div>
+      ) : activeTab === 'season' ? (
+        <div className="flex-1 px-16 py-8 animate-view-enter overflow-y-auto max-h-[calc(100vh-120px)]">
+          <SeasonPass
+            userId={profile.id}
+            funnyCoins={profile.funnyCoins}
+            onRefreshProfile={onRefreshProfile}
+          />
+        </div>
+      ) : activeTab === 'playlist' ? (
+        <div className="flex-1 px-16 py-8 animate-view-enter overflow-y-auto max-h-[calc(100vh-120px)]">
+          <PlaylistManager
+            userId={profile.id}
+          />
+        </div>
+      ) : activeTab === 'spectate' ? (
+        <div className="flex-1 px-16 py-8 animate-view-enter">
+          <SpectatorMode
+            userId={profile.id}
+            username={profile.username}
+            avatarUrl={profile.avatar}
+            onClose={() => { AudioEngine.getInstance().playSFX('select'); setActiveTab('games'); }}
+          />
+        </div>
+      ) : activeTab === 'creator_dashboard' ? (
+        <div className="flex-1 px-16 py-8 animate-view-enter overflow-y-auto max-h-[calc(100vh-120px)]">
+          <CreatorDashboard
+            creatorId={profile.id}
+          />
+        </div>
       ) : (
         /* GAMES CONSOLE VIEW */
         <>
@@ -1098,7 +1264,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 <video
                   key={activeGame.id}
                   src={videoSrc || undefined}
-                  poster={activeGame.background_url}
+                  poster={(activeGame.manifest as any)?.background_url || activeGame.background_url}
                   autoPlay
                   loop
                   muted
@@ -1108,7 +1274,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                 />
               ) : (
                 <div key={activeGame.id} className="absolute inset-0 animate-ps5-bg">
-                  <CoverImage src={activeGame.background_url} alt="" priority sizes="100vw" />
+                  <CoverImage src={(activeGame.manifest as any)?.background_url || activeGame.background_url} alt="" priority sizes="100vw" />
                 </div>
               )}
               {/* Dynamic Aura background effect */}
@@ -1981,6 +2147,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
           </div>
         </div>
       )}
+
+      {/* Daily Reward Modal */}
+      {isDailyRewardsOpen && (
+        <DailyRewards
+          userId={profile.id}
+          isOpen={isDailyRewardsOpen}
+          onClose={() => setIsDailyRewardsOpen(false)}
+          onCoinUpdate={(newCoins) => {
+            onUpdateProfile({ ...profile, funnyCoins: newCoins });
+          }}
+        />
+      )}
+
+      {/* Level Up Fanfare Popup */}
+      {levelUpData && (
+        <LevelUpPopup
+          level={levelUpData.level}
+          title={levelUpData.title}
+          onClose={() => setLevelUpData(null)}
+        />
+      )}
+
+      {/* Chat Panel Overlay */}
+      {activeChat && (
+        <ChatPanel
+          profile={profile}
+          channelType={activeChat.type}
+          channelId={activeChat.id}
+          isOpen={true}
+          onClose={() => setActiveChat(null)}
+          title={activeChat.title}
+        />
+      )}
+
+      {/* Notification Center Panel */}
+      <NotificationCenter
+        userId={profile.id}
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onNotificationCountChange={setUnreadNotificationsCount}
+      />
 
       {/* Shutdown Cinematic and Fallback Overlay */}
       <ShutdownScreen isShuttingDown={isShuttingDown} />

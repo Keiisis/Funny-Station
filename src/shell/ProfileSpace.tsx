@@ -6,6 +6,9 @@ import { AudioEngine } from '@/drivers/AudioEngine';
 import { supabase } from '@/utils/supabase/client';
 import { updateProfile } from '@/lib/db';
 import { User, Lock, Camera, Coins, Trophy, Gamepad2, PlusCircle, Trash, CheckCircle2, X, RefreshCw } from 'lucide-react';
+import { PlayerLevelBadge } from './PlayerLevelBadge';
+import { ScreenshotGallery } from './ScreenshotGallery';
+
 
 interface ProfileSpaceProps {
   profile: ProfileData;
@@ -36,7 +39,7 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
   onPublishGame,
   onDeleteGame
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'info' | 'create'>('info');
+  const [activeSubTab, setActiveSubTab] = useState<'info' | 'create' | 'captures'>('info');
   
   const [username, setUsername] = useState(profile.username);
   const [avatar, setAvatar] = useState(profile.avatar);
@@ -205,8 +208,13 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                 {accountType === 'creator' ? 'Créateur' : 'Gamer'}
               </span>
 
+              {/* Level Badge in Profile */}
+              <div className="w-full mt-4">
+                <PlayerLevelBadge userId={profile.id} variant="profile" />
+              </div>
+
               {/* Coins, Games & Created summary */}
-              <div className="grid grid-cols-3 gap-2 w-full mt-6 pt-5 border-t border-zinc-850/60 text-center text-zinc-300">
+              <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-4 border-t border-zinc-850/60 text-center text-zinc-300">
                 <div className="flex flex-col items-center">
                   <Coins size={12} className="text-amber-400 mb-0.5" />
                   <span className="text-[10px] font-bold">{profile.funnyCoins}</span>
@@ -238,6 +246,17 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                 Paramètres & PIN
               </button>
               
+              <button
+                onClick={() => { AudioEngine.getInstance().playSFX('select'); setActiveSubTab('captures'); }}
+                className={`w-full py-2 rounded-xl text-left px-4 text-[10px] font-black uppercase tracking-wider border transition-all cursor-pointer ${
+                  activeSubTab === 'captures'
+                    ? 'bg-pink-500/10 border-pink-500/35 text-pink-400'
+                    : 'bg-zinc-950/30 border-transparent hover:border-zinc-800 text-zinc-400'
+                }`}
+              >
+                Galerie de Captures
+              </button>
+
               {accountType === 'creator' && (
                 <button
                   onClick={() => { AudioEngine.getInstance().playSFX('select'); setActiveSubTab('create'); }}
@@ -251,6 +270,7 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                 </button>
               )}
             </div>
+
           </div>
 
           {/* Right panel: Content Area */}
@@ -491,6 +511,9 @@ export const ProfileSpace: React.FC<ProfileSpaceProps> = ({
                 </div>
 
               </div>
+            )}
+            {activeSubTab === 'captures' && (
+              <ScreenshotGallery userId={profile.id} />
             )}
           </div>
         </div>

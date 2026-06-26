@@ -129,6 +129,171 @@ export interface GameState {
 
 export type NetworkMode = 'local' | 'host' | 'client';
 
+// === SOCIAL FEATURES TYPES ===
+
+export type FriendshipStatus = 'pending' | 'accepted' | 'blocked';
+export type NotificationType = 'friend_request' | 'friend_accepted' | 'room_invite' | 'trophy_unlocked' | 'new_game' | 'message' | 'daily_reward' | 'level_up' | 'season_reward';
+export type LeaderboardPeriod = 'weekly' | 'monthly' | 'alltime';
+export type ChatChannelType = 'room' | 'private' | 'global';
+export type SeasonStatusType = 'active' | 'ended' | 'upcoming';
+export type ScreenshotType = 'screenshot' | 'clip';
+
+export interface Friendship {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: FriendshipStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FriendWithProfile {
+  friendship_id: string;
+  friend_id: string;
+  username: string;
+  avatar_url?: string;
+  online_status: boolean;
+  current_game_title?: string | null;
+  level?: number;
+  title?: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body?: string | null;
+  payload: Record<string, unknown>;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  user_id: string;
+  game_id: string;
+  score: number;
+  period: LeaderboardPeriod;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  // Joined fields
+  username?: string;
+  avatar_url?: string;
+  rank?: number;
+}
+
+export interface GameTag {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+  icon?: string | null;
+}
+
+export interface DailyRewardStatus {
+  already_claimed: boolean;
+  streak: number;
+  reward: number;
+}
+
+export interface PlayerLevel {
+  user_id: string;
+  xp: number;
+  level: number;
+  title: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender_id: string;
+  channel_type: ChatChannelType;
+  channel_id: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  // Joined
+  sender_username?: string;
+  sender_avatar?: string;
+}
+
+export interface Season {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: SeasonStatusType;
+  starts_at: string;
+  ends_at: string;
+  created_at: string;
+}
+
+export interface SeasonReward {
+  id: string;
+  season_id: string;
+  tier: number;
+  name: string;
+  description?: string | null;
+  reward_type: string;
+  reward_value: number;
+  icon_url?: string | null;
+  is_premium: boolean;
+}
+
+export interface SeasonProgress {
+  user_id: string;
+  season_id: string;
+  xp: number;
+  tier_reached: number;
+  is_premium: boolean;
+  claimed_rewards: string[];
+}
+
+export interface Screenshot {
+  id: string;
+  user_id: string;
+  game_id?: string | null;
+  type: ScreenshotType;
+  url: string;
+  thumbnail_url?: string | null;
+  caption?: string | null;
+  created_at: string;
+  // Joined
+  game_title?: string;
+}
+
+export interface Playlist {
+  id: string;
+  user_id: string;
+  name: string;
+  is_public: boolean;
+  created_at: string;
+  track_count?: number;
+}
+
+export interface PlaylistTrack {
+  id: string;
+  playlist_id: string;
+  title: string;
+  artist?: string | null;
+  url: string;
+  duration?: number | null;
+  position: number;
+  created_at: string;
+}
+
+export interface UserSettings {
+  user_id: string;
+  locale: string;
+  theme: string;
+  accent_color: string;
+  wallpaper_url?: string | null;
+  layout_mode: string;
+  reduce_motion: boolean;
+  colorblind: boolean;
+  updated_at: string;
+}
+
 declare global {
   interface WindowEventMap {
     'funny_gamepad_action': CustomEvent<{ direction: GamepadDirection; playerNumber?: number; userId?: string }>;

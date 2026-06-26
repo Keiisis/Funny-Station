@@ -1,22 +1,33 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Gamepad, Settings, User, Coins, Search, Power } from 'lucide-react';
+import { Gamepad, Settings, User, Coins, Search, Power, Users, Trophy, Music, Eye, Calendar, Flame, Crown, AreaChart } from 'lucide-react';
 import { AudioEngine } from '@/drivers/AudioEngine';
+import { PlayerLevelBadge } from './PlayerLevelBadge';
+import { NotificationBadge } from './NotificationCenter';
+import { fetchDailyStatus } from '@/lib/progression';
+import { fetchOnlineFriends } from '@/lib/social';
+
+export type TopBarTabType = 'games' | 'store' | 'profile' | 'friends' | 'leaderboard' | 'season' | 'playlist' | 'spectate' | 'creator_dashboard';
 
 interface TopBarProps {
+  userId: string;
   username: string;
   avatar: string;
   funnyCoins: number;
-  activeTab: 'games' | 'store' | 'profile';
-  onChangeTab: (tab: 'games' | 'store' | 'profile') => void;
+  activeTab: TopBarTabType;
+  onChangeTab: (tab: TopBarTabType) => void;
   onOpenSettings?: () => void;
   onOpenControllerMenu?: () => void;
   onOpenPowerMenu?: () => void;
   activeControllerType?: 'pc' | 'mobile' | 'online' | null;
+  accountType?: 'gamer' | 'creator';
+  notificationCount: number;
+  onOpenNotifications: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
+  userId,
   username,
   avatar,
   funnyCoins,
@@ -25,13 +36,18 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenSettings,
   onOpenControllerMenu,
   onOpenPowerMenu,
-  activeControllerType
+  activeControllerType,
+  accountType = 'gamer',
+  notificationCount,
+  onOpenNotifications
 }) => {
   const [time, setTime] = useState<string>('');
   const [gamepadConnected, setGamepadConnected] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [onlineFriendsCount, setOnlineFriendsCount] = useState(0);
 
   useEffect(() => {
-    // Mettre à jour l'horloge système toutes les secondes
+    // Clock
     const updateTime = () => {
       const now = new Date();
       setTime(
@@ -46,7 +62,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     updateTime();
     const timer = setInterval(updateTime, 1000);
 
-    // Détecter l'état des manettes
+    // Gamepads
     const checkGamepads = () => {
       if (typeof navigator !== 'undefined' && navigator.getGamepads) {
         const gps = navigator.getGamepads();
@@ -59,25 +75,31 @@ export const TopBar: React.FC<TopBarProps> = ({
     window.addEventListener('gamepadconnected', checkGamepads);
     window.addEventListener('gamepaddisconnected', checkGamepads);
 
+    // Fetch streak and online friends
+    if (userId) {
+      fetchDailyStatus(userId).then(status => setStreak(status.streak)).catch(console.error);
+      fetchOnlineFriends(userId).then(friends => setOnlineFriendsCount(friends.length)).catch(console.error);
+    }
+
     return () => {
       clearInterval(timer);
       window.removeEventListener('gamepadconnected', checkGamepads);
       window.removeEventListener('gamepaddisconnected', checkGamepads);
     };
-  }, []);
+  }, [userId]);
 
-  const handleTabClick = (tab: 'games' | 'store' | 'profile') => {
+  const handleTabClick = (tab: TopBarTabType) => {
     AudioEngine.getInstance().playSFX('select');
     onChangeTab(tab);
   };
 
   return (
-    <div className="w-full flex items-center justify-between px-12 py-5 select-none relative z-20 bg-gradient-to-b from-black/40 to-transparent">
+    <div className="w-full flex flex-col md:flex-row items-center justify-between px-12 py-5 select-none relative z-20 bg-gradient-to-b from-black/60 to-transparent gap-4">
       {/* Onglets à gauche (Style PS5) */}
-      <div className="flex items-center gap-8">
+      <div className="flex flex-wrap items-center gap-6 md:gap-8">
         <button
           onClick={() => handleTabClick('games')}
-          className={`text-sm font-bold tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
+          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
             activeTab === 'games' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -87,7 +109,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button
           onClick={() => handleTabClick('store')}
-          className={`text-sm font-bold tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
+          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
             activeTab === 'store' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -95,18 +117,90 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           Boutique
         </button>
+        <button
+          onClick={() => handleTabClick('friends')}
+          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'friends' 
+              ? 'text-white border-b-2 border-white pb-0.5' 
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <Users size={14} /> Amis
+          {onlineFriendsCount > 0 && (
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+          )}
+        </button>
+        <button
+          onClick={() => handleTabClick('leaderboard')}
+          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'leaderboard' 
+              ? 'text-white border-b-2 border-white pb-0.5' 
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <Trophy size={14} /> Classements
+        </button>
+        <button
+          onClick={() => handleTabClick('season')}
+          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'season' 
+              ? 'text-white border-b-2 border-white pb-0.5' 
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <Crown size={14} /> Saison Pass
+        </button>
+        <button
+          onClick={() => handleTabClick('playlist')}
+          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'playlist' 
+              ? 'text-white border-b-2 border-white pb-0.5' 
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <Music size={14} /> Musique
+        </button>
+        <button
+          onClick={() => handleTabClick('spectate')}
+          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+            activeTab === 'spectate' 
+              ? 'text-white border-b-2 border-white pb-0.5' 
+              : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <Eye size={14} /> Spectateur
+        </button>
+        {accountType === 'creator' && (
+          <button
+            onClick={() => handleTabClick('creator_dashboard')}
+            className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'creator_dashboard' 
+                ? 'text-white border-b-2 border-white pb-0.5' 
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <AreaChart size={14} /> Dashboard Créateur
+          </button>
+        )}
       </div>
 
       {/* Info système & Statut à droite (Style PS5) */}
-      <div className="flex items-center gap-6 text-zinc-300 font-medium text-xs tracking-wider">
-        {/* Rechercher */}
-        <button
-          onClick={() => handleTabClick('store')}
-          className="hover:text-white transition-colors duration-200 focus:outline-none cursor-pointer flex items-center"
-          title="Rechercher des jeux"
-        >
-          <Search size={16} className="text-zinc-400 hover:text-white" />
-        </button>
+      <div className="flex flex-wrap items-center gap-4 md:gap-5 text-zinc-300 font-medium text-xs tracking-wider justify-end w-full md:w-auto">
+        {/* Daily Streak */}
+        {streak > 0 && (
+          <div className="flex items-center gap-1 text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider" title={`${streak} jours consécutifs !`}>
+            <Flame size={12} className="fill-orange-400 animate-pulse" />
+            <span>{streak} Jours</span>
+          </div>
+        )}
+
+        {/* Player Level & XP Badge */}
+        {userId && (
+          <PlayerLevelBadge userId={userId} variant="topbar" />
+        )}
+
+        {/* Notifications */}
+        <NotificationBadge count={notificationCount} onClick={onOpenNotifications} />
 
         {/* Statut Manette */}
         <button

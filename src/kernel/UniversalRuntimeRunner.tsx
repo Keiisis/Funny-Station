@@ -11,6 +11,8 @@ import { GamepadController } from '../drivers/GamepadController';
 import { loadKeyMapping, ConsoleAction } from '@/utils/inputMapping';
 import { Zap, Check, ArrowLeft } from 'lucide-react';
 import { AudioEngine } from '@/drivers/AudioEngine';
+import { submitScore } from '@/lib/leaderboard';
+import { addXP } from '@/lib/progression';
 
 interface Cheat {
   id: string;
@@ -376,16 +378,87 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
             iframeRef.current.contentWindow?.postMessage({ type: 'FUNNY_STATION_FOCUS' }, '*');
           }
           break;
+        case 'FUNNY_BUS_SUBMIT_SCORE':
+          try {
+            await submitScore(gameId, payload.score);
+            console.log(`[Funny-Bus] Score submitted: ${payload.score}`);
+          } catch (e) {
+            console.error('[Funny-Bus] Error submitting score:', e);
+          }
+          break;
+        case 'FUNNY_BUS_ADD_XP':
+          try {
+            const res = await addXP(payload.amount);
+            console.log(`[Funny-Bus] XP added: ${payload.amount}, new level: ${res.level}`);
+            if (res.leveled_up) {
+              window.dispatchEvent(new CustomEvent('funny_station_levelup', { detail: res }));
+            }
+            window.dispatchEvent(new CustomEvent('funny_station_refresh_profile'));
+          } catch (e) {
+            console.error('[Funny-Bus] Error adding XP:', e);
+          }
+          break;
+        case 'FUNNY_BUS_SCREENSHOT':
+          try {
+            const dataUrl = payload.dataUrl;
+            const caption = payload.caption;
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const resBlob = await fetch(dataUrl);
+              const blob = await resBlob.blob();
+              const filename = `screenshots/${user.id}/${Date.now()}.png`;
+
+              const { error: uploadError } = await supabase.storage
+                .from('game-assets')
+                .upload(filename, blob, { contentType: 'image/png', upsert: false });
+
+              if (uploadError) {
+                console.error('[Funny-Bus] Upload failed:', uploadError);
+              } else {
+                const { data: urlData } = supabase.storage.from('game-assets').getPublicUrl(filename);
+                const url = urlData.publicUrl;
+
+                const { error } = await supabase
+                  .from('screenshots')
+                  .insert({
+                    user_id: user.id,
+                    game_id: gameId,
+                    type: 'screenshot',
+                    url,
+                    caption: caption || null,
+                  });
+
+                if (error) {
+                  console.error('[Funny-Bus] DB insert failed:', error);
+                } else {
+                  console.log('[Funny-Bus] Screenshot saved successfully');
+                  window.dispatchEvent(new CustomEvent('funny_station_refresh_profile'));
+                }
+              }
+            }
+          } catch (e) {
+            console.error('[Funny-Bus] Error saving screenshot:', e);
+          }
+          break;
         default:
           break;
       }
     };
 
+    const handleOnlineSync = () => {
+      if (vfsRef.current) {
+        console.log('[Kernel] Restored connection, syncing virtual file system saves to Supabase...');
+        vfsRef.current.syncToCloud(gameId);
+      }
+    };
+
     window.addEventListener('message', handleSystemMessage);
+    window.addEventListener('funny_station_online', handleOnlineSync);
 
     return () => {
       active = false;
       window.removeEventListener('message', handleSystemMessage);
+      window.removeEventListener('funny_station_online', handleOnlineSync);
       if (workerRef.current) {
         workerRef.current.terminate();
       }
@@ -556,7 +629,20 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
                 unlockTrophy: (trophyId: string) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
                 exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
                 networkMode: networkMode,
-                playerNumber: localPlayerNumber
+                playerNumber: localPlayerNumber,
+                submitScore: (score: number) => window.parent.postMessage({ type: 'FUNNY_BUS_SUBMIT_SCORE', payload: { score } }, '*'),
+                addXP: (amount: number) => window.parent.postMessage({ type: 'FUNNY_BUS_ADD_XP', payload: { amount } }, '*'),
+                screenshot: (caption?: string) => {
+                  try {
+                    const canvas = win.document.querySelector('canvas');
+                    if (canvas) {
+                      const dataUrl = canvas.toDataURL('image/png');
+                      window.parent.postMessage({ type: 'FUNNY_BUS_SCREENSHOT', payload: { dataUrl, caption } }, '*');
+                    }
+                  } catch (e) {
+                    console.error('[funnyStation.screenshot] Error:', e);
+                  }
+                }
               };
 
               // PONT CLAVIER NATIF (Unity WebGL & co) : la manette envoie FUNNY_KEY ;
@@ -568,18 +654,30 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
                 win.__funnyKeyBridge = true;
                 win.addEventListener('message', (ev: MessageEvent) => {
                   const d: any = ev.data;
-                  if (!d || d.type !== 'FUNNY_KEY') return;
-                  try {
-                    const k = new win.KeyboardEvent(d.down ? 'keydown' : 'keyup', {
-                      key: d.key, code: d.code, bubbles: true, cancelable: true,
-                    });
-                    Object.defineProperty(k, 'keyCode', { get: () => d.keyCode });
-                    Object.defineProperty(k, 'which', { get: () => d.keyCode });
-                    win.document.dispatchEvent(k);
-                    win.dispatchEvent(k);
-                    const c = win.document.querySelector('canvas');
-                    if (c) c.dispatchEvent(k);
-                  } catch (e) { /* ignore */ }
+                  if (!d) return;
+                  if (d.type === 'FUNNY_KEY') {
+                    try {
+                      const k = new win.KeyboardEvent(d.down ? 'keydown' : 'keyup', {
+                        key: d.key, code: d.code, bubbles: true, cancelable: true,
+                      });
+                      Object.defineProperty(k, 'keyCode', { get: () => d.keyCode });
+                      Object.defineProperty(k, 'which', { get: () => d.keyCode });
+                      win.document.dispatchEvent(k);
+                      win.dispatchEvent(k);
+                      const c = win.document.querySelector('canvas');
+                      if (c) c.dispatchEvent(k);
+                    } catch (e) { /* ignore */ }
+                  } else if (d.type === 'FUNNY_STATION_TRIGGER_SCREENSHOT') {
+                    try {
+                      const canvas = win.document.querySelector('canvas');
+                      if (canvas) {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        window.parent.postMessage({ type: 'FUNNY_BUS_SCREENSHOT', payload: { dataUrl, caption: d.caption } }, '*');
+                      }
+                    } catch (e) {
+                      console.error('Failed to capture canvas via trigger:', e);
+                    }
+                  }
                 });
                 // Focus du canvas Unity → l'entrée est captée dès le départ.
                 try { win.document.querySelector('canvas')?.focus(); } catch (e) { /* */ }
@@ -602,8 +700,35 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
               unlockTrophy: (trophyId) => window.parent.postMessage({ type: 'FUNNY_BUS_UNLOCK_TROPHY', payload: { trophyId } }, '*'),
               exit: () => window.parent.postMessage({ type: 'FUNNY_BUS_EXIT' }, '*'),
               networkMode: '${networkMode}',
-              playerNumber: ${localPlayerNumber}
+              playerNumber: ${localPlayerNumber},
+              submitScore: (score) => window.parent.postMessage({ type: 'FUNNY_BUS_SUBMIT_SCORE', payload: { score } }, '*'),
+              addXP: (amount) => window.parent.postMessage({ type: 'FUNNY_BUS_ADD_XP', payload: { amount } }, '*'),
+              screenshot: (caption) => {
+                try {
+                  const canvas = document.querySelector('canvas');
+                  if (canvas) {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    window.parent.postMessage({ type: 'FUNNY_BUS_SCREENSHOT', payload: { dataUrl, caption } }, '*');
+                  }
+                } catch (e) {
+                  console.error('[funnyStation.screenshot] Error:', e);
+                }
+              }
             };
+            window.addEventListener('message', (ev) => {
+              const d = ev.data;
+              if (d && d.type === 'FUNNY_STATION_TRIGGER_SCREENSHOT') {
+                try {
+                  const canvas = document.querySelector('canvas');
+                  if (canvas) {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    window.parent.postMessage({ type: 'FUNNY_BUS_SCREENSHOT', payload: { dataUrl, caption: d.caption } }, '*');
+                  }
+                } catch (e) {
+                  console.error('Failed to capture canvas via trigger:', e);
+                }
+              }
+            });
           `;
 
           sandboxDoc.open();

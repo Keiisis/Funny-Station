@@ -6,6 +6,7 @@ import { ProfileData, Game } from '@/types';
 import { supabase } from '@/utils/supabase/client';
 import { AudioEngine } from '@/drivers/AudioEngine';
 import { Coins, ShoppingBag, Gamepad2, ArrowLeft, Check, AlertTriangle, PlayCircle, X, Star, Zap, Terminal, Search } from 'lucide-react';
+import { SearchAdvanced } from './SearchAdvanced';
 
 interface StoreViewProps {
   profile: ProfileData;
@@ -55,20 +56,9 @@ export const StoreView: React.FC<StoreViewProps> = ({
   const [rowIndex, setRowIndex] = useState(0);
   const [colIndex, setColIndex] = useState(0);
 
-  // Recherche + filtre par console (section "Tout le catalogue").
-  const [search, setSearch] = useState('');
-  const [consoleFilter, setConsoleFilter] = useState<string>('all');
-  const CONSOLE_FILTERS: { key: string; label: string }[] = [
-    { key: 'all', label: 'Tous' },
-    { key: 'gba', label: 'GBA' },
-    { key: 'nes', label: 'NES' },
-    { key: 'snes', label: 'SNES' },
-    { key: 'js', label: 'Jeux' },
-  ];
-  const catalogueResults = games.filter((g) =>
-    (consoleFilter === 'all' || g.runtime === consoleFilter) &&
-    g.title.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  // Recherche avancée
+  const [filteredGames, setFilteredGames] = useState<Game[]>(games);
+
 
   // Group games
   const popularGames = [...games].sort((a, b) => (b.play_count || 0) - (a.play_count || 0)).slice(0, 6);
@@ -476,41 +466,16 @@ export const StoreView: React.FC<StoreViewProps> = ({
 
           {/* Row 2.5: TOUT LE CATALOGUE (recherche + filtre par console) */}
           <div className="flex flex-col gap-3.5 px-16">
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex flex-col gap-4">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Tout le catalogue</h3>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 bg-zinc-950/60 border border-zinc-800 rounded-full px-3 py-1.5">
-                  <Search size={12} className="text-zinc-500" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Rechercher un jeu..."
-                    className="bg-transparent outline-none text-[11px] text-zinc-200 placeholder-zinc-600 w-40"
-                  />
-                </div>
-                <div className="flex items-center gap-1">
-                  {CONSOLE_FILTERS.map((f) => (
-                    <button
-                      key={f.key}
-                      onClick={() => setConsoleFilter(f.key)}
-                      className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all cursor-pointer ${
-                        consoleFilter === f.key
-                          ? 'bg-purple-500/20 border-purple-500 text-purple-300'
-                          : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <SearchAdvanced games={games} onFilterChange={setFilteredGames} />
             </div>
 
-            <div className="flex flex-wrap gap-4 py-1">
-              {catalogueResults.length === 0 ? (
-                <span className="text-[11px] text-zinc-600 py-6">Aucun jeu ne correspond à ta recherche.</span>
+            <div className="flex flex-wrap gap-4 py-1 mt-2">
+              {filteredGames.length === 0 ? (
+                <span className="text-[11px] text-zinc-600 py-6">Aucun jeu ne correspond à vos filtres de recherche.</span>
               ) : (
-                catalogueResults.map((game) => {
+                filteredGames.map((game) => {
                   const owned = isGameOwned(game);
                   return (
                     <div
@@ -538,6 +503,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
               )}
             </div>
           </div>
+
 
           {/* Row 3: Cheats & Add-ons Shop */}
           <div className="flex flex-col gap-3.5 px-16">
@@ -598,7 +564,11 @@ export const StoreView: React.FC<StoreViewProps> = ({
           {/* Blurred Background Art */}
           <div className="absolute inset-0 -z-10 overflow-hidden">
             <img 
-              src={selectedGame ? selectedGame.background_url : games.find(g => g.slug === selectedCheat?.gameSlug)?.background_url} 
+              src={(() => {
+                const g = selectedGame || games.find(x => x.slug === selectedCheat?.gameSlug);
+                if (!g) return '';
+                return (g.manifest as any)?.background_url || g.background_url || '';
+              })()} 
               className="w-full h-full object-cover filter blur-[40px] opacity-25 scale-105"
               alt="Blurred Back"
             />
