@@ -119,8 +119,9 @@ export function subscribeToChat(
   channelId: string,
   onMessage: (msg: ChatMessage) => void
 ): () => void {
+  const uniq = Math.random().toString(36).substring(2, 10);
   const channel = supabase
-    .channel(`chat:${channelType}:${channelId}`)
+    .channel(`chat:${channelType}:${channelId}:${uniq}`)
     .on(
       'postgres_changes',
       {

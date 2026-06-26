@@ -63,8 +63,9 @@ export function subscribeToNotifications(
   userId: string,
   onNew: (notification: Notification) => void
 ): () => void {
+  const uniq = Math.random().toString(36).substring(2, 10);
   const channel = supabase
-    .channel(`notifications:${userId}`)
+    .channel(`notifications:${userId}:${uniq}`)
     .on(
       'postgres_changes',
       {
