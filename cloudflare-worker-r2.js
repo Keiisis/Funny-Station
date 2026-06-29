@@ -30,14 +30,17 @@
  * ════════════════════════════════════════════════════════════════════════════
  */
 
+const WORKER_VERSION = 'v3-gz-decompress';
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
   'Access-Control-Allow-Headers': 'Range, Content-Type',
-  'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges, ETag',
+  'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges, ETag, X-FS-Worker',
   'Access-Control-Max-Age': '86400',
   'Cross-Origin-Resource-Policy': 'cross-origin',
   'Cross-Origin-Embedder-Policy': 'credentialless',
+  'X-FS-Worker': WORKER_VERSION,
 };
 
 export default {
@@ -99,17 +102,24 @@ export default {
     headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
     headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
 
-    // Décompression à la volée des builds .gz (Unity/émulateurs) + bon Content-Type
-    // sur le fichier DÉCOMPRESSÉ (sinon le navigateur reçoit du gzip brut → échec).
+    // Builds pré-compressés (.gz) : on DÉCOMPRESSE dans le Worker (DecompressionStream)
+    // et on renvoie du CLAIR. Raison : Cloudflare SUPPRIME tout `Content-Encoding: gzip`
+    // posé manuellement par un Worker → le navigateur recevrait du gzip brut étiqueté JS
+    // (« Invalid or unexpected token »). En servant du clair avec le bon Content-Type,
+    // Cloudflare RECOMPRESSE lui-même le JS/WASM/JSON côté client (gain réseau conservé).
     if (isGz) {
-      headers.set('Content-Encoding', 'gzip');
       const inner = key.slice(0, -3); // retire ".gz"
       if (inner.endsWith('.wasm')) headers.set('Content-Type', 'application/wasm');
       else if (inner.endsWith('.js')) headers.set('Content-Type', 'application/javascript');
       else if (inner.endsWith('.json')) headers.set('Content-Type', 'application/json');
       else headers.set('Content-Type', 'application/octet-stream');
-      // La taille stockée est celle du .gz compressé ; on laisse le navigateur gérer.
-      headers.delete('Content-Length');
+      headers.delete('Content-Encoding');
+      headers.delete('Content-Length'); // taille décompressée inconnue → flux
+      headers.set('Accept-Ranges', 'none');
+      const body = request.method === 'HEAD'
+        ? null
+        : object.body.pipeThrough(new DecompressionStream('gzip'));
+      return new Response(body, { status: 200, headers });
     }
 
     let status = 200;

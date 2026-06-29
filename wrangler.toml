@@ -1,4 +1,4 @@
-name = "funnystation-roms-proxy"
+name = "funnystation"
 main = "cloudflare-worker-r2.js"
 compatibility_date = "2026-06-22"
 

@@ -20,7 +20,7 @@ export async function fetchDailyStatus(userId: string): Promise<{ streak: number
     .from('daily_rewards')
     .select('streak, last_claim, total_claims')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (!data) return { streak: 0, last_claim: null, total_claims: 0, can_claim: true };
 
@@ -69,7 +69,7 @@ export async function fetchPlayerLevel(userId: string): Promise<PlayerLevel | nu
     .from('player_levels')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
   return (data as PlayerLevel) ?? null;
 }
 

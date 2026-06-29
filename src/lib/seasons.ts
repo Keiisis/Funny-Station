@@ -34,7 +34,7 @@ export async function fetchSeasonProgress(userId: string, seasonId: string): Pro
     .select('*')
     .eq('user_id', userId)
     .eq('season_id', seasonId)
-    .single();
+    .maybeSingle();
   return (data as SeasonProgress) ?? null;
 }
 

@@ -90,7 +90,7 @@ export async function fetchPlayerRank(
     .eq('user_id', userId)
     .eq('game_id', gameId)
     .eq('period', period)
-    .single();
+    .maybeSingle();
 
   if (!userScore) return null;
 
