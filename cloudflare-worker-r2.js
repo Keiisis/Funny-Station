@@ -102,24 +102,50 @@ export default {
     headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
     headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
 
-    // Builds pré-compressés (.gz) : on DÉCOMPRESSE dans le Worker (DecompressionStream)
-    // et on renvoie du CLAIR. Raison : Cloudflare SUPPRIME tout `Content-Encoding: gzip`
-    // posé manuellement par un Worker → le navigateur recevrait du gzip brut étiqueté JS
-    // (« Invalid or unexpected token »). En servant du clair avec le bon Content-Type,
-    // Cloudflare RECOMPRESSE lui-même le JS/WASM/JSON côté client (gain réseau conservé).
+    // Builds pré-compressés (.gz) : on DÉCOMPRESSE dans le Worker et on renvoie du CLAIR.
+    // Deux pièges Cloudflare à éviter EN MÊME TEMPS :
+    //   1. Un `Content-Encoding: gzip` posé à la main par un Worker est SUPPRIMÉ par
+    //      Cloudflare → le navigateur recevait du gzip brut (« Invalid token »).
+    //   2. Une réponse de DecompressionStream SANS Content-Length est chunkée → casse en
+    //      HTTP/3 (ERR_QUIC_PROTOCOL_ERROR).
+    // Solution : servir du clair AVEC une longueur fixe.
+    //   • JS/WASM/JSON (recompressés par Cloudflare) → on bufferise (réponse complète).
+    //   • Binaire .data (NON recompressé) → on streame avec Content-Length = taille
+    //     décompressée lue dans le pied de page gzip (ISIZE = 4 derniers octets, little-endian).
     if (isGz) {
       const inner = key.slice(0, -3); // retire ".gz"
-      if (inner.endsWith('.wasm')) headers.set('Content-Type', 'application/wasm');
-      else if (inner.endsWith('.js')) headers.set('Content-Type', 'application/javascript');
-      else if (inner.endsWith('.json')) headers.set('Content-Type', 'application/json');
+      let recompressible = false;
+      if (inner.endsWith('.wasm')) { headers.set('Content-Type', 'application/wasm'); recompressible = true; }
+      else if (inner.endsWith('.js')) { headers.set('Content-Type', 'application/javascript'); recompressible = true; }
+      else if (inner.endsWith('.json')) { headers.set('Content-Type', 'application/json'); recompressible = true; }
       else headers.set('Content-Type', 'application/octet-stream');
       headers.delete('Content-Encoding');
-      headers.delete('Content-Length'); // taille décompressée inconnue → flux
       headers.set('Accept-Ranges', 'none');
-      const body = request.method === 'HEAD'
-        ? null
-        : object.body.pipeThrough(new DecompressionStream('gzip'));
-      return new Response(body, { status: 200, headers });
+
+      if (request.method === 'HEAD') {
+        headers.delete('Content-Length');
+        return new Response(null, { status: 200, headers });
+      }
+
+      const stream = object.body.pipeThrough(new DecompressionStream('gzip'));
+
+      if (recompressible) {
+        // Petit/moyen + Cloudflare gère l'encodage de transfert : bufferiser est fiable.
+        const ab = await new Response(stream).arrayBuffer();
+        headers.set('Content-Length', String(ab.byteLength));
+        return new Response(ab, { status: 200, headers });
+      }
+
+      // .data : trop gros pour la mémoire → streaming, mais à longueur fixe (ISIZE).
+      let isize = 0;
+      try {
+        const tail = await env.BUCKET.get(key, { range: { offset: object.size - 4, length: 4 } });
+        const b = new Uint8Array(await tail.arrayBuffer());
+        isize = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0;
+      } catch { /* footer illisible → on laisse Cloudflare gérer */ }
+      if (isize > 0) headers.set('Content-Length', String(isize));
+      else headers.delete('Content-Length');
+      return new Response(stream, { status: 200, headers });
     }
 
     let status = 200;
