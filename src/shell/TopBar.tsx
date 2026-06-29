@@ -24,6 +24,8 @@ interface TopBarProps {
   accountType?: 'gamer' | 'creator';
   notificationCount: number;
   onOpenNotifications: () => void;
+  /** Onglet ciblé par la navigation manette/clavier (surbrillance), sans clic. */
+  navFocusedTab?: TopBarTabType | null;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -39,8 +41,12 @@ export const TopBar: React.FC<TopBarProps> = ({
   activeControllerType,
   accountType = 'gamer',
   notificationCount,
-  onOpenNotifications
+  onOpenNotifications,
+  navFocusedTab = null
 }) => {
+  // Surbrillance d'un onglet ciblé par la manette/clavier (navigation sans souris).
+  const nf = (tab: TopBarTabType) =>
+    navFocusedTab === tab ? ' ring-2 ring-blue-400 ring-offset-2 ring-offset-transparent rounded-md scale-110' : '';
   const [time, setTime] = useState<string>('');
   const [gamepadConnected, setGamepadConnected] = useState(false);
   const [streak, setStreak] = useState(0);
@@ -99,7 +105,7 @@ export const TopBar: React.FC<TopBarProps> = ({
       <div className="flex flex-wrap items-center gap-6 md:gap-8">
         <button
           onClick={() => handleTabClick('games')}
-          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
+          className={`${nf('games')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
             activeTab === 'games' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -109,7 +115,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button
           onClick={() => handleTabClick('store')}
-          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
+          className={`${nf('store')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer ${
             activeTab === 'store' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -119,7 +125,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button
           onClick={() => handleTabClick('friends')}
-          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+          className={`${nf('friends')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'friends' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -132,7 +138,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button
           onClick={() => handleTabClick('leaderboard')}
-          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+          className={`${nf('leaderboard')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'leaderboard' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -142,7 +148,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button
           onClick={() => handleTabClick('season')}
-          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+          className={`${nf('season')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'season' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -152,7 +158,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button
           onClick={() => handleTabClick('playlist')}
-          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+          className={`${nf('playlist')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'playlist' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -162,7 +168,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
         <button
           onClick={() => handleTabClick('spectate')}
-          className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+          className={`${nf('spectate')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
             activeTab === 'spectate' 
               ? 'text-white border-b-2 border-white pb-0.5' 
               : 'text-zinc-400 hover:text-zinc-200'
@@ -173,7 +179,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         {accountType === 'creator' && (
           <button
             onClick={() => handleTabClick('creator_dashboard')}
-            className={`text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
+            className={`${nf('creator_dashboard')} text-xs md:text-sm font-black tracking-widest uppercase transition-all focus:outline-none cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'creator_dashboard' 
                 ? 'text-white border-b-2 border-white pb-0.5' 
                 : 'text-zinc-400 hover:text-zinc-200'

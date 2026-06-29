@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CoverImage } from './CoverImage';
 import { Game, Trophy, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
-import { useGamepadNavigation } from '@/hooks/useGamepadNavigation';
 import { TopBar, TopBarTabType } from './TopBar';
 import { StoreView } from './StoreView';
 import { ProfileSpace } from './ProfileSpace';
@@ -105,6 +104,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [games, setGames] = useState<Game[]>([]);
   const [recentGames, setRecentGames] = useState<Game[]>([]); // rail "Continuer"
   const [focusedIndex, setFocusedIndex] = useState(0);
+  // Navigation VERTICALE de l'accueil (manette + clavier) : 3 zones empilées.
+  //  library = bibliothèque (bas) · recent = rail "Continuer" · topbar = menu du haut.
+  const [navZone, setNavZone] = useState<'topbar' | 'recent' | 'library'>('library');
+  const [topbarIndex, setTopbarIndex] = useState(0);
+  const [recentIndex, setRecentIndex] = useState(0);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [unlockedTrophyIds, setUnlockedTrophyIds] = useState<string[]>([]);
@@ -214,6 +218,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const gameContextRef = useRef<{ runtime: string; slug: string; title: string }>({ runtime: '', slug: '', title: '' });
   // Suit l'état du Control Center pour la manette (suspend l'entrée jeu quand ouvert).
   const controlCenterOpenRef = useRef(false);
+  // Réfs pour la bascule jeu <-> accueil (double-appui FS) sans valeurs périmées.
+  const selectedGameRef = useRef<Game | null>(null);
+  const focusedGameRef = useRef<Game | null>(null);
   useEffect(() => {
     connectedPlayersRef.current = connectedPlayers;
   }, [connectedPlayers]);
@@ -250,6 +257,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   }, [reloadGames]);
 
   useEffect(() => { controlCenterOpenRef.current = isControlCenterOpen; }, [isControlCenterOpen]);
+  useEffect(() => { selectedGameRef.current = selectedGame; }, [selectedGame]);
 
   // Rail « Continuer » : jeux récemment joués par CE compte (d'après game_saves.updated_at).
   useEffect(() => {
@@ -450,8 +458,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       }
       if (direction === 'APP_SWITCH') {
         if ((action || 'down') === 'down') {
-          AudioEngine.getInstance().playSFX('navigate');
-          setActiveTab(prev => (prev === 'games' ? 'store' : prev === 'store' ? 'profile' : 'games'));
+          AudioEngine.getInstance().playSFX('select');
+          // Bascule JEU EN COURS <-> ACCUEIL (comme le double-clic PS de la PS5).
+          if (selectedGameRef.current) {
+            setSelectedGame(null); // revenir à l'accueil
+          } else if (focusedGameRef.current) {
+            const g = focusedGameRef.current;
+            incrementPlayCount(g.id);
+            setSelectedGame(g); // relancer le jeu focalisé
+          }
         }
         return;
       }
@@ -643,6 +658,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   }, [selectedGame, focusedIndex, games]);
 
   const activeGame = games[focusedIndex];
+  useEffect(() => { focusedGameRef.current = activeGame ?? null; }, [activeGame]);
 
   const [videoSrc, setVideoSrc] = useState<string>('');
   const videoCacheRef = useRef<Map<string, string>>(new Map());
@@ -828,16 +844,97 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
     }
   };
 
-  // Gamepad Navigation setup for Games tab
-  useGamepadNavigation(
-    activeTab === 'games' ? games.length : 0,
-    focusedIndex,
-    setFocusedIndex,
-    handleStartGame,
-    onSignOut,
-    games.length,
-    !!selectedGame || isStudioOpen || isControlCenterOpen || isPowerMenuOpen || isShuttingDown
-  );
+  // ── NAVIGATION VERTICALE de l'accueil (manette + clavier, sans souris) ──────
+  // Liste des onglets du menu du haut, dans l'ordre d'affichage.
+  const topbarTabs = React.useMemo<TopBarTabType[]>(() => {
+    const base: TopBarTabType[] = ['games', 'store', 'friends', 'leaderboard', 'season', 'playlist', 'spectate'];
+    if (profile.accountType === 'creator') base.push('creator_dashboard');
+    return base;
+  }, [profile.accountType]);
+
+  // Réfs pour un handler stable (pas de valeurs périmées).
+  const navStateRef = useRef({ navZone, topbarIndex, recentIndex, focusedIndex });
+  useEffect(() => { navStateRef.current = { navZone, topbarIndex, recentIndex, focusedIndex }; }, [navZone, topbarIndex, recentIndex, focusedIndex]);
+  const recentGamesRef = useRef<Game[]>([]);
+  useEffect(() => { recentGamesRef.current = recentGames; }, [recentGames]);
+  const gamesRef = useRef<Game[]>([]);
+  useEffect(() => { gamesRef.current = games; }, [games]);
+  const topbarTabsRef = useRef<TopBarTabType[]>(topbarTabs);
+  useEffect(() => { topbarTabsRef.current = topbarTabs; }, [topbarTabs]);
+
+  useEffect(() => {
+    const inGamesView = activeTab === 'games' && !selectedGame && !isStudioOpen
+      && !isControlCenterOpen && !isPowerMenuOpen && !isShuttingDown;
+    if (!inGamesView) return;
+
+    const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+    const sfx = (pan = 0) => AudioEngine.getInstance().playSFX('navigate', pan);
+
+    const nav = (dir: string) => {
+      const s = navStateRef.current;
+      const recLen = recentGamesRef.current.length;
+      const libLen = gamesRef.current.length;
+      const tabLen = topbarTabsRef.current.length;
+
+      if (dir === 'UP') {
+        if (s.navZone === 'library') { setNavZone(recLen > 0 ? 'recent' : 'topbar'); sfx(-0.1); }
+        else if (s.navZone === 'recent') { setNavZone('topbar'); sfx(-0.1); }
+      } else if (dir === 'DOWN') {
+        if (s.navZone === 'topbar') { setNavZone(recLen > 0 ? 'recent' : 'library'); sfx(0.1); }
+        else if (s.navZone === 'recent') { setNavZone('library'); sfx(0.1); }
+      } else if (dir === 'LEFT' || dir === 'RIGHT') {
+        const d = dir === 'RIGHT' ? 1 : -1;
+        const pan = dir === 'RIGHT' ? 0.4 : -0.4;
+        if (s.navZone === 'topbar') setTopbarIndex((i) => clamp(i + d, 0, tabLen - 1));
+        else if (s.navZone === 'recent') setRecentIndex((i) => clamp(i + d, 0, recLen - 1));
+        else setFocusedIndex((i) => clamp(i + d, 0, libLen - 1));
+        sfx(pan);
+      } else if (dir === 'CONFIRM') {
+        if (s.navZone === 'topbar') { setActiveTab(topbarTabsRef.current[s.topbarIndex]); AudioEngine.getInstance().playSFX('select'); }
+        else if (s.navZone === 'recent') {
+          const g = recentGamesRef.current[s.recentIndex];
+          if (g) { AudioEngine.getInstance().playSFX('select'); incrementPlayCount(g.id); setSelectedGame(g); }
+        } else {
+          handleStartGame();
+        }
+      }
+    };
+
+    const onGamepad = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      if (detail.action === 'up') return;
+      nav(detail.direction);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+      let d: string | null = null;
+      switch (e.key) {
+        case 'ArrowUp': d = 'UP'; break;
+        case 'ArrowDown': d = 'DOWN'; break;
+        case 'ArrowLeft': d = 'LEFT'; break;
+        case 'ArrowRight': d = 'RIGHT'; break;
+        case 'Enter': case ' ': d = 'CONFIRM'; break;
+        default: return;
+      }
+      e.preventDefault();
+      nav(d);
+    };
+
+    window.addEventListener('funny_gamepad_action', onGamepad);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('funny_gamepad_action', onGamepad);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [activeTab, selectedGame, isStudioOpen, isControlCenterOpen, isPowerMenuOpen, isShuttingDown, handleStartGame, incrementPlayCount]);
+
+  // Recadre l'auto-scroll quand on change de zone : revenir au début si on quitte
+  // la bibliothèque pour garder le repère visuel cohérent.
+  useEffect(() => {
+    if (navZone !== 'library' && recentGames.length > 0 && recentIndex >= recentGames.length) {
+      setRecentIndex(recentGames.length - 1);
+    }
+  }, [navZone, recentGames.length, recentIndex]);
 
   const triggerPowerOption = (index: number) => {
     setIsPowerMenuOpen(false);
@@ -1186,8 +1283,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         onOpenControllerMenu={() => setIsControllerModalOpen(true)}
         onOpenPowerMenu={() => setIsPowerMenuOpen(true)}
         activeControllerType={controllerType}
+        accountType={profile.accountType}
         notificationCount={unreadNotificationsCount}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
+        navFocusedTab={navZone === 'topbar' && activeTab === 'games' && !selectedGame ? topbarTabs[topbarIndex] : null}
       />
 
       {/* Render selected view based on active tab */}
@@ -1315,10 +1414,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
             {/* Rail "Continuer" — jeux récemment joués par ce compte (reprise rapide) */}
             {recentGames.length > 0 && (
               <div className="flex flex-col gap-2 w-full mb-4">
-                <span className="text-[9px] uppercase tracking-widest font-black text-zinc-400">Continuer</span>
+                <span className={`text-[9px] uppercase tracking-widest font-black transition-colors ${navZone === 'recent' ? 'text-blue-400' : 'text-zinc-400'}`}>Continuer</span>
                 <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-1">
-                  {recentGames.map((game) => {
+                  {recentGames.map((game, idx) => {
                     const b = RUNTIME_BADGE[game.runtime] || { label: game.runtime.toUpperCase(), cls: 'bg-zinc-700/90 text-white' };
+                    const navFocused = navZone === 'recent' && idx === recentIndex;
                     return (
                       <div
                         key={`recent-${game.id}`}
@@ -1327,7 +1427,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                           incrementPlayCount(game.id);
                           setSelectedGame(game);
                         }}
-                        className="relative flex-shrink-0 cursor-pointer rounded-xl w-[150px] h-[84px] overflow-hidden border border-zinc-800/80 hover:border-zinc-600 transition-all group"
+                        className={`relative flex-shrink-0 cursor-pointer rounded-xl w-[150px] h-[84px] overflow-hidden transition-all group ${
+                          navFocused
+                            ? 'ring-2 ring-white scale-105 shadow-[0_0_18px_rgba(255,255,255,0.4)] z-10'
+                            : 'ring-1 ring-zinc-800/80 hover:ring-zinc-600'
+                        }`}
                       >
                         <CoverImage src={game.background_url} alt={game.title} sizes="150px" className="object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
@@ -1347,7 +1451,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
 
             {/* Top Area: PS5-style horizontal 9:16 carousel */}
             <div className="flex flex-col gap-2 w-full mt-4">
-              <span className="text-[9px] uppercase tracking-widest font-black text-zinc-400">Bibliothèque</span>
+              <span className={`text-[9px] uppercase tracking-widest font-black transition-colors ${navZone === 'library' ? 'text-blue-400' : 'text-zinc-400'}`}>Bibliothèque</span>
               
               <div 
                 ref={carouselRef}
@@ -1369,12 +1473,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                     <div
                       key={game.id}
                       onClick={() => {
+                        setNavZone('library');
                         setFocusedIndex(idx);
                         AudioEngine.getInstance().playSFX('select');
                       }}
                       className={`relative flex-shrink-0 cursor-pointer rounded-xl w-[130px] h-[195px] overflow-hidden transition-all duration-300 transform outline-none border-2 ${
-                        isFocused
+                        isFocused && navZone === 'library'
                           ? 'scale-110 border-white shadow-[0_0_25px_rgba(255,255,255,0.45),0_0_12px_rgba(0,114,206,0.3)] z-30'
+                          : isFocused
+                          ? 'border-white/50 opacity-80 z-20'
                           : 'border-zinc-800/80 opacity-60 hover:opacity-90 z-20'
                       }`}
                     >
