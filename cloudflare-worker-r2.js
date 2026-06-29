@@ -36,6 +36,8 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Range, Content-Type',
   'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges, ETag',
   'Access-Control-Max-Age': '86400',
+  'Cross-Origin-Resource-Policy': 'cross-origin',
+  'Cross-Origin-Embedder-Policy': 'credentialless',
 };
 
 export default {
@@ -48,14 +50,29 @@ export default {
       return new Response('Method Not Allowed', { status: 405, headers: CORS });
     }
 
+    const url = new URL(request.url);
+    if (url.pathname === '/list-objects-debug') {
+      const list = await env.BUCKET.list();
+      return new Response(JSON.stringify(list.objects.map(o => o.key)), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...CORS
+        }
+      });
+    }
+
     // Clé de l'objet = chemin de l'URL (sans le / initial), décodé.
-    const key = decodeURIComponent(new URL(request.url).pathname.replace(/^\/+/, ''));
+    const key = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
     if (!key) {
       return new Response('Bad Request', { status: 400, headers: CORS });
     }
 
-    // Support des requêtes Range (lecture partielle / seek des émulateurs).
-    const rangeHeader = request.headers.get('range');
+    // Builds pré-compressés (.gz) : servis ENTIERS avec Content-Encoding: gzip
+    // (le navigateur décompresse). PAS de Range sur du gzip (ça casserait le flux).
+    const isGz = key.endsWith('.gz');
+
+    // Support des requêtes Range (lecture partielle / seek des émulateurs) — sauf .gz.
+    const rangeHeader = isGz ? null : request.headers.get('range');
     let range;
     if (rangeHeader) {
       const m = /bytes=(\d*)-(\d*)/.exec(rangeHeader);
@@ -76,10 +93,24 @@ export default {
     const headers = new Headers(CORS);
     object.writeHttpMetadata(headers);
     headers.set('etag', object.httpEtag);
-    headers.set('Accept-Ranges', 'bytes');
+    headers.set('Accept-Ranges', isGz ? 'none' : 'bytes');
     headers.set('Cache-Control', 'public, max-age=86400');
     // Compatible avec l'isolation COEP `credentialless` de FunnyStation.
     headers.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+
+    // Décompression à la volée des builds .gz (Unity/émulateurs) + bon Content-Type
+    // sur le fichier DÉCOMPRESSÉ (sinon le navigateur reçoit du gzip brut → échec).
+    if (isGz) {
+      headers.set('Content-Encoding', 'gzip');
+      const inner = key.slice(0, -3); // retire ".gz"
+      if (inner.endsWith('.wasm')) headers.set('Content-Type', 'application/wasm');
+      else if (inner.endsWith('.js')) headers.set('Content-Type', 'application/javascript');
+      else if (inner.endsWith('.json')) headers.set('Content-Type', 'application/json');
+      else headers.set('Content-Type', 'application/octet-stream');
+      // La taille stockée est celle du .gz compressé ; on laisse le navigateur gérer.
+      headers.delete('Content-Length');
+    }
 
     let status = 200;
     if (object.range && rangeHeader) {

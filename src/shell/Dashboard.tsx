@@ -520,7 +520,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         keyName = keyMap[direction];
       }
       
-      if (keyName) {
+      // IMPORTANT : on n'injecte des touches clavier synthétiques QUE lorsqu'un jeu
+      // tourne. Sur l'accueil, la navigation est pilotée par `funny_gamepad_action`
+      // (ci-dessus) ; injecter en plus une touche ferait DOUBLER le déplacement
+      // (la manette « sautait » d'un cran). En jeu, la nav d'accueil est désactivée.
+      if (keyName && selectedGameRef.current) {
         const evType = effectiveAction === 'down' ? 'keydown' : 'keyup';
         // Événement COMPLET (key + code + keyCode) — sinon Unity WebGL l'ignore.
         window.dispatchEvent(makeKeyboardEvent(evType, keyName));
@@ -711,25 +715,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   // le moteur EmulatorJS + la ROM en arrière-plan → démarrage quasi-instantané au clic.
   const activeGameRuntime = activeGame?.runtime;
   const activeGameRomUrl = activeGame ? encodePathSegments(`${activeGame.assets_bucket_path}/${activeGame.entry_point}`) : '';
+  const activeAssetsPath = activeGame?.assets_bucket_path || '';
   useEffect(() => {
-    const isEmu = activeGameRuntime === 'gba' || activeGameRuntime === 'nes' ||
-      activeGameRuntime === 'snes' || activeGameRuntime === 'psp';
-    if (!isEmu) return;
     const links: HTMLLinkElement[] = [];
-    const prefetch = (href: string, as?: string) => {
+    const addLink = (rel: string, href: string, as?: string, cross?: boolean) => {
       const l = document.createElement('link');
-      l.rel = 'prefetch';
+      l.rel = rel;
       l.href = href;
       if (as) l.as = as;
-      if (as === 'fetch') l.crossOrigin = 'anonymous';
+      if (cross) l.crossOrigin = 'anonymous';
       document.head.appendChild(l);
       links.push(l);
     };
-    // Moteur (loader + core du système) + ROM → tout est chaud au lancement.
-    prefetch('https://cdn.emulatorjs.org/stable/data/loader.js', 'script');
-    if (activeGameRomUrl) prefetch(activeGameRomUrl, 'fetch');
+
+    // PRECONNECT vers l'hôte des assets (R2/Worker) — ouvre la connexion TLS d'avance
+    // → 1er chargement bien plus rapide, pour TOUS les jeux hébergés en externe.
+    if (/^https?:\/\//i.test(activeAssetsPath)) {
+      try {
+        const origin = new URL(activeAssetsPath).origin;
+        addLink('preconnect', origin, undefined, true);
+        addLink('dns-prefetch', origin);
+      } catch { /* URL invalide → on ignore */ }
+    }
+
+    // PRÉCHAUFFAGE émulateurs : moteur EmulatorJS + ROM préchargés en arrière-plan.
+    const isEmu = activeGameRuntime === 'gba' || activeGameRuntime === 'nes' ||
+      activeGameRuntime === 'snes' || activeGameRuntime === 'psp';
+    if (isEmu) {
+      addLink('preconnect', 'https://cdn.emulatorjs.org', undefined, true);
+      addLink('prefetch', 'https://cdn.emulatorjs.org/stable/data/loader.js', 'script');
+      if (activeGameRomUrl) addLink('prefetch', activeGameRomUrl, 'fetch', true);
+    }
+
     return () => { links.forEach((l) => l.remove()); };
-  }, [activeGameRuntime, activeGameRomUrl]);
+  }, [activeGameRuntime, activeGameRomUrl, activeAssetsPath]);
 
   const handleStartGame = () => {
     if (!activeGame) return;
