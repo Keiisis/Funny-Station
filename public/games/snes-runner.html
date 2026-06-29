@@ -237,7 +237,8 @@
       window.EJS_gameUrl = romUrl;
       window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
       window.EJS_startOnLoaded = true;
-      window.EJS_threads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated);
+      // Threads désactivés : les cœurs multi-threadés du CDN échouent souvent à s'initialiser. Le mono-thread est stable.
+      window.EJS_threads = false;
       window.EJS_defaultOptions = {
         'video_smooth': 'false',
         'video_scale_integer': 'true'
