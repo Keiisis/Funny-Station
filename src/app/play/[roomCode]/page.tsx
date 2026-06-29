@@ -7,6 +7,7 @@ import { fetchGameById } from '@/lib/db';
 import { GameRoom } from '@/multiplayer/GameRoom';
 import { GameStateSync } from '@/multiplayer/GameStateSync';
 import { UniversalRuntimeRunner } from '@/kernel/UniversalRuntimeRunner';
+import { VoiceChatButton } from '@/shell/VoiceChatButton';
 import type { OnlinePlayer, Game, NetworkMode } from '@/types';
 import { Users, Wifi, WifiOff, Copy, Check, ArrowLeft, Gamepad, Smartphone, X } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -399,6 +400,8 @@ function PlayContent() {
             <Smartphone size={10} />
             Manette
           </button>
+          {/* Chat vocal temps réel entre joueurs de la room (WebRTC). */}
+          <VoiceChatButton roomCode={roomCode} selfId={guestId} memberIds={players.map((p) => p.userId)} />
           <span className="text-[9px] text-zinc-500 font-mono">{roomCode}</span>
           <span className="text-[9px] text-zinc-600">{players.length} joueurs</span>
         </div>

@@ -30,7 +30,7 @@ type Signal = (event: string, payload: any) => void;
 //  Par défaut on inclut le TURN public gratuit d'Open Relay (Metered). Tu peux
 //  fournir TON propre TURN (plus fiable) via les variables d'environnement :
 //    NEXT_PUBLIC_TURN_URL, NEXT_PUBLIC_TURN_USERNAME, NEXT_PUBLIC_TURN_CREDENTIAL
-function buildIceServers(): RTCIceServer[] {
+export function buildIceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:global.stun.twilio.com:3478' },

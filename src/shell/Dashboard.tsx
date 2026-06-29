@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CoverImage } from './CoverImage';
+import { VoiceChatButton } from './VoiceChatButton';
 import { Game, Trophy, NetworkMode, OnlinePlayer, ProfileData } from '@/types';
 import { TopBar, TopBarTabType } from './TopBar';
 import { StoreView } from './StoreView';
@@ -230,6 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
   const [onlineMode, setOnlineMode] = useState<'menu' | 'host' | 'join' | 'lobby'>('menu');
   const [joinRoomCode, setJoinRoomCode] = useState('');
   const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
+  const [onlineRoomCode, setOnlineRoomCode] = useState(''); // code room courant (chat vocal)
   const [onlineCopied, setOnlineCopied] = useState(false);
   const [networkMode, setNetworkMode] = useState<NetworkMode>('local');
   const [localPlayerNumber, setLocalPlayerNumber] = useState(0);
@@ -1289,6 +1291,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         navFocusedTab={navZone === 'topbar' && activeTab === 'games' && !selectedGame ? topbarTabs[topbarIndex] : null}
       />
 
+      {/* Chat vocal hôte (session en ligne) — flottant, visible aussi pendant le jeu. */}
+      {networkMode !== 'local' && onlineRoomCode && (
+        <div className="fixed top-3 right-3 z-[60]">
+          <VoiceChatButton
+            roomCode={onlineRoomCode}
+            selfId={profile.id}
+            memberIds={onlinePlayers.map((p) => p.userId)}
+          />
+        </div>
+      )}
+
       {/* Render selected view based on active tab */}
       {activeTab === 'store' ? (
         <StoreView
@@ -1829,6 +1842,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
                             activeGame.id
                           );
                           onlineRoomRef.current = room;
+                          setOnlineRoomCode(room.getRoomCode());
                           room.onPlayersChanged((players) => setOnlinePlayers(players));
                           const connected = await room.connect();
                           if (connected) {
