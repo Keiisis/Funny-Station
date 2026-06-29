@@ -55,8 +55,16 @@ public/games/*.pbp
 public/games/**/*.gba
 public/games/**/*.bin
 public/games/**/*.data
+public/games/**/*.data.gz
+public/games/**/*.wasm
+public/games/**/*.wasm.gz
+public/games/**/*.framework.js.gz
 public/games/**/*.cue
 public/games/**/*.cso
 public/games/**/*.iso
+public/games/*.sfc
+public/games/*.smc
+public/games/*.fig
+public/games/*.nes
 upload_log.txt
 
