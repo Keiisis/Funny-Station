@@ -152,14 +152,22 @@
             var c = document.querySelector('canvas'); if (c) c.dispatchEvent(k);
           } catch (e) {}
         }
+        function focusCanvas() {
+          try { (document.querySelector('canvas') || document.body).focus(); } catch (e) {}
+        }
         window.addEventListener('message', function (ev) {
           var d = ev.data;
-          if (d && d.type === 'FUNNY_KEY') fire(d);
+          if (!d) return;
+          if (d.type === 'FUNNY_KEY') fire(d);
+          else if (d.type === 'FUNNY_STATION_FOCUS') focusCanvas();
         });
-        // Le canvas Unity capte mieux le clavier s'il a le focus.
+        // Le canvas Unity capte mieux le clavier s'il a le focus : on le (re)prend
+        // au chargement, à chaque clic, et quand l'onglet/iframe reprend le focus.
         window.addEventListener('load', function () {
-          setTimeout(function () { try { document.querySelector('canvas')?.focus(); } catch (e) {} }, 1500);
+          [800, 1500, 2500].forEach(function (t) { setTimeout(focusCanvas, t); });
         });
+        window.addEventListener('focus', focusCanvas);
+        window.addEventListener('pointerdown', focusCanvas);
       })();
     </script>
   </body>

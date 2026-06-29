@@ -468,6 +468,46 @@ export const UniversalRuntimeRunner: React.FC<GameRunnerProps> = ({
     };
   }, [gameId, language]);
 
+  // === FOCUS CLAVIER FIABLE DE L'IFRAME DE JEU ===
+  // Les jeux hébergés CROSS-ORIGIN (R2, ex. racing Unity) n'envoient pas
+  // FUNNY_BUS_GAME_READY → le parent ne focalisait jamais l'iframe. Sans focus,
+  // les flèches partaient à la page parente (scroll) au lieu du jeu → « résistance ».
+  // On focalise donc l'iframe dès qu'elle est prête, on la re-focalise quand la
+  // fenêtre reprend le focus ou qu'on clique dans la zone de jeu, et on empêche le
+  // défilement de la page parente sur les touches directionnelles pendant le jeu.
+  useEffect(() => {
+    const focusGame = () => {
+      try {
+        iframeRef.current?.focus();
+        iframeRef.current?.contentWindow?.postMessage({ type: 'FUNNY_STATION_FOCUS' }, '*');
+      } catch { /* cross-origin : focus de l'élément OK, le reste est best-effort */ }
+    };
+
+    // Focus initial (plusieurs tentatives le temps que le canvas s'initialise).
+    const timers = [60, 400, 1200, 2500].map((d) => setTimeout(focusGame, d));
+
+    const el = containerRef.current;
+    window.addEventListener('focus', focusGame);
+    el?.addEventListener('pointerdown', focusGame);
+
+    // Anti-scroll de la page parente quand le focus n'est pas (encore) dans l'iframe.
+    const blockArrowScroll = (e: KeyboardEvent) => {
+      const k = e.key;
+      if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight' || k === ' ') {
+        e.preventDefault();
+        focusGame(); // ramène le focus dans le jeu
+      }
+    };
+    window.addEventListener('keydown', blockArrowScroll);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      window.removeEventListener('focus', focusGame);
+      el?.removeEventListener('pointerdown', focusGame);
+      window.removeEventListener('keydown', blockArrowScroll);
+    };
+  }, [isReady, language]);
+
   // === PONT MULTIJOUEUR EN LIGNE (effet DÉDIÉ, re-câblé si le rôle change) ===
   // Séparé de la boucle de chargement : lors d'une MIGRATION D'HÔTE, networkMode passe
   // de 'client' à 'host' SANS recharger le jeu. Cet effet se réexécute alors, reconfigure
