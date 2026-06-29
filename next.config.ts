@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: '/((?!games/).*)',
         headers: [
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
           // `credentialless` (au lieu de require-corp) : garde l'isolation cross-origin
