@@ -14,6 +14,6 @@ export const config = {
      * - favicon, fichiers images/médias publics
      * Les routes de jeux locales (/games/*) sont servies statiquement et exclues.
      */
-    '/((?!_next/static|_next/image|favicon.ico|games/|videos/|r2/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp3|mp4|webm|ogg|wasm|jar|gba|cso|iso|pbp|bin|chd|apk)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|fs1-logo.png|icon.svg|games/|videos/|musics/|images/|r2/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp3|mp4|webm|ogg|wasm|jar|gba|cso|iso|pbp|bin|chd|apk)$).*)',
   ],
 }

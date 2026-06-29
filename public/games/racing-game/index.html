@@ -130,5 +130,37 @@
       document.body.appendChild(script);
 
     </script>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PONT MANETTE FUNNY STATION (intégré au jeu).
+         Le jeu peut être servi CROSS-ORIGIN (depuis R2/Worker) : la console ne
+         peut alors pas injecter de code dans cette iframe. Mais `postMessage`
+         passe en cross-origin → on écoute ici FUNNY_KEY et on recrée un vrai
+         KeyboardEvent dans CE realm (Unity le reconnaît). Fonctionne partout.
+         ════════════════════════════════════════════════════════════════════ -->
+    <script>
+      (function () {
+        function fire(d) {
+          try {
+            var k = new KeyboardEvent(d.down ? 'keydown' : 'keyup', {
+              key: d.key, code: d.code, bubbles: true, cancelable: true
+            });
+            Object.defineProperty(k, 'keyCode', { get: function () { return d.keyCode; } });
+            Object.defineProperty(k, 'which', { get: function () { return d.keyCode; } });
+            document.dispatchEvent(k);
+            window.dispatchEvent(k);
+            var c = document.querySelector('canvas'); if (c) c.dispatchEvent(k);
+          } catch (e) {}
+        }
+        window.addEventListener('message', function (ev) {
+          var d = ev.data;
+          if (d && d.type === 'FUNNY_KEY') fire(d);
+        });
+        // Le canvas Unity capte mieux le clavier s'il a le focus.
+        window.addEventListener('load', function () {
+          setTimeout(function () { try { document.querySelector('canvas')?.focus(); } catch (e) {} }, 1500);
+        });
+      })();
+    </script>
   </body>
 </html>
