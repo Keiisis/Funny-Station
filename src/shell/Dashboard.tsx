@@ -429,13 +429,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
       // Si le payload contient un clientPlayerId, n'accepter que les inputs destinés à cette console
       if (clientPlayerId && clientPlayerId !== profile.id) return;
 
-      // BOUTON « PS » (FS) — exactement comme sur la PS5 : touche SYSTÈME, pas une
-      // entrée de jeu. Un appui (down) ouvre/ferme le Control Center. On NE transmet
-      // RIEN au jeu pour cette touche.
+      // BOUTON « PS » (FS) — touches SYSTÈME (jamais transmises au jeu), façon PS5 :
+      //  • HOME (appui simple)  → ouvre/ferme le Control Center
+      //  • POWER (appui long)   → menu Alimentation
+      //  • APP_SWITCH (double)  → bascule d'onglet (jeux → boutique → profil)
       if (direction === 'HOME') {
         if ((action || 'down') === 'down') {
           AudioEngine.getInstance().playSFX('select');
           setIsControlCenterOpen(prev => !prev);
+        }
+        return;
+      }
+      if (direction === 'POWER') {
+        if ((action || 'down') === 'down') {
+          AudioEngine.getInstance().playSFX('select');
+          setIsControlCenterOpen(false);
+          setIsPowerMenuOpen(true);
+        }
+        return;
+      }
+      if (direction === 'APP_SWITCH') {
+        if ((action || 'down') === 'down') {
+          AudioEngine.getInstance().playSFX('navigate');
+          setActiveTab(prev => (prev === 'games' ? 'store' : prev === 'store' ? 'profile' : 'games'));
         }
         return;
       }

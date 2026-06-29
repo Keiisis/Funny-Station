@@ -741,18 +741,23 @@ function ControllerContent() {
     }
   }, []);
 
-  // Vibration haptique
-  const triggerVibration = useCallback((ms = 40) => {
-    if (typeof window !== 'undefined' && navigator.vibrate) {
-      navigator.vibrate(ms);
-    }
+  // Vibration haptique — accepte une durée (ms) OU un motif [on, off, on, ...].
+  // Note honnête : l'API Vibration n'existe que sur Android (Chrome/Firefox) ; iOS
+  // (Safari) ne la supporte PAS — aucun retour haptique possible sur iPhone via le web.
+  const triggerVibration = useCallback((pattern: number | number[] = 40) => {
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(pattern);
+      }
+    } catch (e) { /* ignore */ }
   }, []);
 
   // Transmission des actions
-  const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE' | 'SELECT' | 'START' | 'L' | 'R' | 'HOME', action: 'down' | 'up') => {
+  const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE' | 'SELECT' | 'START' | 'L' | 'R' | 'HOME' | 'POWER' | 'APP_SWITCH', action: 'down' | 'up') => {
     if (action === 'down') {
-      triggerVibration(25);
-      
+      // Vibration franche au press (≈ clic de gâchette). Gâchettes L/R un peu plus fortes.
+      triggerVibration(direction === 'L' || direction === 'R' ? 50 : 38);
+
       // Déterminer la fréquence selon le bouton
       let freq = 500;
       if (direction === 'CONFIRM') freq = 650;
@@ -800,6 +805,60 @@ function ControllerContent() {
     onPointerUp: () => sendAction(action, 'up'),
     onPointerCancel: () => sendAction(action, 'up'),
   }), [sendAction]);
+
+  // ── BOUTON FS (« PS ») : gestes façon DualSense ──────────────────────────────
+  //  • appui simple  → HOME (ouvre/ferme le Control Center)
+  //  • appui LONG    → POWER (menu Alimentation)
+  //  • double appui  → APP_SWITCH (bascule d'app/onglet)
+  const fsLongTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fsSingleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fsLongFired = useRef(false);
+  const fsLastTap = useRef(0);
+  const FS_LONG_MS = 550;     // seuil appui long
+  const FS_DOUBLE_MS = 320;   // fenêtre double-appui
+  const FS_SINGLE_DELAY = 290;// attente avant de valider un appui simple
+
+  const fsSendSystem = useCallback((act: 'HOME' | 'POWER' | 'APP_SWITCH') => {
+    sendAction(act, 'down');
+  }, [sendAction]);
+
+  const fsProps = {
+    onPointerDown: (e: React.PointerEvent) => {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
+      setActiveButton('HOME');
+      triggerVibration(22);
+      fsLongFired.current = false;
+      if (fsLongTimer.current) clearTimeout(fsLongTimer.current);
+      // Appui maintenu → menu Alimentation (avec retour haptique « lourd »).
+      fsLongTimer.current = setTimeout(() => {
+        fsLongFired.current = true;
+        triggerVibration([45, 40, 70]); // motif distinct = action importante
+        fsSendSystem('POWER');
+      }, FS_LONG_MS);
+    },
+    onPointerUp: () => {
+      if (fsLongTimer.current) { clearTimeout(fsLongTimer.current); fsLongTimer.current = null; }
+      setActiveButton((prev) => (prev === 'HOME' ? null : prev));
+      if (fsLongFired.current) return; // POWER déjà déclenché → on ignore le relâchement
+      const now = Date.now();
+      if (now - fsLastTap.current < FS_DOUBLE_MS) {
+        // Double appui → bascule d'app.
+        if (fsSingleTimer.current) { clearTimeout(fsSingleTimer.current); fsSingleTimer.current = null; }
+        fsLastTap.current = 0;
+        triggerVibration([30, 25, 30]);
+        fsSendSystem('APP_SWITCH');
+      } else {
+        // Appui simple (validé après un court délai si aucun 2e appui).
+        fsLastTap.current = now;
+        if (fsSingleTimer.current) clearTimeout(fsSingleTimer.current);
+        fsSingleTimer.current = setTimeout(() => { fsSendSystem('HOME'); }, FS_SINGLE_DELAY);
+      }
+    },
+    onPointerCancel: () => {
+      if (fsLongTimer.current) { clearTimeout(fsLongTimer.current); fsLongTimer.current = null; }
+      setActiveButton((prev) => (prev === 'HOME' ? null : prev));
+    },
+  };
 
   const prevLeftAxes = useRef({ UP: false, DOWN: false, LEFT: false, RIGHT: false });
   const prevRightAxes = useRef({ TRIANGLE: false, CONFIRM: false, SQUARE: false, BACK: false });
@@ -1202,7 +1261,7 @@ function ControllerContent() {
             {/* Bouton central rond style PS5 — touche « PS » : ouvre le Control Center
                 de la Funny Station (comportement identique au bouton PS de la PS5). */}
             <button
-              {...pressProps('HOME')}
+              {...fsProps}
               aria-label="Bouton PS Funny Station"
               className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-150 active:scale-90 cursor-pointer ${
                 activeButton === 'HOME'
