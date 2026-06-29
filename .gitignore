@@ -43,6 +43,7 @@ next-env.d.ts
 # agents / AI environment
 .agents/
 skills-lock.json
+.wrangler/
 
 # Unity build and project files
 unity-project/
