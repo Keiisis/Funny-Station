@@ -260,6 +260,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
 
   useEffect(() => { controlCenterOpenRef.current = isControlCenterOpen; }, [isControlCenterOpen]);
   useEffect(() => { selectedGameRef.current = selectedGame; }, [selectedGame]);
+  // Mappage clavier mis en cache (ref) : évite de relire le localStorage + JSON.parse
+  // À CHAQUE input manette → supprime une micro-latence par touche.
+  const keyMappingRef = useRef<KeyMapping>(keyMapping);
+  useEffect(() => { keyMappingRef.current = keyMapping; }, [keyMapping]);
 
   // Rail « Continuer » : jeux récemment joués par CE compte (d'après game_saves.updated_at).
   useEffect(() => {
@@ -505,8 +509,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ profile, onSignOut, onUpda
         };
         keyName = racingMap[direction] || '';
       } else if (playerNumber === 0) {
-        // Mappage dynamique pour le joueur local (Player 1)
-        const customMapping = loadKeyMapping();
+        // Mappage dynamique pour le joueur local (Player 1) — lu depuis le cache (ref).
+        const customMapping = keyMappingRef.current;
         let consoleAction: ConsoleAction = direction as ConsoleAction;
         if (direction === 'CONFIRM') consoleAction = 'A';
         else if (direction === 'BACK') consoleAction = 'B';

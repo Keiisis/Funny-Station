@@ -754,6 +754,24 @@ function ControllerContent() {
 
   // Transmission des actions
   const sendAction = useCallback((direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'CONFIRM' | 'BACK' | 'OPTION' | 'TRIANGLE' | 'SQUARE' | 'SELECT' | 'START' | 'L' | 'R' | 'HOME' | 'POWER' | 'APP_SWITCH', action: 'down' | 'up') => {
+    // ── 1) ENVOI DE L'INPUT EN PREMIER (latence minimale absolue) ──────────────
+    // Tout le retour (vibration, son, état visuel) vient APRÈS : il ne doit jamais
+    // retarder l'input. C'est ce qui donne la sensation « ultra fluide ».
+    const payload = {
+      userId,
+      direction,
+      action,
+      playerNumber: playerNumber !== null ? playerNumber : undefined,
+      clientPlayerId: searchParams.get('clientPlayerId') || ''
+    };
+    // Chemin RAPIDE : liaison P2P si ouverte (latence minimale, pas de relais).
+    const sentP2P = rtcRef.current?.send(payload) ?? false;
+    // Repli : broadcast Supabase (toujours fiable).
+    if (!sentP2P && channelRef.current) {
+      channelRef.current.send({ type: 'broadcast', event: 'controller_state', payload });
+    }
+
+    // ── 2) RETOUR HAPTIQUE / SONORE / VISUEL (non bloquant, après l'envoi) ──────
     if (action === 'down') {
       // Vibration franche au press (≈ clic de gâchette). Gâchettes L/R un peu plus fortes.
       triggerVibration(direction === 'L' || direction === 'R' ? 50 : 38);
@@ -774,21 +792,6 @@ function ControllerContent() {
       setActiveButton(direction);
     } else {
       setActiveButton(prev => prev === direction ? null : prev);
-    }
-
-    const payload = {
-      userId,
-      direction,
-      action,
-      playerNumber: playerNumber !== null ? playerNumber : undefined,
-      clientPlayerId: searchParams.get('clientPlayerId') || ''
-    };
-
-    // Chemin RAPIDE : liaison P2P si ouverte (latence minimale, pas de relais).
-    const sentP2P = rtcRef.current?.send(payload) ?? false;
-    // Repli : broadcast Supabase (toujours fiable).
-    if (!sentP2P && channelRef.current) {
-      channelRef.current.send({ type: 'broadcast', event: 'controller_state', payload });
     }
   }, [userId, playerNumber, searchParams, triggerVibration, playTouchSound]);
 
